@@ -18,8 +18,6 @@ import {
 } from "lucide-react";
 import type { HistoryTask } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3008";
-
 interface FetchHistoryProps {
   guildId: string;
 }
@@ -29,18 +27,13 @@ export function FetchHistory({ guildId }: FetchHistoryProps) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
 
-  useEffect(() => {
-    loadTasks();
-    const interval = setInterval(loadTasks, 5000); // 每 5 秒刷新
-    return () => clearInterval(interval);
-  }, [guildId, filter]);
-
   const loadTasks = async () => {
     try {
+      // 使用相對路徑
       const url =
         filter === "all"
-          ? `${API_URL}/api/history/${guildId}/tasks`
-          : `${API_URL}/api/history/${guildId}/tasks?status=${filter}`;
+          ? `/api/history/${guildId}/tasks`
+          : `/api/history/${guildId}/tasks?status=${filter}`;
 
       const response = await fetch(url);
       const data = await response.json();
@@ -51,6 +44,13 @@ export function FetchHistory({ guildId }: FetchHistoryProps) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadTasks();
+    const interval = setInterval(loadTasks, 5000); // 每 5 秒刷新
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guildId, filter]);
 
   const getStatusBadge = (status: HistoryTask["status"]) => {
     switch (status) {

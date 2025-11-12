@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { TrendingUp, Hash, Users, Smile, BarChart3 } from "lucide-react";
 import { DashboardNav } from "@/components/dashboard-nav";
+import { UserInfo } from "@/components/user-info";
 import {
   Card,
   CardContent,
@@ -24,6 +25,7 @@ import type {
 export default function Home() {
   const [guildId, setGuildId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [serverStats, setServerStats] = useState<ServerStats | null>(null);
   const [messageTrends, setMessageTrends] = useState<MessageTrend[]>([]);
@@ -34,55 +36,96 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // 從 URL 參數獲取 guild_id 和 user_id
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlGuildId = urlParams.get("guild_id");
-    const urlUserId = urlParams.get("user_id");
+    const initApp = async () => {
+      try {
+        // 開發模式檢查
+        const isDev = process.env.NODE_ENV === "development";
+        const enableDevMode =
+          process.env.NEXT_PUBLIC_ENABLE_DEV_MODE === "true";
 
-    if (urlGuildId) {
-      console.log("📍 從 URL 獲取 Guild ID:", urlGuildId);
-      setGuildId(urlGuildId);
-      setUserId(urlUserId);
-      fetchAllData(urlGuildId);
+        let gid: string | null = null;
+        let uid: string | null = null;
+        let username: string | null = null;
 
-      // 檢查管理員權限
-      if (urlUserId) {
-        checkAdminStatus(urlGuildId, urlUserId);
-      }
-    } else {
-      // 開發模式：僅在明確啟用時使用環境變數
-      const isDev = process.env.NODE_ENV === "development";
-      const devGuildId = process.env.NEXT_PUBLIC_DEV_GUILD_ID;
-      const enableDevMode = process.env.NEXT_PUBLIC_ENABLE_DEV_MODE === "true";
+        if (isDev && enableDevMode) {
+          // 開發模式：使用環境變數
+          gid = process.env.NEXT_PUBLIC_DEV_GUILD_ID || null;
+          uid = process.env.NEXT_PUBLIC_DEV_USER_ID || null;
+          username = "Dev User"; // 開發模式的預設用戶名
+          console.log("🔧 開發模式:", { gid, uid, username });
+        } else {
+          // 生產模式：從 Discord SDK 獲取
+          try {
+            const { getDiscordContext } = await import("@/lib/discord-sdk");
+            const context = await getDiscordContext();
 
-      if (isDev && devGuildId && enableDevMode) {
-        console.log("🔧 開發模式：使用環境變數 Guild ID:", devGuildId);
-        setGuildId(devGuildId);
-        fetchAllData(devGuildId);
+            gid = context.guildId;
+            uid = context.userId;
+            username = context.username;
 
-        // 開發模式：使用環境變數的 user_id
-        const devUserId = process.env.NEXT_PUBLIC_DEV_USER_ID;
-        if (devUserId) {
-          console.log("🔧 開發模式：使用環境變數 User ID:", devUserId);
-          setUserId(devUserId);
-          checkAdminStatus(devGuildId, devUserId);
+            console.log("📱 Discord SDK:", { gid, uid, username });
+          } catch (sdkError) {
+            console.error("Discord SDK 初始化失敗:", sdkError);
+
+            // 降級：嘗試從 URL 參數獲取
+            const urlParams = new URLSearchParams(window.location.search);
+            gid = urlParams.get("guild_id");
+            uid = urlParams.get("user_id");
+
+            console.log("📍 從 URL 獲取:", { gid, uid });
+
+            // 如果還是沒有，且在開發環境，使用環境變數作為最後後備
+            if (isDev && (!gid || !uid)) {
+              gid = gid || process.env.NEXT_PUBLIC_DEV_GUILD_ID || null;
+              uid = uid || process.env.NEXT_PUBLIC_DEV_USER_ID || null;
+              username = username || "Dev User";
+              console.log("🔧 使用環境變數作為後備:", { gid, uid, username });
+            }
+          }
         }
-      } else {
-        console.warn("⚠️ 未找到 Guild ID");
-        setError("此應用需要在 Discord 伺服器中開啟");
+
+        if (gid) {
+          setGuildId(gid);
+          setUserId(uid);
+          setUsername(username);
+          fetchAllData(gid);
+
+          // 檢查管理員權限
+          if (uid) {
+            console.log("🔍 開始檢查管理員權限:", { gid, uid });
+            await checkAdminStatus(gid, uid);
+          } else {
+            console.warn("⚠️ 沒有 user_id，無法檢查管理員權限");
+          }
+        } else {
+          console.warn("⚠️ 未找到 Guild ID");
+          setError("此應用需要在 Discord 伺服器中開啟");
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("初始化失敗:", error);
+        setError("應用初始化失敗");
         setLoading(false);
       }
-    }
+    };
+
+    initApp();
   }, []);
 
   const checkAdminStatus = async (gid: string, uid: string) => {
     try {
-      console.log("🔍 檢查管理員狀態:", { gid, uid });
+      console.log("📡 發送管理員檢查請求:", { gid, uid });
       const response = await axios.get(
         `/api/history/${gid}/admins/${uid}/check`
       );
-      console.log("✅ 管理員狀態:", response.data);
+      console.log("✅ 管理員檢查響應:", response.data);
       setIsAdmin(response.data.isAdmin);
+
+      if (response.data.isAdmin) {
+        console.log("🎉 用戶是管理員！");
+      } else {
+        console.log("ℹ️ 用戶不是管理員");
+      }
     } catch (error) {
       console.error("❌ 檢查管理員狀態失敗:", error);
     }
@@ -157,12 +200,36 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-50 w-full border-b-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center px-6">
+        <div className="container mx-auto flex h-16 items-center px-6 gap-4">
+          <UserInfo username={username} userId={userId} isAdmin={isAdmin} />
           <DashboardNav isAdmin={isAdmin} />
         </div>
       </header>
 
-      <main className="container px-6 py-8">
+      <main className="container mx-auto px-6 py-8">
+        {/* 開發模式調試面板 */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="mb-6 p-4 rounded-lg bg-muted/50 border text-xs space-y-2">
+            <div className="font-semibold">🔍 調試信息</div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>Guild ID: {guildId || "❌"}</div>
+              <div>User ID: {userId || "❌"}</div>
+              <div>Username: {username || "❌"}</div>
+              <div>
+                Is Admin:{" "}
+                {isAdmin ? (
+                  <span className="text-green-600 font-bold">✅ 是</span>
+                ) : (
+                  <span className="text-red-600 font-bold">❌ 否</span>
+                )}
+              </div>
+            </div>
+            <div className="text-muted-foreground">
+              打開瀏覽器控制台 (F12) 查看詳細日誌
+            </div>
+          </div>
+        )}
+
         <div className="mb-10 space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">
             {serverStats?.name || "Discord 伺服器統計"}

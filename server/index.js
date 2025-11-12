@@ -9,6 +9,7 @@ const cors = require("cors");
 const statsRoutes = require("./routes/stats");
 const historyRoutes = require("./routes/history");
 const fetchRoutes = require("./routes/fetch");
+const authRoutes = require("./routes/auth");
 const { getAllowedGuilds } = require("./utils/guildManager");
 
 const app = express();
@@ -38,6 +39,7 @@ app.use((req, res, next) => {
 app.use("/api/stats", statsRoutes);
 app.use("/api/history", historyRoutes);
 app.use("/api/fetch", fetchRoutes);
+app.use("/api/auth", authRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });

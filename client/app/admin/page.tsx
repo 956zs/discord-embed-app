@@ -27,26 +27,72 @@ export default function AdminPage() {
   );
 
   useEffect(() => {
-    // 從 Discord Embedded App SDK 獲取 guild_id 和 user_id
-    const params = new URLSearchParams(window.location.search);
-    const gid =
-      params.get("guild_id") || process.env.NEXT_PUBLIC_DEV_GUILD_ID || "";
-    const uid = params.get("user_id") || ""; // Discord SDK 會提供
+    const initAdmin = async () => {
+      try {
+        const isDev = process.env.NODE_ENV === "development";
+        const enableDevMode =
+          process.env.NEXT_PUBLIC_ENABLE_DEV_MODE === "true";
 
-    setGuildId(gid);
-    setUserId(uid);
+        let gid: string | null = null;
+        let uid: string | null = null;
 
-    if (gid && uid) {
-      checkAdminStatus(gid, uid);
-      loadSummary(gid);
-    }
+        if (isDev && enableDevMode) {
+          // 開發模式
+          gid = process.env.NEXT_PUBLIC_DEV_GUILD_ID || null;
+          uid = process.env.NEXT_PUBLIC_DEV_USER_ID || null;
+          console.log("🔧 管理員頁面開發模式:", { gid, uid });
+        } else {
+          // 生產模式：從 Discord SDK 獲取
+          try {
+            const { getDiscordContext } = await import("@/lib/discord-sdk");
+            const context = await getDiscordContext();
+
+            gid = context.guildId;
+            uid = context.userId;
+
+            console.log("📱 管理員頁面 Discord SDK:", { gid, uid });
+          } catch (sdkError) {
+            console.error("Discord SDK 初始化失敗:", sdkError);
+
+            // 降級：從 URL 獲取
+            const params = new URLSearchParams(window.location.search);
+            gid = params.get("guild_id");
+            uid = params.get("user_id");
+
+            console.log("📍 管理員頁面從 URL 獲取:", { gid, uid });
+
+            // 如果還是沒有，且在開發環境，使用環境變數作為最後後備
+            if (isDev && (!gid || !uid)) {
+              gid = gid || process.env.NEXT_PUBLIC_DEV_GUILD_ID || null;
+              uid = uid || process.env.NEXT_PUBLIC_DEV_USER_ID || null;
+              console.log("🔧 管理員頁面使用環境變數作為後備:", { gid, uid });
+            }
+          }
+        }
+
+        setGuildId(gid || "");
+        setUserId(uid || "");
+
+        if (gid && uid) {
+          checkAdminStatus(gid, uid);
+          loadSummary(gid);
+        } else {
+          console.warn("⚠️ 管理員頁面缺少 guild_id 或 user_id");
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("管理員頁面初始化失敗:", error);
+        setLoading(false);
+      }
+    };
+
+    initAdmin();
   }, []);
 
   const checkAdminStatus = async (gid: string, uid: string) => {
     try {
-      const response = await fetch(
-        `${API_URL}/api/history/${gid}/admins/${uid}/check`
-      );
+      // 使用相對路徑，通過 Next.js rewrites
+      const response = await fetch(`/api/history/${gid}/admins/${uid}/check`);
       const data = await response.json();
       setIsAdmin(data.isAdmin);
     } catch (error) {
@@ -58,7 +104,8 @@ export default function AdminPage() {
 
   const loadSummary = async (gid: string) => {
     try {
-      const response = await fetch(`${API_URL}/api/history/${gid}/summary`);
+      // 使用相對路徑，通過 Next.js rewrites
+      const response = await fetch(`/api/history/${gid}/summary`);
       const data = await response.json();
       setSummary(data);
     } catch (error) {
@@ -96,104 +143,108 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">管理員控制台</h1>
-          <p className="text-muted-foreground">歷史訊息提取與管理</p>
+    <div className="min-h-screen">
+      <div className="container mx-auto p-6 space-y-6 max-w-7xl">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">管理員控制台</h1>
+            <p className="text-muted-foreground">歷史訊息提取與管理</p>
+          </div>
         </div>
-      </div>
 
-      {/* 摘要卡片 */}
-      {summary && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>總任務數</CardDescription>
-              <CardTitle className="text-3xl">{summary.total_tasks}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xs text-muted-foreground">
-                運行中: {summary.running_tasks} | 待處理:{" "}
-                {summary.pending_tasks}
-              </div>
-            </CardContent>
-          </Card>
+        {/* 摘要卡片 */}
+        {summary && (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>總任務數</CardDescription>
+                <CardTitle className="text-3xl">
+                  {summary.total_tasks}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-muted-foreground">
+                  運行中: {summary.running_tasks} | 待處理:{" "}
+                  {summary.pending_tasks}
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>已提取訊息</CardDescription>
-              <CardTitle className="text-3xl">
-                {summary.total_messages_saved?.toLocaleString()}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xs text-muted-foreground">
-                重複: {summary.total_messages_duplicate?.toLocaleString()}
-              </div>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>已提取訊息</CardDescription>
+                <CardTitle className="text-3xl">
+                  {summary.total_messages_saved?.toLocaleString()}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-muted-foreground">
+                  重複: {summary.total_messages_duplicate?.toLocaleString()}
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>完成率</CardDescription>
-              <CardTitle className="text-3xl">
-                {summary.total_tasks > 0
-                  ? Math.round(
-                      (summary.completed_tasks / summary.total_tasks) * 100
-                    )
-                  : 0}
-                %
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xs text-muted-foreground">
-                成功: {summary.completed_tasks} | 失敗: {summary.failed_tasks}
-              </div>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>完成率</CardDescription>
+                <CardTitle className="text-3xl">
+                  {summary.total_tasks > 0
+                    ? Math.round(
+                        (summary.completed_tasks / summary.total_tasks) * 100
+                      )
+                    : 0}
+                  %
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-muted-foreground">
+                  成功: {summary.completed_tasks} | 失敗: {summary.failed_tasks}
+                </div>
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription>已處理頻道</CardDescription>
-              <CardTitle className="text-3xl">
-                {summary.channels_processed}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-xs text-muted-foreground">
-                警告: {summary.warning_tasks}
-              </div>
-            </CardContent>
-          </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardDescription>已處理頻道</CardDescription>
+                <CardTitle className="text-3xl">
+                  {summary.channels_processed}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-xs text-muted-foreground">
+                  警告: {summary.warning_tasks}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* 活躍任務進度 */}
+        <FetchProgress guildId={guildId} />
+
+        {/* 標籤切換 */}
+        <div className="flex gap-2 border-b">
+          <Button
+            variant={activeTab === "channels" ? "default" : "ghost"}
+            onClick={() => setActiveTab("channels")}
+          >
+            頻道樹狀圖
+          </Button>
+          <Button
+            variant={activeTab === "history" ? "default" : "ghost"}
+            onClick={() => setActiveTab("history")}
+          >
+            提取歷史
+          </Button>
         </div>
-      )}
 
-      {/* 活躍任務進度 */}
-      <FetchProgress guildId={guildId} />
+        {/* 內容區域 */}
+        {activeTab === "channels" && (
+          <ChannelTree guildId={guildId} userId={userId} />
+        )}
 
-      {/* 標籤切換 */}
-      <div className="flex gap-2 border-b">
-        <Button
-          variant={activeTab === "channels" ? "default" : "ghost"}
-          onClick={() => setActiveTab("channels")}
-        >
-          頻道樹狀圖
-        </Button>
-        <Button
-          variant={activeTab === "history" ? "default" : "ghost"}
-          onClick={() => setActiveTab("history")}
-        >
-          提取歷史
-        </Button>
+        {activeTab === "history" && <FetchHistory guildId={guildId} />}
       </div>
-
-      {/* 內容區域 */}
-      {activeTab === "channels" && (
-        <ChannelTree guildId={guildId} userId={userId} />
-      )}
-
-      {activeTab === "history" && <FetchHistory guildId={guildId} />}
     </div>
   );
 }

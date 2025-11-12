@@ -18,8 +18,6 @@ import {
 } from "lucide-react";
 import type { ChannelFetchStats } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3008";
-
 interface Channel {
   id: string;
   name: string;
@@ -43,23 +41,53 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
   );
   const [startingFetch, setStartingFetch] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadChannels();
-    loadFetchStats();
-  }, [guildId]);
-
   const loadChannels = async () => {
     try {
-      // 這裡需要從 Discord API 或你的後端獲取頻道列表
-      // 暫時使用模擬數據
+      // 從 Discord SDK 獲取頻道列表
+      const { getDiscordSdk } = await import("@/lib/discord-sdk");
+      const sdk = getDiscordSdk();
+
+      if (!sdk) {
+        console.error("Discord SDK 未初始化");
+        setLoading(false);
+        return;
+      }
+
+      // 獲取當前 guild 的頻道
+      const guild = await sdk.commands.getGuild();
+
+      if (guild && guild.channels) {
+        const channelList: Channel[] = guild.channels
+          .filter((ch: any) => ch.type === 0 || ch.type === 2) // 只顯示文字和語音頻道
+          .map((ch: any) => ({
+            id: ch.id,
+            name: ch.name,
+            type: ch.type,
+            position: ch.position || 0,
+          }))
+          .sort((a, b) => a.position - b.position);
+
+        setChannels(channelList);
+        console.log(`✅ 載入了 ${channelList.length} 個頻道`);
+      } else {
+        console.warn("無法獲取頻道列表，使用模擬數據");
+        // 降級：使用模擬數據
+        const mockChannels: Channel[] = [
+          { id: "1", name: "一般", type: 0, position: 0 },
+          { id: "2", name: "閒聊", type: 0, position: 1 },
+          { id: "3", name: "公告", type: 0, position: 2 },
+        ];
+        setChannels(mockChannels);
+      }
+    } catch (error) {
+      console.error("載入頻道失敗:", error);
+      // 降級：使用模擬數據
       const mockChannels: Channel[] = [
         { id: "1", name: "一般", type: 0, position: 0 },
         { id: "2", name: "閒聊", type: 0, position: 1 },
         { id: "3", name: "公告", type: 0, position: 2 },
       ];
       setChannels(mockChannels);
-    } catch (error) {
-      console.error("載入頻道失敗:", error);
     } finally {
       setLoading(false);
     }
@@ -67,9 +95,8 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
 
   const loadFetchStats = async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/api/history/${guildId}/channel-stats`
-      );
+      // 使用相對路徑
+      const response = await fetch(`/api/history/${guildId}/channel-stats`);
       const data: ChannelFetchStats[] = await response.json();
 
       const statsMap = new Map<string, ChannelFetchStats>();
@@ -80,6 +107,12 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
     }
   };
 
+  useEffect(() => {
+    loadChannels();
+    loadFetchStats();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guildId]);
+
   const startFetch = async (channelId: string, channelName: string) => {
     try {
       setStartingFetch(channelId);
@@ -87,7 +120,8 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
       // 獲取最新訊息作為錨點
       const anchorMessageId = "latest"; // 實際應該從 Discord API 獲取
 
-      const response = await fetch(`${API_URL}/api/fetch/${guildId}/start`, {
+      // 使用相對路徑
+      const response = await fetch(`/api/fetch/${guildId}/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

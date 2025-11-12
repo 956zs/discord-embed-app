@@ -62,11 +62,6 @@ interface DashboardNavProps {
 export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
   const isMobile = useIsMobile();
 
-  // 調試日誌
-  React.useEffect(() => {
-    console.log("🔍 DashboardNav isAdmin:", isAdmin);
-  }, [isAdmin]);
-
   return (
     <NavigationMenu viewport={isMobile}>
       <NavigationMenuList className="flex-wrap">

@@ -11,8 +11,6 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Loader2 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3008";
-
 interface ActiveTask {
   taskId: number;
   status: string;
@@ -30,21 +28,23 @@ interface FetchProgressProps {
 export function FetchProgress({ guildId }: FetchProgressProps) {
   const [activeTasks, setActiveTasks] = useState<ActiveTask[]>([]);
 
-  useEffect(() => {
-    loadActiveTasks();
-    const interval = setInterval(loadActiveTasks, 2000); // 每 2 秒刷新
-    return () => clearInterval(interval);
-  }, []);
-
   const loadActiveTasks = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/fetch/active`);
+      // 使用相對路徑
+      const response = await fetch(`/api/fetch/active`);
       const data = await response.json();
       setActiveTasks(data);
     } catch (error) {
       console.error("載入活躍任務失敗:", error);
     }
   };
+
+  useEffect(() => {
+    loadActiveTasks();
+    const interval = setInterval(loadActiveTasks, 2000); // 每 2 秒刷新
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (activeTasks.length === 0) {
     return null;

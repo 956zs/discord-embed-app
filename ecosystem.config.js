@@ -1,0 +1,51 @@
+module.exports = {
+  apps: [
+    {
+      name: "discord-bot",
+      cwd: "./bot",
+      script: "index.js",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "500M",
+      env: {
+        NODE_ENV: "production",
+      },
+      error_file: "./logs/bot-error.log",
+      out_file: "./logs/bot-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
+    },
+    {
+      name: "discord-api",
+      cwd: "./server",
+      script: "index.js",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "500M",
+      env: {
+        NODE_ENV: "production",
+        PORT: 3008,
+      },
+      error_file: "./logs/api-error.log",
+      out_file: "./logs/api-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
+    },
+    {
+      name: "discord-client",
+      cwd: "./client",
+      script: "node_modules/next/dist/bin/next",
+      args: "start -p 3000",
+      instances: 1,
+      autorestart: true,
+      watch: false,
+      max_memory_restart: "1G",
+      env: {
+        NODE_ENV: "production",
+      },
+      error_file: "./logs/client-error.log",
+      out_file: "./logs/client-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
+    },
+  ],
+};
