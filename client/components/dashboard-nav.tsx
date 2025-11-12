@@ -65,15 +65,6 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
   return (
     <NavigationMenu viewport={isMobile}>
       <NavigationMenuList className="flex-wrap">
-        <NavigationMenuItem>
-          <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-            <Link href="/">
-              <BarChart3 className="mr-2 h-4 w-4" />
-              儀表板
-            </Link>
-          </NavigationMenuLink>
-        </NavigationMenuItem>
-
         {isAdmin && (
           <NavigationMenuItem>
             <NavigationMenuLink

@@ -42,6 +42,12 @@ exports.getServerStats = async (req, res) => {
 exports.getMemberActivity = async (req, res) => {
   try {
     const { guildId } = req.params;
+    const { days } = req.query; // 可選的天數參數
+
+    // 如果指定天數，則限制時間範圍；否則顯示所有歷史數據
+    const timeFilter = days
+      ? `AND created_at >= NOW() - INTERVAL '${parseInt(days)} days'`
+      : "";
 
     const result = await pool.query(
       `SELECT 
@@ -51,7 +57,7 @@ exports.getMemberActivity = async (req, res) => {
         MAX(created_at) as last_active
       FROM messages
       WHERE guild_id = $1
-        AND created_at >= NOW() - INTERVAL '30 days'
+        ${timeFilter}
       GROUP BY user_id, username
       ORDER BY message_count DESC
       LIMIT 20`,
@@ -108,16 +114,33 @@ exports.getChannelUsage = async (req, res) => {
 exports.getMessageTrends = async (req, res) => {
   try {
     const { guildId } = req.params;
+    const { days } = req.query;
 
+    // 根據 days 參數決定時間過濾
+    let timeFilter = "";
+    let displayDays = 30; // 用於限制顯示的天數
+
+    if (days && days !== "all") {
+      const daysNum = parseInt(days);
+      timeFilter = `AND created_at >= NOW() - INTERVAL '${daysNum} days'`;
+      displayDays = daysNum;
+    } else {
+      // "all" 或未指定：顯示最近 365 天（避免數據過多）
+      timeFilter = `AND created_at >= NOW() - INTERVAL '365 days'`;
+      displayDays = 365;
+    }
+
+    // 直接從 messages 表統計，不依賴 daily_stats
     const result = await pool.query(
       `SELECT 
-        TO_CHAR(stat_date, 'YYYY-MM-DD') as date,
-        total_messages as messages,
-        active_users
-      FROM daily_stats
+        TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,
+        COUNT(*) as messages,
+        COUNT(DISTINCT user_id) as active_users
+      FROM messages
       WHERE guild_id = $1
-        AND stat_date >= CURRENT_DATE - INTERVAL '7 days'
-      ORDER BY stat_date ASC`,
+        ${timeFilter}
+      GROUP BY DATE(created_at)
+      ORDER BY DATE(created_at) ASC`,
       [guildId]
     );
 
@@ -138,6 +161,12 @@ exports.getMessageTrends = async (req, res) => {
 exports.getEmojiStats = async (req, res) => {
   try {
     const { guildId } = req.params;
+    const { days } = req.query; // 可選的天數參數
+
+    // 如果指定天數，則限制時間範圍；否則顯示所有歷史數據
+    const timeFilter = days
+      ? `AND used_at >= NOW() - INTERVAL '${parseInt(days)} days'`
+      : "";
 
     const result = await pool.query(
       `SELECT 
@@ -148,7 +177,7 @@ exports.getEmojiStats = async (req, res) => {
         emoji_url as url
       FROM emoji_usage
       WHERE guild_id = $1
-        AND used_at >= NOW() - INTERVAL '30 days'
+        ${timeFilter}
       GROUP BY emoji_identifier, emoji_name, is_custom, emoji_url
       ORDER BY count DESC
       LIMIT 20`,
@@ -174,6 +203,12 @@ exports.getEmojiStats = async (req, res) => {
 exports.getKeywordCloud = async (req, res) => {
   try {
     const { guildId } = req.params;
+    const { days } = req.query; // 可選的天數參數
+
+    // 如果指定天數，則限制時間範圍；否則顯示所有歷史數據
+    const timeFilter = days
+      ? `AND created_at >= NOW() - INTERVAL '${parseInt(days)} days'`
+      : "";
 
     // 從最近的訊息中提取關鍵字（簡化版本）
     const result = await pool.query(
@@ -182,7 +217,7 @@ exports.getKeywordCloud = async (req, res) => {
         COUNT(*) as value
       FROM messages
       WHERE guild_id = $1
-        AND created_at >= NOW() - INTERVAL '7 days'
+        ${timeFilter}
         AND username IS NOT NULL
       GROUP BY username
       ORDER BY value DESC

@@ -34,6 +34,27 @@ export default function Home() {
   const [emojiStats, setEmojiStats] = useState<EmojiUsage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<string>("all"); // 新增：時間範圍
+
+  // 獲取時間範圍的顯示文字
+  const getTimeRangeText = () => {
+    switch (timeRange) {
+      case "7":
+        return "過去 7 天";
+      case "30":
+        return "過去 30 天";
+      case "90":
+        return "過去 90 天";
+      case "180":
+        return "過去 180 天";
+      case "365":
+        return "過去一年";
+      case "all":
+        return "所有時間";
+      default:
+        return "所有時間";
+    }
+  };
 
   useEffect(() => {
     const initApp = async () => {
@@ -112,6 +133,13 @@ export default function Home() {
     initApp();
   }, []);
 
+  // 當時間範圍改變時重新加載數據
+  useEffect(() => {
+    if (guildId) {
+      fetchAllData(guildId, timeRange);
+    }
+  }, [timeRange]);
+
   const checkAdminStatus = async (gid: string, uid: string) => {
     try {
       console.log("📡 發送管理員檢查請求:", { gid, uid });
@@ -131,19 +159,22 @@ export default function Home() {
     }
   };
 
-  const fetchAllData = async (id: string) => {
+  const fetchAllData = async (id: string, range: string = "all") => {
     setLoading(true);
     setError(null);
     try {
-      console.log("🔄 開始載入資料，Guild ID:", id);
+      console.log("🔄 開始載入資料，Guild ID:", id, "時間範圍:", range);
+
+      // 根據時間範圍設置參數
+      const daysParam = range === "all" ? "" : `?days=${range}`;
 
       // 使用相對路徑，透過 Next.js rewrites 代理到後端
       const [server, messages, channels, members, emojis] = await Promise.all([
         axios.get(`/api/stats/server/${id}`),
-        axios.get(`/api/stats/messages/${id}`),
+        axios.get(`/api/stats/messages/${id}${daysParam}`),
         axios.get(`/api/stats/channels/${id}`),
-        axios.get(`/api/stats/members/${id}`),
-        axios.get(`/api/stats/emojis/${id}`),
+        axios.get(`/api/stats/members/${id}${daysParam}`),
+        axios.get(`/api/stats/emojis/${id}${daysParam}`),
       ]);
 
       console.log("✅ 資料載入成功");
@@ -166,6 +197,9 @@ export default function Home() {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="space-y-4 text-center">
+          <div className="flex justify-center">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          </div>
           <div className="text-2xl font-bold">載入中...</div>
           <div className="text-muted-foreground">正在獲取伺服器統計資料</div>
         </div>
@@ -230,54 +264,79 @@ export default function Home() {
           </div>
         )}
 
-        <div className="mb-10 space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">
-            {serverStats?.name || "Discord 伺服器統計"}
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            {guildId
-              ? "查看伺服器的詳細統計資訊和活動分析"
-              : "請在 Discord 伺服器中開啟此活動"}
-          </p>
+        <div className="mb-6 md:mb-10 space-y-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-2">
+              <h1 className="text-2xl md:text-4xl font-bold tracking-tight">
+                {serverStats?.name || "Discord 伺服器統計"}
+              </h1>
+              <p className="text-sm md:text-lg text-muted-foreground">
+                {guildId
+                  ? "查看伺服器的詳細統計資訊和活動分析"
+                  : "請在 Discord 伺服器中開啟此活動"}
+              </p>
+            </div>
+
+            {/* 時間範圍選擇器 */}
+            {guildId && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  時間範圍:
+                </span>
+                <select
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value)}
+                  className="flex-1 md:flex-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="7">最近 7 天</option>
+                  <option value="30">最近 30 天</option>
+                  <option value="90">最近 90 天</option>
+                  <option value="180">最近 180 天</option>
+                  <option value="365">最近一年</option>
+                  <option value="all">所有時間</option>
+                </select>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
           {/* 伺服器概覽 */}
           <section id="server">
             <Card className="border-2 shadow-lg">
-              <CardHeader className="pb-6">
-                <CardTitle className="flex items-center gap-2 text-2xl">
-                  <BarChart3 className="h-6 w-6" />
+              <CardHeader className="pb-4 md:pb-6">
+                <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
+                  <BarChart3 className="h-5 w-5 md:h-6 md:w-6" />
                   伺服器概覽
                 </CardTitle>
-                <CardDescription className="text-base">
+                <CardDescription className="text-sm md:text-base">
                   {serverStats?.name || "伺服器基本資訊統計"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 {serverStats ? (
-                  <div className="grid gap-6 md:grid-cols-3">
-                    <div className="space-y-3 rounded-xl border-2 bg-muted/50 p-6 transition-colors hover:bg-muted/70">
-                      <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <div className="space-y-2 md:space-y-3 rounded-xl border-2 bg-muted/50 p-4 md:p-6 transition-colors hover:bg-muted/70">
+                      <p className="text-xs md:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                         成員數
                       </p>
-                      <p className="text-4xl font-bold">
+                      <p className="text-3xl md:text-4xl font-bold">
                         {serverStats.memberCount}
                       </p>
                     </div>
-                    <div className="space-y-3 rounded-xl border-2 bg-muted/50 p-6 transition-colors hover:bg-muted/70">
-                      <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="space-y-2 md:space-y-3 rounded-xl border-2 bg-muted/50 p-4 md:p-6 transition-colors hover:bg-muted/70">
+                      <p className="text-xs md:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                         頻道數
                       </p>
-                      <p className="text-4xl font-bold">
+                      <p className="text-3xl md:text-4xl font-bold">
                         {serverStats.channelCount}
                       </p>
                     </div>
-                    <div className="space-y-3 rounded-xl border-2 bg-muted/50 p-6 transition-colors hover:bg-muted/70">
-                      <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    <div className="space-y-2 md:space-y-3 rounded-xl border-2 bg-muted/50 p-4 md:p-6 transition-colors hover:bg-muted/70 sm:col-span-2 lg:col-span-1">
+                      <p className="text-xs md:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                         身分組數
                       </p>
-                      <p className="text-4xl font-bold">
+                      <p className="text-3xl md:text-4xl font-bold">
                         {serverStats.roleCount}
                       </p>
                     </div>
@@ -294,13 +353,13 @@ export default function Home() {
           {/* 訊息趨勢圖表 */}
           <section id="messages">
             <Card className="border-2 shadow-lg">
-              <CardHeader className="pb-6">
-                <CardTitle className="flex items-center gap-2 text-xl">
-                  <TrendingUp className="h-5 w-5" />
+              <CardHeader className="pb-4 md:pb-6">
+                <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
+                  <TrendingUp className="h-5 w-5 md:h-6 md:w-6" />
                   訊息趨勢
                 </CardTitle>
-                <CardDescription className="text-base">
-                  過去 7 天的訊息量和活躍用戶統計
+                <CardDescription className="text-sm md:text-base">
+                  {getTimeRangeText()}的訊息量和活躍用戶統計
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -319,12 +378,12 @@ export default function Home() {
             {/* 頻道使用圖表 */}
             <section id="channels">
               <Card className="border-2 shadow-lg">
-                <CardHeader className="pb-6">
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <Hash className="h-5 w-5" />
+                <CardHeader className="pb-4 md:pb-6">
+                  <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
+                    <Hash className="h-5 w-5 md:h-6 md:w-6" />
                     頻道使用統計
                   </CardTitle>
-                  <CardDescription className="text-base">
+                  <CardDescription className="text-sm md:text-base">
                     各頻道的訊息數量
                   </CardDescription>
                 </CardHeader>
@@ -343,12 +402,12 @@ export default function Home() {
             {/* 成員活躍度 */}
             <section id="members">
               <Card className="border-2 shadow-lg">
-                <CardHeader className="pb-6">
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <Users className="h-5 w-5" />
+                <CardHeader className="pb-4 md:pb-6">
+                  <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
+                    <Users className="h-5 w-5 md:h-6 md:w-6" />
                     成員活躍度
                   </CardTitle>
-                  <CardDescription className="text-base">
+                  <CardDescription className="text-sm md:text-base">
                     發言次數排行榜 Top 10
                   </CardDescription>
                 </CardHeader>
@@ -386,12 +445,12 @@ export default function Home() {
             {/* 表情符號統計 */}
             <section id="emojis">
               <Card className="border-2 shadow-lg">
-                <CardHeader className="pb-6">
-                  <CardTitle className="flex items-center gap-2 text-xl">
-                    <Smile className="h-5 w-5" />
+                <CardHeader className="pb-4 md:pb-6">
+                  <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
+                    <Smile className="h-5 w-5 md:h-6 md:w-6" />
                     表情符號統計
                   </CardTitle>
-                  <CardDescription className="text-base">
+                  <CardDescription className="text-sm md:text-base">
                     最常使用的表情符號 Top 10
                   </CardDescription>
                 </CardHeader>
