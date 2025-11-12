@@ -1,0 +1,178 @@
+.card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.card h2 {
+    margin-bottom: 20px;
+    font-size: 1.5rem;
+    color: #fff;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.member-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.member-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    transition: background 0.3s;
+}
+
+.member-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.member-rank {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #ffd700;
+    min-width: 40px;
+}
+
+.member-info {
+    flex: 1;
+}
+
+.member-name {
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.member-stats {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+.emoji-filters {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.emoji-filters button {
+    flex: 1;
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.emoji-filters button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.emoji-filters button.active {
+    background: rgba(88, 101, 242, 0.6);
+    border-color: rgba(88, 101, 242, 1);
+}
+
+.emoji-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.emoji-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    transition: background 0.3s;
+}
+
+.emoji-item:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.emoji-rank {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #ffd700;
+    min-width: 40px;
+}
+
+.emoji-display {
+    font-size: 2rem;
+    min-width: 50px;
+    text-align: center;
+}
+
+.custom-emoji {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+}
+
+.unicode-emoji {
+    font-size: 2rem;
+}
+
+.emoji-info {
+    flex: 1;
+}
+
+.emoji-name {
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+
+.emoji-count {
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+
+.wordcloud-container {
+    height: 400px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.no-data {
+    text-align: center;
+    opacity: 0.6;
+    padding: 40px;
+}

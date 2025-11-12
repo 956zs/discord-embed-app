@@ -1,0 +1,36 @@
+{
+  "name": "discord-server-stats",
+  "version": "1.0.0",
+  "description": "Discord 伺服器統計與可視化 Embedded App",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run bot\"",
+    "server": "nodemon server/index.js",
+    "client": "cd client && npm run dev",
+    "bot": "cd bot && nodemon index.js",
+    "build": "cd client && npm run build",
+    "start": "node server/index.js",
+    "start:bot": "cd bot && node index.js"
+  },
+  "keywords": [
+    "discord",
+    "embedded-app",
+    "statistics"
+  ],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@discord/embedded-app-sdk": "^2.4.0",
+    "axios": "^1.6.2",
+    "cors": "^2.8.5",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "react": "^19.2.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.0.2"
+  }
+}
