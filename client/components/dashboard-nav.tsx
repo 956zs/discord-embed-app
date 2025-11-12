@@ -52,12 +52,6 @@ const statsItems = [
     description: "最常使用的表情符號統計",
     icon: Smile,
   },
-  {
-    title: "關鍵字雲",
-    href: "#keywords",
-    description: "訊息中最常出現的關鍵字視覺化",
-    icon: MessageSquare,
-  },
 ];
 
 export function DashboardNav() {

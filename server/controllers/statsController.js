@@ -1,4 +1,5 @@
 const { Client, GatewayIntentBits } = require("discord.js");
+const pool = require("../database/db");
 
 // 初始化 Discord 客戶端
 const client = new Client({
@@ -11,22 +12,6 @@ const client = new Client({
 });
 
 client.login(process.env.DISCORD_BOT_TOKEN);
-
-// 模擬數據生成器（實際應用中應從數據庫讀取）
-const generateMockData = () => {
-  const days = 7;
-  const data = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    data.push({
-      date: date.toISOString().split("T")[0],
-      messages: Math.floor(Math.random() * 500) + 100,
-      activeUsers: Math.floor(Math.random() * 50) + 10,
-    });
-  }
-  return data;
-};
 
 // 獲取伺服器總體統計
 exports.getServerStats = async (req, res) => {
@@ -48,6 +33,7 @@ exports.getServerStats = async (req, res) => {
 
     res.json(stats);
   } catch (error) {
+    console.error("❌ getServerStats 錯誤:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -56,27 +42,32 @@ exports.getServerStats = async (req, res) => {
 exports.getMemberActivity = async (req, res) => {
   try {
     const { guildId } = req.params;
-    const guild = client.guilds.cache.get(guildId);
 
-    if (!guild) {
-      return res.status(404).json({ error: "找不到伺服器" });
-    }
+    const result = await pool.query(
+      `SELECT 
+        user_id as id,
+        username,
+        COUNT(*) as message_count,
+        MAX(created_at) as last_active
+      FROM messages
+      WHERE guild_id = $1
+        AND created_at >= NOW() - INTERVAL '30 days'
+      GROUP BY user_id, username
+      ORDER BY message_count DESC
+      LIMIT 20`,
+      [guildId]
+    );
 
-    // 模擬數據
-    const members = await guild.members.fetch();
-    const activity = Array.from(members.values())
-      .slice(0, 10)
-      .map((member) => ({
-        id: member.user.id,
-        username: member.user.username,
-        messageCount: Math.floor(Math.random() * 1000),
-        lastActive: new Date(
-          Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000
-        ),
-      }));
+    const activity = result.rows.map((row) => ({
+      id: row.id,
+      username: row.username,
+      messageCount: parseInt(row.message_count),
+      lastActive: row.last_active,
+    }));
 
     res.json(activity);
   } catch (error) {
+    console.error("❌ getMemberActivity 錯誤:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -85,25 +76,30 @@ exports.getMemberActivity = async (req, res) => {
 exports.getChannelUsage = async (req, res) => {
   try {
     const { guildId } = req.params;
-    const guild = client.guilds.cache.get(guildId);
 
-    if (!guild) {
-      return res.status(404).json({ error: "找不到伺服器" });
-    }
+    const result = await pool.query(
+      `SELECT 
+        channel_id as id,
+        channel_name as name,
+        message_count,
+        0 as type
+      FROM channel_stats
+      WHERE guild_id = $1
+      ORDER BY message_count DESC
+      LIMIT 15`,
+      [guildId]
+    );
 
-    const channels = guild.channels.cache
-      .filter((channel) => channel.isTextBased())
-      .map((channel) => ({
-        id: channel.id,
-        name: channel.name,
-        messageCount: Math.floor(Math.random() * 5000),
-        type: channel.type,
-      }))
-      .sort((a, b) => b.messageCount - a.messageCount)
-      .slice(0, 10);
+    const channels = result.rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      messageCount: parseInt(row.message_count),
+      type: row.type,
+    }));
 
     res.json(channels);
   } catch (error) {
+    console.error("❌ getChannelUsage 錯誤:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -111,9 +107,29 @@ exports.getChannelUsage = async (req, res) => {
 // 獲取訊息量趨勢
 exports.getMessageTrends = async (req, res) => {
   try {
-    const trends = generateMockData();
+    const { guildId } = req.params;
+
+    const result = await pool.query(
+      `SELECT 
+        TO_CHAR(stat_date, 'YYYY-MM-DD') as date,
+        total_messages as messages,
+        active_users
+      FROM daily_stats
+      WHERE guild_id = $1
+        AND stat_date >= CURRENT_DATE - INTERVAL '7 days'
+      ORDER BY stat_date ASC`,
+      [guildId]
+    );
+
+    const trends = result.rows.map((row) => ({
+      date: row.date,
+      messages: parseInt(row.messages),
+      activeUsers: parseInt(row.active_users),
+    }));
+
     res.json(trends);
   } catch (error) {
+    console.error("❌ getMessageTrends 錯誤:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -122,43 +138,34 @@ exports.getMessageTrends = async (req, res) => {
 exports.getEmojiStats = async (req, res) => {
   try {
     const { guildId } = req.params;
-    const guild = client.guilds.cache.get(guildId);
 
-    if (!guild) {
-      return res.status(404).json({ error: "找不到伺服器" });
-    }
+    const result = await pool.query(
+      `SELECT 
+        emoji_identifier as emoji,
+        emoji_name as name,
+        COUNT(*) as count,
+        is_custom,
+        emoji_url as url
+      FROM emoji_usage
+      WHERE guild_id = $1
+        AND used_at >= NOW() - INTERVAL '30 days'
+      GROUP BY emoji_identifier, emoji_name, is_custom, emoji_url
+      ORDER BY count DESC
+      LIMIT 20`,
+      [guildId]
+    );
 
-    // 模擬數據 - 實際應用中需要從訊息歷史中統計
-    const customEmojis = guild.emojis.cache
-      .map((emoji) => ({
-        emoji: `<:${emoji.name}:${emoji.id}>`,
-        name: emoji.name,
-        count: Math.floor(Math.random() * 500),
-        isCustom: true,
-        url: emoji.url,
-      }))
-      .slice(0, 10);
+    const emojis = result.rows.map((row) => ({
+      emoji: row.emoji,
+      name: row.name,
+      count: parseInt(row.count),
+      isCustom: row.is_custom,
+      url: row.url,
+    }));
 
-    // Unicode 表情模擬數據
-    const unicodeEmojis = [
-      { emoji: "😂", name: "笑哭", count: Math.floor(Math.random() * 1000) },
-      { emoji: "❤️", name: "愛心", count: Math.floor(Math.random() * 800) },
-      { emoji: "👍", name: "讚", count: Math.floor(Math.random() * 700) },
-      { emoji: "😊", name: "微笑", count: Math.floor(Math.random() * 600) },
-      { emoji: "🔥", name: "火", count: Math.floor(Math.random() * 500) },
-      { emoji: "💯", name: "一百分", count: Math.floor(Math.random() * 400) },
-      { emoji: "🎉", name: "慶祝", count: Math.floor(Math.random() * 350) },
-      { emoji: "😭", name: "大哭", count: Math.floor(Math.random() * 300) },
-      { emoji: "🤔", name: "思考", count: Math.floor(Math.random() * 250) },
-      { emoji: "👀", name: "眼睛", count: Math.floor(Math.random() * 200) },
-    ].map((e) => ({ ...e, isCustom: false }));
-
-    const allEmojis = [...customEmojis, ...unicodeEmojis]
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 20);
-
-    res.json(allEmojis);
+    res.json(emojis);
   } catch (error) {
+    console.error("❌ getEmojiStats 錯誤:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -167,38 +174,30 @@ exports.getEmojiStats = async (req, res) => {
 exports.getKeywordCloud = async (req, res) => {
   try {
     const { guildId } = req.params;
-    const guild = client.guilds.cache.get(guildId);
 
-    if (!guild) {
-      return res.status(404).json({ error: "找不到伺服器" });
-    }
+    // 從最近的訊息中提取關鍵字（簡化版本）
+    const result = await pool.query(
+      `SELECT 
+        username as text,
+        COUNT(*) as value
+      FROM messages
+      WHERE guild_id = $1
+        AND created_at >= NOW() - INTERVAL '7 days'
+        AND username IS NOT NULL
+      GROUP BY username
+      ORDER BY value DESC
+      LIMIT 30`,
+      [guildId]
+    );
 
-    // 模擬數據 - 實際應用中需要從訊息內容中提取和統計
-    const keywords = [
-      { text: "Discord", value: 150 },
-      { text: "遊戲", value: 120 },
-      { text: "聊天", value: 100 },
-      { text: "活動", value: 90 },
-      { text: "音樂", value: 85 },
-      { text: "直播", value: 80 },
-      { text: "好玩", value: 75 },
-      { text: "朋友", value: 70 },
-      { text: "有趣", value: 65 },
-      { text: "分享", value: 60 },
-      { text: "討論", value: 55 },
-      { text: "問題", value: 50 },
-      { text: "幫助", value: 48 },
-      { text: "謝謝", value: 45 },
-      { text: "歡迎", value: 42 },
-      { text: "新手", value: 40 },
-      { text: "教學", value: 38 },
-      { text: "推薦", value: 35 },
-      { text: "更新", value: 32 },
-      { text: "活躍", value: 30 },
-    ];
+    const keywords = result.rows.map((row) => ({
+      text: row.text,
+      value: parseInt(row.value),
+    }));
 
     res.json(keywords);
   } catch (error) {
+    console.error("❌ getKeywordCloud 錯誤:", error);
     res.status(500).json({ error: error.message });
   }
 };
