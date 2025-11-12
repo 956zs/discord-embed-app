@@ -9,6 +9,7 @@ import {
   Smile,
   Hash,
   TrendingUp,
+  Settings,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -54,8 +55,17 @@ const statsItems = [
   },
 ];
 
-export function DashboardNav() {
+interface DashboardNavProps {
+  isAdmin?: boolean;
+}
+
+export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
   const isMobile = useIsMobile();
+
+  // 調試日誌
+  React.useEffect(() => {
+    console.log("🔍 DashboardNav isAdmin:", isAdmin);
+  }, [isAdmin]);
 
   return (
     <NavigationMenu viewport={isMobile}>
@@ -68,6 +78,20 @@ export function DashboardNav() {
             </Link>
           </NavigationMenuLink>
         </NavigationMenuItem>
+
+        {isAdmin && (
+          <NavigationMenuItem>
+            <NavigationMenuLink
+              asChild
+              className={navigationMenuTriggerStyle()}
+            >
+              <Link href="/admin">
+                <Settings className="mr-2 h-4 w-4" />
+                管理員
+              </Link>
+            </NavigationMenuLink>
+          </NavigationMenuItem>
+        )}
 
         <NavigationMenuItem>
           <NavigationMenuTrigger>統計項目</NavigationMenuTrigger>

@@ -23,6 +23,8 @@ import type {
 
 export default function Home() {
   const [guildId, setGuildId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [serverStats, setServerStats] = useState<ServerStats | null>(null);
   const [messageTrends, setMessageTrends] = useState<MessageTrend[]>([]);
   const [channelUsage, setChannelUsage] = useState<ChannelUsage[]>([]);
@@ -32,14 +34,21 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // 從 URL 參數獲取 guild_id
+    // 從 URL 參數獲取 guild_id 和 user_id
     const urlParams = new URLSearchParams(window.location.search);
     const urlGuildId = urlParams.get("guild_id");
+    const urlUserId = urlParams.get("user_id");
 
     if (urlGuildId) {
       console.log("📍 從 URL 獲取 Guild ID:", urlGuildId);
       setGuildId(urlGuildId);
+      setUserId(urlUserId);
       fetchAllData(urlGuildId);
+
+      // 檢查管理員權限
+      if (urlUserId) {
+        checkAdminStatus(urlGuildId, urlUserId);
+      }
     } else {
       // 開發模式：僅在明確啟用時使用環境變數
       const isDev = process.env.NODE_ENV === "development";
@@ -50,6 +59,14 @@ export default function Home() {
         console.log("🔧 開發模式：使用環境變數 Guild ID:", devGuildId);
         setGuildId(devGuildId);
         fetchAllData(devGuildId);
+
+        // 開發模式：使用環境變數的 user_id
+        const devUserId = process.env.NEXT_PUBLIC_DEV_USER_ID;
+        if (devUserId) {
+          console.log("🔧 開發模式：使用環境變數 User ID:", devUserId);
+          setUserId(devUserId);
+          checkAdminStatus(devGuildId, devUserId);
+        }
       } else {
         console.warn("⚠️ 未找到 Guild ID");
         setError("此應用需要在 Discord 伺服器中開啟");
@@ -57,6 +74,19 @@ export default function Home() {
       }
     }
   }, []);
+
+  const checkAdminStatus = async (gid: string, uid: string) => {
+    try {
+      console.log("🔍 檢查管理員狀態:", { gid, uid });
+      const response = await axios.get(
+        `/api/history/${gid}/admins/${uid}/check`
+      );
+      console.log("✅ 管理員狀態:", response.data);
+      setIsAdmin(response.data.isAdmin);
+    } catch (error) {
+      console.error("❌ 檢查管理員狀態失敗:", error);
+    }
+  };
 
   const fetchAllData = async (id: string) => {
     setLoading(true);
@@ -128,7 +158,7 @@ export default function Home() {
     <div className="min-h-screen">
       <header className="sticky top-0 z-50 w-full border-b-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center px-6">
-          <DashboardNav />
+          <DashboardNav isAdmin={isAdmin} />
         </div>
       </header>
 

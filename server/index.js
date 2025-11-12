@@ -7,6 +7,8 @@ require("dotenv").config({
 const express = require("express");
 const cors = require("cors");
 const statsRoutes = require("./routes/stats");
+const historyRoutes = require("./routes/history");
+const fetchRoutes = require("./routes/fetch");
 const { getAllowedGuilds } = require("./utils/guildManager");
 
 const app = express();
@@ -34,6 +36,8 @@ app.use((req, res, next) => {
   next();
 });
 app.use("/api/stats", statsRoutes);
+app.use("/api/history", historyRoutes);
+app.use("/api/fetch", fetchRoutes);
 
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
@@ -58,7 +62,7 @@ app.get("/api/admin/whitelist", (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 伺服器運行在 http://localhost:${PORT}`);
 
   const allowedGuilds = getAllowedGuilds();
@@ -68,5 +72,22 @@ app.listen(PORT, () => {
   } else {
     console.log(`⚠️  白名單未設定，允許所有伺服器訪問`);
     console.log(`   建議在 .env 中設定 ALLOWED_GUILD_IDS`);
+  }
+
+  // 嘗試連接到 bot 的 historyFetcher
+  try {
+    const botModule = require("../bot/index.js");
+    const getHistoryFetcher = botModule.historyFetcher;
+
+    // 等待 bot 就緒
+    setTimeout(() => {
+      const fetcher = getHistoryFetcher();
+      if (fetcher) {
+        fetchRoutes.setHistoryFetcher(fetcher);
+        console.log("✅ 已連接到歷史訊息提取器");
+      }
+    }, 5000);
+  } catch (error) {
+    console.log("⚠️  無法連接到 bot，歷史提取功能將不可用");
   }
 });

@@ -4,6 +4,7 @@ const pool = require("./database/db");
 const { saveMessage, saveEmojiUsage } = require("./handlers/messageHandler");
 const { startDailyStatsJob } = require("./jobs/statsAggregator");
 const { setupCommandHandlers } = require("./commands/handleCommands");
+const HistoryFetcher = require("./handlers/historyFetcher");
 
 // 創建 Discord 客戶端
 const client = new Client({
@@ -28,6 +29,9 @@ function isGuildAllowed(guildId) {
   return allowedGuilds.includes(guildId);
 }
 
+// 創建歷史提取器實例
+let historyFetcher = null;
+
 // Bot 就緒事件
 client.on("ready", () => {
   console.log("\n" + "=".repeat(50));
@@ -50,6 +54,10 @@ client.on("ready", () => {
   }
 
   console.log("=".repeat(50) + "\n");
+
+  // 初始化歷史提取器
+  historyFetcher = new HistoryFetcher(pool, client);
+  console.log("✅ 歷史訊息提取器已初始化");
 
   // 設置命令處理器
   setupCommandHandlers(client);
@@ -142,3 +150,6 @@ client.login(process.env.DISCORD_BOT_TOKEN).catch((error) => {
   console.error("請檢查 DISCORD_BOT_TOKEN 是否正確");
   process.exit(1);
 });
+
+// 導出 historyFetcher 供 server 使用
+module.exports = { client, historyFetcher: () => historyFetcher };
