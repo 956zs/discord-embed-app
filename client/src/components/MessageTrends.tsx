@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { Line } from "react-chartjs-2";
+import { TrendingUp } from "lucide-react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -11,8 +12,15 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { MessageTrend } from "../types";
-import "./Card.css";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { MessageTrend } from "@/types";
 
 ChartJS.register(
   CategoryScale,
@@ -32,6 +40,7 @@ interface MessageTrendsProps {
 
 function MessageTrends({ guildId }: MessageTrendsProps) {
   const [data, setData] = useState<MessageTrend[] | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -43,11 +52,30 @@ function MessageTrends({ guildId }: MessageTrendsProps) {
         setData(response.data);
       } catch (error) {
         console.error("獲取訊息趨勢失敗:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchData();
   }, [guildId]);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            訊息量趨勢
+          </CardTitle>
+          <CardDescription>載入中...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[300px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!data) return null;
 
@@ -57,15 +85,15 @@ function MessageTrends({ guildId }: MessageTrendsProps) {
       {
         label: "訊息數量",
         data: data.map((d) => d.messages),
-        borderColor: "rgb(75, 192, 192)",
-        backgroundColor: "rgba(75, 192, 192, 0.2)",
+        borderColor: "rgb(59, 130, 246)",
+        backgroundColor: "rgba(59, 130, 246, 0.1)",
         tension: 0.4,
       },
       {
         label: "活躍用戶",
         data: data.map((d) => d.activeUsers),
-        borderColor: "rgb(255, 99, 132)",
-        backgroundColor: "rgba(255, 99, 132, 0.2)",
+        borderColor: "rgb(168, 85, 247)",
+        backgroundColor: "rgba(168, 85, 247, 0.1)",
         tension: 0.4,
       },
     ],
@@ -73,32 +101,32 @@ function MessageTrends({ guildId }: MessageTrendsProps) {
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         position: "top" as const,
-        labels: { color: "#fff" },
       },
       title: {
         display: false,
       },
     },
-    scales: {
-      y: {
-        ticks: { color: "#fff" },
-        grid: { color: "rgba(255, 255, 255, 0.1)" },
-      },
-      x: {
-        ticks: { color: "#fff" },
-        grid: { color: "rgba(255, 255, 255, 0.1)" },
-      },
-    },
   };
 
   return (
-    <div className="card">
-      <h2>📈 訊息量趨勢</h2>
-      <Line data={chartData} options={options} />
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <TrendingUp className="h-5 w-5" />
+          訊息量趨勢
+        </CardTitle>
+        <CardDescription>過去 7 天的訊息數量與活躍用戶</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="h-[300px]">
+          <Line data={chartData} options={options} />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

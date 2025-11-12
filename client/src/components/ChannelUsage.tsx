@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { Bar } from "react-chartjs-2";
+import { MessageSquare } from "lucide-react";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,8 +11,15 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { ChannelUsage as ChannelUsageType } from "../types";
-import "./Card.css";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ChannelUsage as ChannelUsageType } from "@/types";
 
 ChartJS.register(
   CategoryScale,
@@ -30,6 +38,7 @@ interface ChannelUsageProps {
 
 function ChannelUsage({ guildId }: ChannelUsageProps) {
   const [data, setData] = useState<ChannelUsageType[] | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,11 +50,30 @@ function ChannelUsage({ guildId }: ChannelUsageProps) {
         setData(response.data);
       } catch (error) {
         console.error("獲取頻道使用情況失敗:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchData();
   }, [guildId]);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            頻道使用情況
+          </CardTitle>
+          <CardDescription>載入中...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[300px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (!data) return null;
 
@@ -55,37 +83,39 @@ function ChannelUsage({ guildId }: ChannelUsageProps) {
       {
         label: "訊息數量",
         data: data.map((c) => c.messageCount),
-        backgroundColor: "rgba(153, 102, 255, 0.6)",
-        borderColor: "rgba(153, 102, 255, 1)",
+        backgroundColor: "rgba(168, 85, 247, 0.6)",
+        borderColor: "rgba(168, 85, 247, 1)",
         borderWidth: 1,
+        borderRadius: 4,
       },
     ],
   };
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
         display: false,
       },
     },
-    scales: {
-      y: {
-        ticks: { color: "#fff" },
-        grid: { color: "rgba(255, 255, 255, 0.1)" },
-      },
-      x: {
-        ticks: { color: "#fff" },
-        grid: { color: "rgba(255, 255, 255, 0.1)" },
-      },
-    },
   };
 
   return (
-    <div className="card">
-      <h2>💬 頻道使用情況</h2>
-      <Bar data={chartData} options={options} />
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <MessageSquare className="h-5 w-5" />
+          頻道使用情況
+        </CardTitle>
+        <CardDescription>各頻道的訊息數量統計</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="h-[300px]">
+          <Bar data={chartData} options={options} />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

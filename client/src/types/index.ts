@@ -38,3 +38,5 @@ export interface WordCloudData {
   text: string;
   value: number;
 }
+
+export type KeywordData = WordCloudData;

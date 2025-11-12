@@ -1,5 +1,6 @@
-import { ServerStats } from "../types";
-import "./Card.css";
+import { Users, Hash, Shield, Calendar } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ServerStats } from "@/types";
 
 interface ServerOverviewProps {
   stats: ServerStats | null;
@@ -8,29 +9,46 @@ interface ServerOverviewProps {
 function ServerOverview({ stats }: ServerOverviewProps) {
   if (!stats) return null;
 
+  const statItems = [
+    {
+      icon: Users,
+      label: "總成員數",
+      value: stats.memberCount.toLocaleString(),
+      color: "text-blue-500",
+    },
+    {
+      icon: Hash,
+      label: "頻道數量",
+      value: stats.channelCount.toLocaleString(),
+      color: "text-green-500",
+    },
+    {
+      icon: Shield,
+      label: "身分組數",
+      value: stats.roleCount.toLocaleString(),
+      color: "text-purple-500",
+    },
+    {
+      icon: Calendar,
+      label: "創建日期",
+      value: new Date(stats.createdAt).toLocaleDateString("zh-TW"),
+      color: "text-orange-500",
+    },
+  ];
+
   return (
-    <div className="card">
-      <h2>🏠 伺服器概覽</h2>
-      <div className="stats-grid">
-        <div className="stat-item">
-          <div className="stat-value">{stats.memberCount}</div>
-          <div className="stat-label">總成員數</div>
-        </div>
-        <div className="stat-item">
-          <div className="stat-value">{stats.channelCount}</div>
-          <div className="stat-label">頻道數量</div>
-        </div>
-        <div className="stat-item">
-          <div className="stat-value">{stats.roleCount}</div>
-          <div className="stat-label">身分組數</div>
-        </div>
-        <div className="stat-item">
-          <div className="stat-value">
-            {new Date(stats.createdAt).toLocaleDateString("zh-TW")}
-          </div>
-          <div className="stat-label">創建日期</div>
-        </div>
-      </div>
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {statItems.map((item, index) => (
+        <Card key={index}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">{item.label}</CardTitle>
+            <item.icon className={`h-4 w-4 ${item.color}`} />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{item.value}</div>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
