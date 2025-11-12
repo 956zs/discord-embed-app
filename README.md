@@ -1,16 +1,29 @@
 # Discord 伺服器統計與可視化 Embedded App
 
-完整的 Discord Embedded App，提供伺服器統計、成員活動分析、歷史訊息提取等功能。
+完整的 Discord Embedded App，提供伺服器統計、成員活動分析、歷史訊息提取等功能。支援簡繁體中文切換。
 
-## 功能特色
+## ✨ 功能特色
 
-- 📊 **即時統計**：伺服器概覽、成員數、頻道數、角色數
-- 📈 **趨勢分析**：7 天訊息量和活躍用戶趨勢圖表
-- 💬 **頻道分析**：各頻道使用率統計
-- 👥 **成員排行**：活躍度排行榜（Top 10）
-- 😀 **表情統計**：自訂和 Unicode 表情使用排名
-- 🕐 **歷史提取**：批量提取頻道歷史訊息（管理員功能）
-- 🎨 **現代化 UI**：使用 shadcn/ui 和 Tailwind CSS
+### 📊 統計與分析
+- **即時統計**：伺服器概覽、成員數、頻道數、角色數
+- **趨勢分析**：可自訂時間範圍（7天/30天/90天/180天/一年/所有時間）的訊息量和活躍用戶趨勢圖表
+- **頻道分析**：各頻道使用率統計和排行
+- **成員排行**：活躍度排行榜（Top 10）
+- **表情統計**：自訂和 Unicode 表情使用排名，支援動畫 emoji
+
+### 🔧 管理員功能
+- **歷史訊息提取**：批量提取頻道歷史訊息
+- **智能分析**：自動識別需要更新的頻道
+- **討論串支援**：完整支援 Discord 討論串（threads）和論壇頻道
+- **進度追蹤**：即時查看提取任務進度和歷史記錄
+- **權限管理**：基於資料庫的管理員權限系統
+
+### 🎨 用戶體驗
+- **現代化 UI**：使用 shadcn/ui 和 Tailwind CSS v4
+- **響應式設計**：完美適配桌面和手機
+- **簡繁體切換**：支援繁體中文和簡體中文
+- **深色主題**：護眼的深色配色方案
+- **錯誤處理**：友好的錯誤提示和後備方案
 
 ## 技術架構
 
@@ -32,25 +45,52 @@
 - 歷史訊息提取
 - 每日統計聚合
 
-## 快速開始
+## 🚀 快速開始
 
-### 1. 環境需求
+### 方法一：一鍵部署（推薦）
+
+```bash
+# 1. 克隆專案
+git clone <your-repo-url>
+cd discord-embed-app
+
+# 2. 配置環境變數
+cp .env.example .env
+cp bot/.env.example bot/.env
+cp client/.env.example client/.env.local
+# 編輯這些文件並填入正確的值
+
+# 3. 執行一鍵部署
+./deploy.sh
+```
+
+部署腳本會自動：
+- ✅ 檢查環境和依賴
+- ✅ 安裝所有 npm 套件
+- ✅ 設置資料庫
+- ✅ 構建前端
+- ✅ 使用 PM2 啟動所有服務
+
+### 方法二：手動設置
+
+#### 1. 環境需求
 
 - Node.js 18+
-- PostgreSQL 12+
+- PostgreSQL 14+
 - Discord Bot Token
 - Discord Application (Embedded App)
+- PM2（可選，用於生產環境）
 
-### 2. 安裝依賴
+#### 2. 安裝依賴
 
 ```bash
 # 安裝所有依賴
 npm install
-cd client && npm install
-cd ../bot && npm install
+cd client && npm install && cd ..
+cd bot && npm install && cd ..
 ```
 
-### 3. 配置環境變數
+#### 3. 配置環境變數
 
 複製並編輯環境變數文件：
 
@@ -62,12 +102,12 @@ cp .env.example .env
 cp bot/.env.example bot/.env
 
 # Client .env.local
-cp client/.env.local.example client/.env.local
+cp client/.env.example client/.env.local
 ```
 
-詳細配置說明請參考 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
+詳細配置說明請參考 [CONFIGURATION.md](CONFIGURATION.md)
 
-### 4. 初始化資料庫
+#### 4. 初始化資料庫
 
 ```bash
 # 創建資料庫
@@ -75,27 +115,54 @@ createdb discord_stats
 
 # 執行架構腳本
 psql -U postgres -d discord_stats -f bot/database/schema.sql
+
+# 添加討論串支援
+psql -U postgres -d discord_stats -f bot/database/add_thread_support.sql
+
+# 添加附件支援
+psql -U postgres -d discord_stats -f bot/database/add_attachments.sql
 ```
 
-### 5. 啟動服務
+#### 5. 啟動服務
 
+**開發模式：**
 ```bash
-# 開發模式（啟動所有服務）
 npm run dev
-
-# 服務將運行在：
-# - Server: http://localhost:3008
-# - Client: http://localhost:3000
-# - Bot: 自動啟動
 ```
 
-## 文檔
+**生產模式：**
+```bash
+# 構建前端
+cd client && npm run build && cd ..
 
-- [配置指南](docs/CONFIGURATION.md) - 環境變數和配置說明
-- [開發指南](docs/DEVELOPMENT.md) - 開發環境設置和常用命令
-- [部署指南](docs/DEPLOYMENT.md) - 生產環境部署步驟
+# 使用 PM2 啟動
+pm2 start ecosystem.config.js
+
+# 或使用管理腳本
+./manage.sh start
+```
+
+服務將運行在：
+- Server: http://localhost:3008
+- Client: http://localhost:3000
+- Bot: 自動啟動
+
+## 📚 文檔
+
+### 核心文檔
+- [部署指南](DEPLOYMENT_GUIDE.md) - **完整的部署和管理指南**
+- [配置指南](CONFIGURATION.md) - 環境變數和配置說明
+- [開發指南](DEVELOPMENT.md) - 開發環境設置和常用命令
+
+### 功能文檔
+- [歷史提取指南](HISTORY_FETCH_GUIDE.md) - 歷史訊息提取功能使用說明
+- [討論串支援](docs/THREAD_SUPPORT.md) - Discord 討論串功能說明
 - [資料庫架構](bot/database/README.md) - 資料庫表結構說明
-- [故障排除](docs/TROUBLESHOOTING.md) - 常見問題解決方案
+
+### 問題修復
+- [Emoji 修復](EMOJI_FIX.md) - Emoji 圖片顯示問題修復
+- [導航修復](NAVIGATION_FIX.md) - 頁面導航問題修復
+- [故障排除](TROUBLESHOOTING.md) - 常見問題解決方案
 
 ## 專案結構
 
@@ -118,34 +185,176 @@ discord-embed-app/
 └── docs/                # 文檔
 ```
 
-## 主要命令
+## 🛠️ 管理命令
+
+### 部署腳本
+
+```bash
+# 一鍵部署
+./deploy.sh              # 完整部署（首次使用）
+
+# 快速更新
+./update.sh              # 更新代碼、依賴、重新構建和重啟
+
+# 日常管理
+./manage.sh start        # 啟動所有服務
+./manage.sh stop         # 停止所有服務
+./manage.sh restart      # 重啟所有服務
+./manage.sh status       # 查看服務狀態
+./manage.sh logs         # 查看所有日誌
+./manage.sh logs-api     # 查看 API 日誌
+./manage.sh logs-bot     # 查看 Bot 日誌
+./manage.sh logs-client  # 查看 Client 日誌
+./manage.sh backup       # 備份資料庫
+./manage.sh restore <file> # 還原資料庫
+./manage.sh health       # 健康檢查
+./manage.sh clean        # 清理日誌和舊備份
+```
+
+### NPM 腳本
 
 ```bash
 # 開發
 npm run dev              # 啟動所有服務（推薦）
 npm run server           # 只啟動 server（包含 bot）
 npm run client           # 只啟動 client
+npm run bot              # 只啟動 bot
 
 # 生產
 npm run build            # 構建前端
 npm start                # 啟動生產服務器
-
-# 資料庫
-psql -d discord_stats -f bot/database/schema.sql  # 初始化資料庫
+npm run start:bot        # 啟動 bot
 ```
 
-## 管理員功能
+### PM2 命令
+
+```bash
+pm2 status               # 查看所有服務狀態
+pm2 logs                 # 查看所有日誌
+pm2 logs discord-api     # 查看特定服務日誌
+pm2 restart all          # 重啟所有服務
+pm2 stop all             # 停止所有服務
+pm2 monit                # 監控面板
+```
+
+## 🔐 管理員功能
 
 訪問 `/admin` 頁面使用歷史訊息提取功能：
 
-1. **批量提取**：智能識別需要更新的頻道，一鍵批量提取
-2. **頻道管理**：查看所有頻道和提取狀態
-3. **提取歷史**：查看所有提取任務的進度和結果
+### 功能列表
 
-## 授權
+1. **批量提取**
+   - 智能識別需要更新的頻道
+   - 一鍵批量提取多個頻道
+   - 支援討論串和論壇頻道
+   - 即時進度顯示
+
+2. **頻道管理**
+   - 查看所有頻道和討論串
+   - 顯示提取狀態和統計
+   - 單獨提取特定頻道
+
+3. **提取歷史**
+   - 查看所有提取任務
+   - 即時進度追蹤
+   - 詳細的統計信息
+   - 錯誤日誌查看
+
+### 權限管理
+
+管理員權限基於資料庫 `admin_users` 表：
+
+```sql
+-- 添加管理員
+INSERT INTO admin_users (guild_id, user_id, username) 
+VALUES ('your_guild_id', 'user_id', 'username');
+
+-- 查看管理員
+SELECT * FROM admin_users WHERE guild_id = 'your_guild_id';
+
+-- 移除管理員
+DELETE FROM admin_users 
+WHERE guild_id = 'your_guild_id' AND user_id = 'user_id';
+```
+
+同一個用戶可以在多個伺服器擁有管理員權限，權限是按伺服器獨立管理的。
+
+## 🌟 最新更新
+
+### v2.0.0 (2024)
+
+- ✅ **簡繁體中文切換**：完整的國際化支援
+- ✅ **討論串支援**：完整支援 Discord 討論串和論壇頻道
+- ✅ **附件支援**：記錄訊息中的圖片和文件附件
+- ✅ **時間範圍選擇**：可自訂統計時間範圍（7天到所有時間）
+- ✅ **Emoji 優化**：修復自定義 emoji 顯示問題，支援動畫 emoji
+- ✅ **導航優化**：使用 Next.js 客戶端路由，避免頁面重載
+- ✅ **響應式設計**：完美適配手機和平板
+- ✅ **一鍵部署**：提供完整的部署和管理腳本
+- ✅ **健康檢查**：自動監控服務狀態
+- ✅ **備份還原**：資料庫備份和還原功能
+
+### 技術改進
+
+- 升級到 Next.js 16 和 React 19
+- 使用 Tailwind CSS v4
+- 改進的錯誤處理和日誌記錄
+- 優化的資料庫查詢和索引
+- PM2 進程管理
+- 完整的 TypeScript 類型支援
+
+## 🔧 系統需求
+
+### 最低需求
+- CPU: 1 核心
+- RAM: 2GB
+- 硬碟: 5GB
+- Node.js: 18.0.0+
+- PostgreSQL: 14.0+
+
+### 推薦配置
+- CPU: 2 核心
+- RAM: 4GB
+- 硬碟: 20GB
+- Node.js: 20.0.0+
+- PostgreSQL: 15.0+
+
+## 🤝 貢獻
+
+歡迎提交 Issue 和 Pull Request！
+
+### 開發流程
+
+1. Fork 本專案
+2. 創建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 開啟 Pull Request
+
+### 代碼規範
+
+- 使用 TypeScript（前端）
+- 遵循 ESLint 規則
+- 添加適當的註釋
+- 更新相關文檔
+
+## 📝 授權
 
 ISC License
 
-## 貢獻
+## 💬 支援
 
-歡迎提交 Issue 和 Pull Request！
+如有問題或建議：
+
+1. 查看 [故障排除文檔](TROUBLESHOOTING.md)
+2. 查看 [部署指南](DEPLOYMENT_GUIDE.md)
+3. 提交 [Issue](https://github.com/956zs/discord-embed-app/issues
+4. 查看日誌：`./manage.sh logs`
+
+## 🙏 致謝
+
+- [Discord.js](https://discord.js.org/) - Discord API 封裝
+- [Next.js](https://nextjs.org/) - React 框架
+- [shadcn/ui](https://ui.shadcn.com/) - UI 組件庫
+- [Recharts](https://recharts.org/) - 圖表庫
+- [PostgreSQL](https://www.postgresql.org/) - 資料庫
