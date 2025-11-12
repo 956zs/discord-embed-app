@@ -116,96 +116,193 @@ EOF
 echo -e "${NC}"
 
 log_info "此工具將引導你完成所有環境變數的配置"
-log_warning "請準備好以下資訊："
-echo "  • Discord Bot Token"
-echo "  • Discord Application Client ID 和 Secret"
-echo "  • PostgreSQL 資料庫連接資訊"
-echo "  • Discord 伺服器 ID（可選）"
 echo ""
-read -p "按 Enter 繼續..."
+log_warning "配置流程包含 4 個步驟："
+echo "  ${CYAN}步驟 1/4${NC} - Discord 配置（Bot Token、Client ID、Client Secret）"
+echo "  ${CYAN}步驟 2/4${NC} - PostgreSQL 資料庫配置"
+echo "  ${CYAN}步驟 3/4${NC} - 伺服器配置（端口、白名單）"
+echo "  ${CYAN}步驟 4/4${NC} - 前端配置（開發模式、API URL）"
+echo ""
+log_info "請準備好以下資訊："
+echo "  ${GREEN}✓${NC} Discord Bot Token"
+echo "  ${GREEN}✓${NC} Discord Application Client ID 和 Secret"
+echo "  ${GREEN}✓${NC} PostgreSQL 資料庫連接資訊"
+echo "  ${YELLOW}○${NC} Discord 伺服器 ID（可選）"
+echo ""
+log_info "預計需要 5-10 分鐘完成配置"
+echo ""
+read -p "準備好了嗎？按 Enter 開始配置..."
 
 # ============================================================================
 # 1. Discord 配置
 # ============================================================================
-log_section "步驟 1: Discord 配置"
+log_section "步驟 1/4: Discord 配置"
 
 log_info "請前往 Discord Developer Portal 獲取以下資訊："
-echo "  https://discord.com/developers/applications"
+echo "  ${CYAN}https://discord.com/developers/applications${NC}"
+echo ""
+log_warning "需要以下三項資訊："
+echo "  1. Bot Token（在 Bot 頁面）"
+echo "  2. Client ID（在 General Information 頁面）"
+echo "  3. Client Secret（在 OAuth2 頁面）"
 echo ""
 
-DISCORD_BOT_TOKEN=$(read_input "Discord Bot Token" "" "true")
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "1/3 - Bot Token"
+echo "  這是你的 Discord Bot 的認證令牌"
+echo "  位置：Bot 頁面 → Reset Token"
+DISCORD_BOT_TOKEN=$(read_input "請輸入 Bot Token" "" "true")
 validate_required "$DISCORD_BOT_TOKEN" "Bot Token" || exit 1
+log_success "Bot Token 已設置"
 
-DISCORD_CLIENT_ID=$(read_input "Discord Client ID" "")
+echo ""
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "2/3 - Client ID"
+echo "  這是你的 Discord Application 的唯一識別碼"
+echo "  位置：General Information 頁面 → Application ID"
+DISCORD_CLIENT_ID=$(read_input "請輸入 Client ID" "")
 validate_required "$DISCORD_CLIENT_ID" "Client ID" || exit 1
+log_success "Client ID 已設置"
 
-DISCORD_CLIENT_SECRET=$(read_input "Discord Client Secret" "" "true")
+echo ""
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "3/3 - Client Secret"
+echo "  這是你的 OAuth2 認證密鑰"
+echo "  位置：OAuth2 頁面 → Client Secret → Reset Secret"
+DISCORD_CLIENT_SECRET=$(read_input "請輸入 Client Secret" "" "true")
 validate_required "$DISCORD_CLIENT_SECRET" "Client Secret" || exit 1
+log_success "Client Secret 已設置"
 
-log_success "Discord 配置完成"
+echo ""
+log_success "✓ Discord 配置完成 (1/4)"
 
 # ============================================================================
 # 2. 資料庫配置
 # ============================================================================
-log_section "步驟 2: PostgreSQL 資料庫配置"
+log_section "步驟 2/4: PostgreSQL 資料庫配置"
 
-DB_HOST=$(read_input "資料庫主機" "localhost")
-DB_PORT=$(read_input "資料庫端口" "5432")
-DB_NAME=$(read_input "資料庫名稱" "discord_stats")
-DB_USER=$(read_input "資料庫用戶" "postgres")
-DB_PASSWORD=$(read_input "資料庫密碼" "" "true")
+log_info "配置 PostgreSQL 資料庫連接資訊"
+echo "  如果你還沒有創建資料庫，可以稍後執行："
+echo "  ${CYAN}createdb discord_stats${NC}"
+echo ""
 
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "1/5 - 資料庫主機"
+echo "  通常是 localhost（本地）或遠端伺服器 IP"
+DB_HOST=$(read_input "請輸入資料庫主機" "localhost")
+
+echo ""
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "2/5 - 資料庫端口"
+echo "  PostgreSQL 預設端口是 5432"
+DB_PORT=$(read_input "請輸入資料庫端口" "5432")
+
+echo ""
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "3/5 - 資料庫名稱"
+echo "  建議使用 discord_stats"
+DB_NAME=$(read_input "請輸入資料庫名稱" "discord_stats")
+
+echo ""
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "4/5 - 資料庫用戶"
+echo "  PostgreSQL 預設用戶是 postgres"
+DB_USER=$(read_input "請輸入資料庫用戶" "postgres")
+
+echo ""
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "5/5 - 資料庫密碼"
+echo "  輸入時不會顯示，這是正常的"
+DB_PASSWORD=$(read_input "請輸入資料庫密碼" "" "true")
 validate_required "$DB_PASSWORD" "資料庫密碼" || exit 1
 
+echo ""
 # 測試連接
 if ! test_db_connection "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASSWORD" "$DB_NAME"; then
     log_warning "資料庫連接失敗，但配置將繼續"
     log_info "請確保稍後手動創建資料庫："
-    echo "  createdb $DB_NAME"
+    echo "  ${CYAN}createdb $DB_NAME${NC}"
     echo ""
     read -p "按 Enter 繼續..."
 fi
 
-log_success "資料庫配置完成"
+log_success "✓ 資料庫配置完成 (2/4)"
 
 # ============================================================================
 # 3. 伺服器配置
 # ============================================================================
-log_section "步驟 3: 伺服器配置"
+log_section "步驟 3/4: 伺服器配置"
 
-PORT=$(read_input "API Server 端口" "3008")
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "1/2 - API Server 端口"
+echo "  API 伺服器運行的端口號"
+echo "  預設是 3008，確保此端口未被佔用"
+PORT=$(read_input "請輸入 API Server 端口" "3008")
+log_success "端口已設置為 $PORT"
 
-log_info "白名單配置（可選）"
-echo "  如果你只想收集特定伺服器的數據，請輸入伺服器 ID"
-echo "  多個伺服器用逗號分隔，留空表示允許所有伺服器"
 echo ""
-ALLOWED_GUILD_IDS=$(read_input "允許的伺服器 ID（可選）" "")
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "2/2 - 白名單配置（可選）"
+echo "  ${YELLOW}這是可選的安全功能${NC}"
+echo "  如果你只想收集特定伺服器的數據，請輸入伺服器 ID"
+echo "  多個伺服器用逗號分隔，例如：123456789,987654321"
+echo "  ${CYAN}留空表示允許所有伺服器${NC}"
+echo ""
+ALLOWED_GUILD_IDS=$(read_input "允許的伺服器 ID（可選，直接按 Enter 跳過）" "")
 
-log_success "伺服器配置完成"
+if [ -n "$ALLOWED_GUILD_IDS" ]; then
+    log_success "白名單已設置：$ALLOWED_GUILD_IDS"
+else
+    log_info "未設置白名單，將允許所有伺服器"
+fi
+
+echo ""
+log_success "✓ 伺服器配置完成 (3/4)"
 
 # ============================================================================
 # 4. 前端配置
 # ============================================================================
-log_section "步驟 4: 前端配置"
+log_section "步驟 4/4: 前端配置"
 
-log_info "開發模式配置（可選）"
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "1/2 - 開發模式配置（可選）"
+echo "  ${YELLOW}這是可選的開發功能${NC}"
 echo "  開發模式允許你在本地測試，無需 Discord Embedded App"
+echo "  ${CYAN}生產環境請選擇 'n'${NC}"
 echo ""
 
 ENABLE_DEV_MODE=$(read_input "啟用開發模式？(y/n)" "n")
 if [[ "$ENABLE_DEV_MODE" =~ ^[Yy]$ ]]; then
     NEXT_PUBLIC_ENABLE_DEV_MODE="true"
-    NEXT_PUBLIC_DEV_GUILD_ID=$(read_input "測試用伺服器 ID" "")
-    NEXT_PUBLIC_DEV_USER_ID=$(read_input "測試用用戶 ID" "")
+    echo ""
+    log_info "開發模式已啟用，需要額外配置："
+    echo ""
+    echo "  測試用伺服器 ID："
+    echo "  在 Discord 中右鍵點擊伺服器圖標 → 複製 ID"
+    NEXT_PUBLIC_DEV_GUILD_ID=$(read_input "  請輸入測試用伺服器 ID" "")
+    echo ""
+    echo "  測試用用戶 ID："
+    echo "  在 Discord 中右鍵點擊你的用戶名 → 複製 ID"
+    NEXT_PUBLIC_DEV_USER_ID=$(read_input "  請輸入測試用用戶 ID" "")
+    log_success "開發模式配置完成"
 else
     NEXT_PUBLIC_ENABLE_DEV_MODE="false"
     NEXT_PUBLIC_DEV_GUILD_ID=""
     NEXT_PUBLIC_DEV_USER_ID=""
+    log_info "開發模式未啟用"
 fi
 
-NEXT_PUBLIC_API_URL=$(read_input "API URL（生產環境）" "http://localhost:3008")
+echo ""
+echo -e "${YELLOW}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+log_info "2/2 - API URL（生產環境）"
+echo "  生產環境中前端訪問 API 的 URL"
+echo "  本地開發通常是 http://localhost:3008"
+echo "  生產環境應該是你的域名，例如：https://api.yourdomain.com"
+NEXT_PUBLIC_API_URL=$(read_input "請輸入 API URL" "http://localhost:3008")
+log_success "API URL 已設置為 $NEXT_PUBLIC_API_URL"
 
-log_success "前端配置完成"
+echo ""
+log_success "✓ 前端配置完成 (4/4)"
 
 # ============================================================================
 # 5. 生成配置文件
