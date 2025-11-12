@@ -311,9 +311,19 @@ export default function AdminPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-xs text-muted-foreground">
-                  運行中: {summary.running_tasks} | 待處理:{" "}
-                  {summary.pending_tasks}
+                <div className="text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">運行中:</span>
+                    <span className="font-medium text-blue-600">
+                      {summary.running_tasks}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">待處理:</span>
+                    <span className="font-medium text-yellow-600">
+                      {summary.pending_tasks}
+                    </span>
+                  </div>
                 </div>
               </CardContent>
             </Card>

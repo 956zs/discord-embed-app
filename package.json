@@ -4,8 +4,10 @@
   "description": "Discord 伺服器統計與可視化 Embedded App",
   "main": "server/index.js",
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run bot\"",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev:separate": "concurrently \"npm run server:only\" \"npm run client\" \"npm run bot\"",
     "server": "nodemon server/index.js",
+    "server:only": "nodemon --ignore bot/ server/index.js",
     "client": "cd client && npm run dev",
     "bot": "cd bot && nodemon index.js",
     "build": "cd client && npm run build",

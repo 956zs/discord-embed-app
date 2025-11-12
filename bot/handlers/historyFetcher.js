@@ -222,18 +222,26 @@ class HistoryFetcher {
         console.log(`   錨點訊息 ID: ${anchorMessageId}`);
       }
 
-      // 階段 1: 從錨點向後提取
+      // 階段 1: 從錨點向後提取（提取歷史訊息）
+      console.log(`   階段 1: 從錨點向後提取歷史訊息...`);
       let lastId = anchorMessageId;
       let hasMore = true;
       const batchSize = 100;
+      let batchCount = 0;
 
       while (hasMore) {
+        batchCount++;
+        console.log(`   📥 提取批次 ${batchCount} (before: ${lastId})...`);
+
         const messages = await this.fetchBatch(channel, {
           limit: batchSize,
           before: lastId,
         });
 
+        console.log(`   ✅ 獲取到 ${messages.size} 則訊息`);
+
         if (messages.size === 0) {
+          console.log(`   ⏹️  沒有更多歷史訊息`);
           hasMore = false;
           break;
         }
@@ -295,41 +303,79 @@ class HistoryFetcher {
         );
       }
 
-      // 階段 2: 從錨點向前檢查新訊息
-      console.log(`   檢查錨點後的新訊息...`);
-      const newMessages = await this.fetchBatch(channel, {
-        limit: 100,
-        after: anchorMessageId,
-      });
+      // 階段 2: 從錨點向前提取新訊息（持續提取直到最新）
+      console.log(`   階段 2: 從錨點向前提取新訊息...`);
+      let afterId = anchorMessageId;
+      let hasMoreNew = true;
+      let newBatchCount = 0;
 
-      for (const [, message] of newMessages) {
-        if (message.author.bot) continue;
+      while (hasMoreNew) {
+        newBatchCount++;
+        console.log(
+          `   📥 提取新訊息批次 ${newBatchCount} (after: ${afterId})...`
+        );
 
-        messagesFetched++;
+        const newMessages = await this.fetchBatch(channel, {
+          limit: batchSize,
+          after: afterId,
+        });
 
-        if (!newestMessageId || message.id > newestMessageId) {
-          newestMessageId = message.id;
-          newestTimestamp = message.createdAt;
+        console.log(`   ✅ 獲取到 ${newMessages.size} 則新訊息`);
+
+        if (newMessages.size === 0) {
+          console.log(`   ⏹️  已到達最新訊息`);
+          hasMoreNew = false;
+          break;
         }
 
-        try {
-          const existing = await this.pool.query(
-            "SELECT 1 FROM messages WHERE message_id = $1",
-            [message.id]
-          );
+        for (const [, message] of newMessages) {
+          if (message.author.bot) continue;
 
-          if (existing.rows.length > 0) {
-            messagesDuplicate++;
-          } else {
-            await saveMessage(this.pool, message);
-            if (message.content) {
-              await saveEmojiUsage(this.pool, message);
-            }
-            messagesSaved++;
+          messagesFetched++;
+
+          if (!newestMessageId || message.id > newestMessageId) {
+            newestMessageId = message.id;
+            newestTimestamp = message.createdAt;
           }
-        } catch (error) {
-          console.error(`❌ 儲存訊息失敗 ${message.id}:`, error.message);
+
+          try {
+            const existing = await this.pool.query(
+              "SELECT 1 FROM messages WHERE message_id = $1",
+              [message.id]
+            );
+
+            if (existing.rows.length > 0) {
+              messagesDuplicate++;
+            } else {
+              await saveMessage(this.pool, message);
+              if (message.content) {
+                await saveEmojiUsage(this.pool, message);
+              }
+              messagesSaved++;
+            }
+          } catch (error) {
+            console.error(`❌ 儲存訊息失敗 ${message.id}:`, error.message);
+          }
         }
+
+        // 更新進度
+        this.activeTasks.set(taskId, {
+          status: "running",
+          progress: {
+            messagesFetched,
+            messagesSaved,
+            messagesDuplicate,
+          },
+        });
+
+        afterId = newMessages.last().id;
+
+        // 每批次後稍作延遲
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        console.log(
+          `   已提取 ${messagesFetched} 則訊息 (已儲存: ${messagesSaved}, 重複: ${messagesDuplicate})`
+        );
       }
 
       // 檢查範圍重疊
@@ -374,12 +420,21 @@ class HistoryFetcher {
 
       this.activeTasks.delete(taskId);
 
-      console.log(
-        `✅ 提取完成: 共 ${messagesFetched} 則訊息 (已儲存: ${messagesSaved}, 重複: ${messagesDuplicate})`
-      );
-      console.log(
-        `   時間範圍: ${oldestTimestamp?.toISOString()} ~ ${newestTimestamp?.toISOString()}`
-      );
+      const duration = ((new Date() - startTime) / 1000).toFixed(2);
+      console.log(`\n${"=".repeat(60)}`);
+      console.log(`✅ 提取完成 (任務 ${taskId})`);
+      console.log(`   頻道: ${channel.name}`);
+      console.log(`   總訊息數: ${messagesFetched}`);
+      console.log(`   已儲存: ${messagesSaved}`);
+      console.log(`   重複: ${messagesDuplicate}`);
+      console.log(`   耗時: ${duration} 秒`);
+      if (oldestTimestamp && newestTimestamp) {
+        console.log(
+          `   時間範圍: ${oldestTimestamp.toISOString()} ~ ${newestTimestamp.toISOString()}`
+        );
+        console.log(`   訊息 ID 範圍: ${oldestMessageId} ~ ${newestMessageId}`);
+      }
+      console.log(`${"=".repeat(60)}\n`);
 
       return {
         success: true,

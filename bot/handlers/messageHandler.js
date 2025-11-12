@@ -6,14 +6,18 @@
 async function saveMessage(pool, message) {
   const query = `
     INSERT INTO messages (
-      guild_id, channel_id, user_id, username, 
+      message_id, guild_id, channel_id, user_id, username, 
       message_length, has_emoji, created_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    ON CONFLICT (message_id) 
+    WHERE message_id IS NOT NULL 
+    DO NOTHING
   `;
 
   const hasEmoji = hasEmojiInMessage(message.content);
 
   const values = [
+    message.id || null, // Discord 訊息 ID（可能為 null）
     message.guild.id,
     message.channel.id,
     message.author.id,
@@ -24,17 +28,21 @@ async function saveMessage(pool, message) {
   ];
 
   try {
-    await pool.query(query, values);
+    const result = await pool.query(query, values);
 
-    // 更新頻道統計
-    await updateChannelStats(
-      pool,
-      message.guild.id,
-      message.channel.id,
-      message.channel.name
-    );
+    // 只有在實際插入時才更新頻道統計（避免重複計數）
+    if (result.rowCount > 0) {
+      await updateChannelStats(
+        pool,
+        message.guild.id,
+        message.channel.id,
+        message.channel.name
+      );
+    }
+
+    return result.rowCount > 0; // 返回是否成功插入
   } catch (error) {
-    console.error("❌ 儲存訊息失敗:", error.message);
+    console.error(`❌ 儲存訊息失敗 ${message.id}:`, error.message);
     throw error;
   }
 }

@@ -1,110 +1,151 @@
 # Discord 伺服器統計與可視化 Embedded App
 
-一個功能完整的 Discord Embedded App，用於展示伺服器統計數據，包括成員活躍度、頻道使用情況、訊息量趨勢等。
+完整的 Discord Embedded App，提供伺服器統計、成員活動分析、歷史訊息提取等功能。
 
 ## 功能特色
 
-- 📊 **伺服器概覽** - 顯示總成員數、頻道數量、身分組數等基本資訊
-- 📈 **訊息量趨勢** - 7天內的訊息數量與活躍用戶趨勢圖表
-- 💬 **頻道使用情況** - 各頻道的訊息數量統計
-- 👥 **成員活躍度** - 最活躍成員排行榜
-- 😀 **表情使用排行** - 統計自訂表情和 Unicode 表情的使用次數
-- ☁️ **關鍵詞雲** - 視覺化展示伺服器中最常出現的關鍵詞
+- 📊 **即時統計**：伺服器概覽、成員數、頻道數、角色數
+- 📈 **趨勢分析**：7 天訊息量和活躍用戶趨勢圖表
+- 💬 **頻道分析**：各頻道使用率統計
+- 👥 **成員排行**：活躍度排行榜（Top 10）
+- 😀 **表情統計**：自訂和 Unicode 表情使用排名
+- 🕐 **歷史提取**：批量提取頻道歷史訊息（管理員功能）
+- 🎨 **現代化 UI**：使用 shadcn/ui 和 Tailwind CSS
 
-## 技術棧
+## 技術架構
 
-### 前端
-- React 18 + TypeScript (strict mode)
-- Vite - 構建工具
-- Chart.js + react-chartjs-2 - 圖表視覺化
-- react-wordcloud - 詞雲視覺化
+### 前端 (client/)
+- Next.js 16 + App Router
+- React 19 + TypeScript (strict mode)
+- shadcn/ui + Tailwind CSS v4
+- Recharts 數據可視化
 - Discord Embedded App SDK
-- Axios - HTTP 客戶端
 
-### 後端
+### 後端 (server/)
 - Node.js + Express
+- PostgreSQL 資料庫
+- RESTful API
+
+### Bot (bot/)
 - Discord.js v14
-- PostgreSQL + node-postgres
-- node-cron - 定時任務
+- 即時訊息收集
+- 歷史訊息提取
+- 每日統計聚合
 
 ## 快速開始
 
-### 1. 安裝依賴
-```bash
-npm install && cd client && npm install && cd ../bot && npm install && cd ..
-```
+### 1. 環境需求
 
-### 2. 設置數據庫
+- Node.js 18+
+- PostgreSQL 12+
+- Discord Bot Token
+- Discord Application (Embedded App)
+
+### 2. 安裝依賴
+
 ```bash
-createdb discord_stats
-psql -U postgres -d discord_stats -f bot/database/create_tables.sql
+# 安裝所有依賴
+npm install
+cd client && npm install
+cd ../bot && npm install
 ```
 
 ### 3. 配置環境變數
-複製 `.env.example` 為 `.env` 並填入你的 Discord 配置。
 
-詳細設置步驟請參考 **`SETUP.md`**
+複製並編輯環境變數文件：
 
-### 4. 啟動應用
 ```bash
-npm run dev
+# 根目錄 .env
+cp .env.example .env
+
+# Bot .env
+cp bot/.env.example bot/.env
+
+# Client .env.local
+cp client/.env.local.example client/.env.local
 ```
 
-### 5. 在 Discord 中測試
-在 Discord 頻道中點擊「+」→「Activities」→ 選擇你的應用
+詳細配置說明請參考 [docs/CONFIGURATION.md](docs/CONFIGURATION.md)
+
+### 4. 初始化資料庫
+
+```bash
+# 創建資料庫
+createdb discord_stats
+
+# 執行架構腳本
+psql -U postgres -d discord_stats -f bot/database/schema.sql
+```
+
+### 5. 啟動服務
+
+```bash
+# 開發模式（啟動所有服務）
+npm run dev
+
+# 服務將運行在：
+# - Server: http://localhost:3008
+# - Client: http://localhost:3000
+# - Bot: 自動啟動
+```
+
+## 文檔
+
+- [配置指南](docs/CONFIGURATION.md) - 環境變數和配置說明
+- [開發指南](docs/DEVELOPMENT.md) - 開發環境設置和常用命令
+- [部署指南](docs/DEPLOYMENT.md) - 生產環境部署步驟
+- [資料庫架構](bot/database/README.md) - 資料庫表結構說明
+- [故障排除](docs/TROUBLESHOOTING.md) - 常見問題解決方案
 
 ## 專案結構
 
 ```
 discord-embed-app/
-├── client/                 # React + TypeScript 前端
-│   ├── src/
-│   │   ├── components/    # React 組件
-│   │   ├── types/         # TypeScript 類型定義
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   └── package.json
-├── server/                # Express API
-│   ├── controllers/
-│   ├── routes/
-│   ├── middleware/
-│   └── index.js
-├── bot/                   # Discord Bot
-│   ├── database/          # 數據庫配置和腳本
-│   ├── handlers/          # 訊息處理器
+├── bot/                    # Discord Bot
+│   ├── database/          # 資料庫架構
+│   ├── handlers/          # 訊息和歷史提取處理
 │   ├── jobs/              # 定時任務
-│   └── index.js
-├── SETUP.md               # 設置指南
-├── DEVELOPMENT.md         # 開發指南
-├── CONFIGURATION.md       # 配置說明
-├── TROUBLESHOOTING.md     # 故障排除
-└── README.md
+│   └── commands/          # Bot 命令
+├── server/                # Express API
+│   ├── controllers/       # 業務邏輯
+│   ├── routes/           # API 路由
+│   └── middleware/       # 中間件
+├── client/               # Next.js 前端
+│   ├── app/             # App Router 頁面
+│   ├── components/      # React 組件
+│   ├── lib/             # 工具函數
+│   └── types/           # TypeScript 類型
+└── docs/                # 文檔
 ```
 
-## API 端點
+## 主要命令
 
-- `GET /api/stats/server/:guildId` - 獲取伺服器總體統計
-- `GET /api/stats/members/:guildId` - 獲取成員活躍度
-- `GET /api/stats/channels/:guildId` - 獲取頻道使用情況
-- `GET /api/stats/messages/:guildId` - 獲取訊息量趨勢
-- `GET /api/stats/emojis/:guildId` - 獲取表情使用統計
-- `GET /api/stats/keywords/:guildId` - 獲取關鍵詞雲數據
+```bash
+# 開發
+npm run dev              # 啟動所有服務（推薦）
+npm run server           # 只啟動 server（包含 bot）
+npm run client           # 只啟動 client
 
-## 文檔
+# 生產
+npm run build            # 構建前端
+npm start                # 啟動生產服務器
 
-- **`SETUP.md`** - 完整設置指南（必讀）
-- **`DEVELOPMENT.md`** - 開發指南和數據庫設計
-- **`CONFIGURATION.md`** - 白名單、Discord Portal 和命令配置
-- **`TROUBLESHOOTING.md`** - 故障排除
+# 資料庫
+psql -d discord_stats -f bot/database/schema.sql  # 初始化資料庫
+```
 
-## 注意事項
+## 管理員功能
 
-- 🔒 生產環境必須設定白名單（`ALLOWED_GUILD_IDS`）
-- 確保 Bot 有足夠的權限訪問伺服器資訊
-- 在 Discord Developer Portal 啟用 Message Content Intent
-- 生產環境需要配置 HTTPS 和適當的 CORS 設定
-- 遵守隱私法規，妥善處理用戶數據
+訪問 `/admin` 頁面使用歷史訊息提取功能：
+
+1. **批量提取**：智能識別需要更新的頻道，一鍵批量提取
+2. **頻道管理**：查看所有頻道和提取狀態
+3. **提取歷史**：查看所有提取任務的進度和結果
 
 ## 授權
 
-ISC
+ISC License
+
+## 貢獻
+
+歡迎提交 Issue 和 Pull Request！
