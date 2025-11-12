@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import {
   Card,
   CardContent,
@@ -18,6 +21,8 @@ import type { FetchSummary } from "@/types";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3008";
 
 export default function AdminPage() {
+  const router = useRouter();
+  const { t } = useLanguage();
   const [guildId, setGuildId] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -260,7 +265,7 @@ export default function AdminPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">載入中...</p>
+          <p className="text-muted-foreground">{t.common.loading}...</p>
         </div>
       </div>
     );
@@ -271,12 +276,12 @@ export default function AdminPage() {
       <div className="flex items-center justify-center min-h-screen">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>權限不足</CardTitle>
-            <CardDescription>您需要管理員權限才能訪問此頁面</CardDescription>
+            <CardTitle>{t.admin.noPermission}</CardTitle>
+            <CardDescription>{t.admin.needAdminPermission}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              請聯繫伺服器管理員以獲取訪問權限。
+              {t.admin.contactAdmin}
             </p>
           </CardContent>
         </Card>
@@ -289,15 +294,15 @@ export default function AdminPage() {
       <div className="container mx-auto p-6 space-y-6 max-w-7xl">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">管理員控制台</h1>
-            <p className="text-muted-foreground">歷史訊息提取與管理</p>
+            <h1 className="text-3xl font-bold">{t.admin.title}</h1>
+            <p className="text-muted-foreground">{t.admin.description}</p>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => (window.location.href = "/")}
-          >
-            ← 返回主頁
-          </Button>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <Button variant="outline" onClick={() => router.push("/")}>
+              ← {t.admin.backToHome}
+            </Button>
+          </div>
         </div>
 
         {/* 摘要卡片 */}
@@ -305,7 +310,7 @@ export default function AdminPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>總任務數</CardDescription>
+                <CardDescription>{t.admin.totalTasks}</CardDescription>
                 <CardTitle className="text-3xl">
                   {summary.total_tasks}
                 </CardTitle>
@@ -313,13 +318,17 @@ export default function AdminPage() {
               <CardContent>
                 <div className="text-xs space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">運行中:</span>
+                    <span className="text-muted-foreground">
+                      {t.admin.running}:
+                    </span>
                     <span className="font-medium text-blue-600">
                       {summary.running_tasks}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">待處理:</span>
+                    <span className="text-muted-foreground">
+                      {t.admin.pending}:
+                    </span>
                     <span className="font-medium text-yellow-600">
                       {summary.pending_tasks}
                     </span>
@@ -330,21 +339,22 @@ export default function AdminPage() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>已提取訊息</CardDescription>
+                <CardDescription>{t.admin.messagesFetched}</CardDescription>
                 <CardTitle className="text-3xl">
                   {summary.total_messages_saved?.toLocaleString()}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-xs text-muted-foreground">
-                  重複: {summary.total_messages_duplicate?.toLocaleString()}
+                  {t.admin.duplicate}:{" "}
+                  {summary.total_messages_duplicate?.toLocaleString()}
                 </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>完成率</CardDescription>
+                <CardDescription>{t.admin.completionRate}</CardDescription>
                 <CardTitle className="text-3xl">
                   {summary.total_tasks > 0
                     ? Math.round(
@@ -356,21 +366,22 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-xs text-muted-foreground">
-                  成功: {summary.completed_tasks} | 失敗: {summary.failed_tasks}
+                  {t.admin.success}: {summary.completed_tasks} |{" "}
+                  {t.admin.failed}: {summary.failed_tasks}
                 </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="pb-2">
-                <CardDescription>已處理頻道</CardDescription>
+                <CardDescription>{t.admin.channelsProcessed}</CardDescription>
                 <CardTitle className="text-3xl">
                   {summary.channels_processed}
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-xs text-muted-foreground">
-                  警告: {summary.warning_tasks}
+                  {t.admin.warning}: {summary.warning_tasks}
                 </div>
               </CardContent>
             </Card>
@@ -386,19 +397,19 @@ export default function AdminPage() {
             variant={activeTab === "batch" ? "default" : "ghost"}
             onClick={() => setActiveTab("batch")}
           >
-            批量提取
+            {t.admin.batchFetch}
           </Button>
           <Button
             variant={activeTab === "channels" ? "default" : "ghost"}
             onClick={() => setActiveTab("channels")}
           >
-            頻道列表
+            {t.admin.channelList}
           </Button>
           <Button
             variant={activeTab === "history" ? "default" : "ghost"}
             onClick={() => setActiveTab("history")}
           >
-            提取歷史
+            {t.admin.fetchHistory}
           </Button>
         </div>
 

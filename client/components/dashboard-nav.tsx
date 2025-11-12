@@ -4,7 +4,6 @@ import * as React from "react";
 import Link from "next/link";
 import {
   BarChart3,
-  MessageSquare,
   Users,
   Smile,
   Hash,
@@ -12,6 +11,7 @@ import {
   Settings,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -22,45 +22,46 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu";
 
-const statsItems = [
-  {
-    title: "伺服器概覽",
-    href: "#server",
-    description: "查看伺服器基本資訊、成員數、頻道數和身分組數",
-    icon: BarChart3,
-  },
-  {
-    title: "訊息趨勢",
-    href: "#messages",
-    description: "7天訊息量和活躍用戶數趨勢圖表",
-    icon: TrendingUp,
-  },
-  {
-    title: "頻道使用",
-    href: "#channels",
-    description: "各頻道的訊息數量統計",
-    icon: Hash,
-  },
-  {
-    title: "成員活躍度",
-    href: "#members",
-    description: "成員發言排行榜和活躍時間",
-    icon: Users,
-  },
-  {
-    title: "表情符號",
-    href: "#emojis",
-    description: "最常使用的表情符號統計",
-    icon: Smile,
-  },
-];
-
 interface DashboardNavProps {
   isAdmin?: boolean;
 }
 
 export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
   const isMobile = useIsMobile();
+  const { t } = useLanguage();
+
+  const statsItems = [
+    {
+      title: t.stats.serverOverview,
+      href: "#server",
+      description: t.stats.viewServerInfo,
+      icon: BarChart3,
+    },
+    {
+      title: t.stats.messageTrends,
+      href: "#messages",
+      description: t.stats.view7DayTrends,
+      icon: TrendingUp,
+    },
+    {
+      title: t.stats.channelUsage,
+      href: "#channels",
+      description: t.stats.viewChannelStats,
+      icon: Hash,
+    },
+    {
+      title: t.stats.memberActivity,
+      href: "#members",
+      description: t.stats.viewMemberRanking,
+      icon: Users,
+    },
+    {
+      title: t.stats.emojiStats,
+      href: "#emojis",
+      description: t.stats.viewEmojiUsage,
+      icon: Smile,
+    },
+  ];
 
   return (
     <div className="flex items-center gap-2">
@@ -74,14 +75,14 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
               >
                 <Link href="/admin">
                   <Settings className="mr-2 h-4 w-4" />
-                  管理員
+                  {t.nav.admin}
                 </Link>
               </NavigationMenuLink>
             </NavigationMenuItem>
           )}
 
           <NavigationMenuItem>
-            <NavigationMenuTrigger>統計項目</NavigationMenuTrigger>
+            <NavigationMenuTrigger>{t.nav.stats}</NavigationMenuTrigger>
             <NavigationMenuContent>
               <ul className="grid gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
                 {statsItems.map((item) => (
@@ -99,7 +100,7 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
           </NavigationMenuItem>
 
           <NavigationMenuItem className="hidden md:block">
-            <NavigationMenuTrigger>快速跳轉</NavigationMenuTrigger>
+            <NavigationMenuTrigger>{t.nav.quickJump}</NavigationMenuTrigger>
             <NavigationMenuContent>
               <ul className="grid w-[300px] gap-3 p-4">
                 <li>
@@ -110,7 +111,7 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
                     >
                       <div className="flex items-center gap-2 text-sm font-medium leading-none">
                         <BarChart3 className="h-4 w-4" />
-                        伺服器概覽
+                        {t.nav.server}
                       </div>
                     </Link>
                   </NavigationMenuLink>
@@ -123,7 +124,7 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
                     >
                       <div className="flex items-center gap-2 text-sm font-medium leading-none">
                         <TrendingUp className="h-4 w-4" />
-                        訊息趨勢
+                        {t.nav.messages}
                       </div>
                     </Link>
                   </NavigationMenuLink>
@@ -136,7 +137,7 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
                     >
                       <div className="flex items-center gap-2 text-sm font-medium leading-none">
                         <Users className="h-4 w-4" />
-                        成員活躍度
+                        {t.nav.members}
                       </div>
                     </Link>
                   </NavigationMenuLink>

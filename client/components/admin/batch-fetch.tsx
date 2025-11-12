@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -37,6 +38,7 @@ export function BatchFetch({
   channels,
   onStartBatch,
 }: BatchFetchProps) {
+  const { t } = useLanguage();
   console.log("🎨 BatchFetch 組件渲染");
   console.log("Props:", { guildId, userId, channelsCount: channels.length });
   console.log("onStartBatch 函數:", typeof onStartBatch);
@@ -113,36 +115,40 @@ export function BatchFetch({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <PlayCircle className="h-5 w-5" />
-          批量提取
+          {t.admin.batchFetch}
         </CardTitle>
-        <CardDescription>
-          智能識別需要提取的頻道，一鍵批量提取歷史訊息
-        </CardDescription>
+        <CardDescription>{t.admin.smartDetect}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* 統計信息 */}
         <div className="grid grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
           <div className="text-center">
             <div className="text-2xl font-bold">{channels.length}</div>
-            <div className="text-xs text-muted-foreground">總頻道數</div>
+            <div className="text-xs text-muted-foreground">
+              {t.admin.totalChannels}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-yellow-600">
               {neverFetchedCount}
             </div>
-            <div className="text-xs text-muted-foreground">尚未提取</div>
+            <div className="text-xs text-muted-foreground">
+              {t.admin.notFetched}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-2xl font-bold text-orange-600">
               {needsUpdateCount}
             </div>
-            <div className="text-xs text-muted-foreground">需要更新</div>
+            <div className="text-xs text-muted-foreground">
+              {t.admin.needUpdate}
+            </div>
           </div>
         </div>
 
         {/* 快速選擇 */}
         <div className="space-y-2">
-          <div className="text-sm font-medium">快速選擇：</div>
+          <div className="text-sm font-medium">{t.admin.quickSelect}：</div>
           <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
             <Button
               size="sm"
@@ -150,7 +156,7 @@ export function BatchFetch({
               onClick={() => autoSelect("outdated")}
               className="whitespace-nowrap flex-shrink-0"
             >
-              需要更新的頻道 ({needsUpdateCount})
+              {t.admin.needsUpdate} ({needsUpdateCount})
             </Button>
             <Button
               size="sm"
@@ -158,7 +164,7 @@ export function BatchFetch({
               onClick={() => autoSelect("never")}
               className="whitespace-nowrap flex-shrink-0"
             >
-              尚未提取的頻道 ({neverFetchedCount})
+              {t.admin.neverFetched} ({neverFetchedCount})
             </Button>
             <Button
               size="sm"
@@ -166,7 +172,7 @@ export function BatchFetch({
               onClick={() => autoSelect("all")}
               className="whitespace-nowrap flex-shrink-0"
             >
-              全部頻道 ({channels.length})
+              {t.admin.allChannels} ({channels.length})
             </Button>
             <Button
               size="sm"
@@ -174,7 +180,7 @@ export function BatchFetch({
               onClick={() => setSelectedChannels(new Set())}
               className="whitespace-nowrap flex-shrink-0"
             >
-              清除選擇
+              {t.admin.clearSelection}
             </Button>
           </div>
         </div>
@@ -183,7 +189,7 @@ export function BatchFetch({
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {channels.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
-              沒有可用的頻道
+              {t.admin.noChannels}
             </div>
           ) : (
             channels.map((channel) => (
@@ -202,12 +208,12 @@ export function BatchFetch({
                     {channel.needsUpdate && (
                       <Badge variant="default" className="bg-orange-500">
                         <AlertCircle className="h-3 w-3 mr-1" />
-                        需要更新
+                        {t.admin.needUpdate}
                       </Badge>
                     )}
                     {!channel.lastFetchTime && (
                       <Badge variant="default" className="bg-yellow-500">
-                        未提取
+                        {t.admin.notFetched}
                       </Badge>
                     )}
                   </div>
@@ -218,7 +224,7 @@ export function BatchFetch({
 
                   {channel.lastFetchTime && (
                     <div className="text-xs text-muted-foreground">
-                      最後提取:{" "}
+                      {t.admin.lastFetch}:{" "}
                       {new Date(channel.lastFetchTime).toLocaleString("zh-TW")}
                     </div>
                   )}
@@ -226,7 +232,7 @@ export function BatchFetch({
 
                 {channel.messageCount !== undefined && (
                   <div className="text-sm text-muted-foreground">
-                    {channel.messageCount.toLocaleString()} 則
+                    {channel.messageCount.toLocaleString()} {t.stats.messages}
                   </div>
                 )}
               </div>
@@ -237,7 +243,7 @@ export function BatchFetch({
         {/* 開始按鈕 */}
         <div className="flex items-center justify-between pt-4 border-t">
           <div className="text-sm text-muted-foreground">
-            已選擇 {selectedChannels.size} 個頻道
+            {t.admin.selected} {selectedChannels.size} {t.admin.channels}
           </div>
           <Button
             onClick={() => {
@@ -250,12 +256,12 @@ export function BatchFetch({
             {isStarting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                啟動中...
+                {t.admin.starting}
               </>
             ) : (
               <>
                 <PlayCircle className="mr-2 h-4 w-4" />
-                開始批量提取
+                {t.admin.startBatchFetch}
               </>
             )}
           </Button>

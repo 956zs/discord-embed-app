@@ -5,6 +5,8 @@ import axios from "axios";
 import { TrendingUp, Hash, Users, Smile, BarChart3 } from "lucide-react";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { UserInfo } from "@/components/user-info";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Card,
   CardContent,
@@ -23,6 +25,7 @@ import type {
 } from "@/types";
 
 export default function Home() {
+  const { t } = useLanguage();
   const [guildId, setGuildId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
@@ -34,25 +37,25 @@ export default function Home() {
   const [emojiStats, setEmojiStats] = useState<EmojiUsage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<string>("all"); // 新增：時間範圍
+  const [timeRange, setTimeRange] = useState<string>("all");
 
   // 獲取時間範圍的顯示文字
   const getTimeRangeText = () => {
     switch (timeRange) {
       case "7":
-        return "過去 7 天";
+        return t.home.days7;
       case "30":
-        return "過去 30 天";
+        return t.home.days30;
       case "90":
-        return "過去 90 天";
+        return t.home.days90;
       case "180":
-        return "過去 180 天";
+        return t.home.days180;
       case "365":
-        return "過去一年";
+        return t.home.days365;
       case "all":
-        return "所有時間";
+        return t.home.allTime;
       default:
-        return "所有時間";
+        return t.home.allTime;
     }
   };
 
@@ -72,19 +75,28 @@ export default function Home() {
           // 開發模式：使用環境變數
           gid = process.env.NEXT_PUBLIC_DEV_GUILD_ID || null;
           uid = process.env.NEXT_PUBLIC_DEV_USER_ID || null;
-          username = "Dev User"; // 開發模式的預設用戶名
+          username = "Dev User";
           console.log("🔧 開發模式:", { gid, uid, username });
         } else {
           // 生產模式：從 Discord SDK 獲取
           try {
-            const { getDiscordContext } = await import("@/lib/discord-sdk");
+            const { getDiscordContext, getDiscordSdk } = await import(
+              "@/lib/discord-sdk"
+            );
+
+            // 檢查是否已經有 SDK 實例
+            const existingSdk = getDiscordSdk();
+            if (existingSdk) {
+              console.log("♻️ 使用現有的 Discord SDK 實例");
+            }
+
             const context = await getDiscordContext();
 
             gid = context.guildId;
             uid = context.userId;
             username = context.username;
 
-            console.log("📱 Discord SDK:", { gid, uid, username });
+            console.log("📱 Discord SDK 上下文:", { gid, uid, username });
           } catch (sdkError) {
             console.error("Discord SDK 初始化失敗:", sdkError);
 
@@ -120,7 +132,7 @@ export default function Home() {
           }
         } else {
           console.warn("⚠️ 未找到 Guild ID");
-          setError("此應用需要在 Discord 伺服器中開啟");
+          setError(t.home.openInDiscord);
           setLoading(false);
         }
       } catch (error) {
@@ -200,8 +212,8 @@ export default function Home() {
           <div className="flex justify-center">
             <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
           </div>
-          <div className="text-2xl font-bold">載入中...</div>
-          <div className="text-muted-foreground">正在獲取伺服器統計資料</div>
+          <div className="text-2xl font-bold">{t.home.loading}</div>
+          <div className="text-muted-foreground">{t.home.loadingData}</div>
         </div>
       </div>
     );
@@ -211,19 +223,21 @@ export default function Home() {
     return (
       <div className="flex min-h-screen items-center justify-center p-8">
         <div className="max-w-md space-y-4 text-center">
-          <div className="text-2xl font-bold text-destructive">載入失敗</div>
+          <div className="text-2xl font-bold text-destructive">
+            {t.home.loadFailed}
+          </div>
           <div className="text-muted-foreground">{error}</div>
           {guildId && (
             <button
               onClick={() => fetchAllData(guildId)}
               className="rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
             >
-              重試
+              {t.home.retry}
             </button>
           )}
           {!guildId && (
             <div className="text-sm text-muted-foreground">
-              請在 Discord 伺服器中開啟此活動
+              {t.home.openInDiscord}
             </div>
           )}
         </div>
@@ -237,6 +251,9 @@ export default function Home() {
         <div className="container mx-auto flex h-16 items-center px-6 gap-4">
           <UserInfo username={username} userId={userId} isAdmin={isAdmin} />
           <DashboardNav isAdmin={isAdmin} />
+          <div className="ml-auto">
+            <LanguageSwitcher />
+          </div>
         </div>
       </header>
 
@@ -268,12 +285,10 @@ export default function Home() {
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="space-y-2">
               <h1 className="text-2xl md:text-4xl font-bold tracking-tight">
-                {serverStats?.name || "Discord 伺服器統計"}
+                {serverStats?.name || t.home.title}
               </h1>
               <p className="text-sm md:text-lg text-muted-foreground">
-                {guildId
-                  ? "查看伺服器的詳細統計資訊和活動分析"
-                  : "請在 Discord 伺服器中開啟此活動"}
+                {guildId ? t.home.description : t.home.openInDiscord}
               </p>
             </div>
 
@@ -281,19 +296,19 @@ export default function Home() {
             {guildId && (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  時間範圍:
+                  {t.home.timeRange}:
                 </span>
                 <select
                   value={timeRange}
                   onChange={(e) => setTimeRange(e.target.value)}
                   className="flex-1 md:flex-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <option value="7">最近 7 天</option>
-                  <option value="30">最近 30 天</option>
-                  <option value="90">最近 90 天</option>
-                  <option value="180">最近 180 天</option>
-                  <option value="365">最近一年</option>
-                  <option value="all">所有時間</option>
+                  <option value="7">{t.home.days7}</option>
+                  <option value="30">{t.home.days30}</option>
+                  <option value="90">{t.home.days90}</option>
+                  <option value="180">{t.home.days180}</option>
+                  <option value="365">{t.home.days365}</option>
+                  <option value="all">{t.home.allTime}</option>
                 </select>
               </div>
             )}
@@ -307,10 +322,10 @@ export default function Home() {
               <CardHeader className="pb-4 md:pb-6">
                 <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
                   <BarChart3 className="h-5 w-5 md:h-6 md:w-6" />
-                  伺服器概覽
+                  {t.stats.serverOverview}
                 </CardTitle>
                 <CardDescription className="text-sm md:text-base">
-                  {serverStats?.name || "伺服器基本資訊統計"}
+                  {serverStats?.name || t.stats.serverInfo}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -318,7 +333,7 @@ export default function Home() {
                   <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2 md:space-y-3 rounded-xl border-2 bg-muted/50 p-4 md:p-6 transition-colors hover:bg-muted/70">
                       <p className="text-xs md:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        成員數
+                        {t.stats.memberCount}
                       </p>
                       <p className="text-3xl md:text-4xl font-bold">
                         {serverStats.memberCount}
@@ -326,7 +341,7 @@ export default function Home() {
                     </div>
                     <div className="space-y-2 md:space-y-3 rounded-xl border-2 bg-muted/50 p-4 md:p-6 transition-colors hover:bg-muted/70">
                       <p className="text-xs md:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        頻道數
+                        {t.stats.channelCount}
                       </p>
                       <p className="text-3xl md:text-4xl font-bold">
                         {serverStats.channelCount}
@@ -334,7 +349,7 @@ export default function Home() {
                     </div>
                     <div className="space-y-2 md:space-y-3 rounded-xl border-2 bg-muted/50 p-4 md:p-6 transition-colors hover:bg-muted/70 sm:col-span-2 lg:col-span-1">
                       <p className="text-xs md:text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        身分組數
+                        {t.stats.roleCount}
                       </p>
                       <p className="text-3xl md:text-4xl font-bold">
                         {serverStats.roleCount}
@@ -343,7 +358,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <div className="flex h-32 items-center justify-center text-muted-foreground">
-                    無法載入伺服器資訊
+                    {t.home.cannotLoadServer}
                   </div>
                 )}
               </CardContent>
@@ -356,10 +371,11 @@ export default function Home() {
               <CardHeader className="pb-4 md:pb-6">
                 <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
                   <TrendingUp className="h-5 w-5 md:h-6 md:w-6" />
-                  訊息趨勢
+                  {t.stats.messageTrends}
                 </CardTitle>
                 <CardDescription className="text-sm md:text-base">
-                  {getTimeRangeText()}的訊息量和活躍用戶統計
+                  {getTimeRangeText()}
+                  {t.stats.messageTrendsDesc}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -367,7 +383,7 @@ export default function Home() {
                   <MessageTrendsChart data={messageTrends} />
                 ) : (
                   <div className="flex h-[350px] items-center justify-center text-muted-foreground">
-                    暫無訊息趨勢資料
+                    {t.home.noMessageTrends}
                   </div>
                 )}
               </CardContent>
@@ -381,10 +397,10 @@ export default function Home() {
                 <CardHeader className="pb-4 md:pb-6">
                   <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
                     <Hash className="h-5 w-5 md:h-6 md:w-6" />
-                    頻道使用統計
+                    {t.stats.channelUsage}
                   </CardTitle>
                   <CardDescription className="text-sm md:text-base">
-                    各頻道的訊息數量
+                    {t.stats.channelUsageDesc}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -392,7 +408,7 @@ export default function Home() {
                     <ChannelUsageChart data={channelUsage.slice(0, 10)} />
                   ) : (
                     <div className="flex h-[350px] items-center justify-center text-muted-foreground">
-                      暫無頻道使用資料
+                      {t.home.noChannelUsage}
                     </div>
                   )}
                 </CardContent>
@@ -405,10 +421,10 @@ export default function Home() {
                 <CardHeader className="pb-4 md:pb-6">
                   <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
                     <Users className="h-5 w-5 md:h-6 md:w-6" />
-                    成員活躍度
+                    {t.stats.memberActivity}
                   </CardTitle>
                   <CardDescription className="text-sm md:text-base">
-                    發言次數排行榜 Top 10
+                    {t.stats.memberActivityDesc}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -428,14 +444,15 @@ export default function Home() {
                             </span>
                           </div>
                           <span className="text-sm font-medium text-muted-foreground">
-                            {member.messageCount.toLocaleString()} 則
+                            {member.messageCount.toLocaleString()}{" "}
+                            {t.stats.messages}
                           </span>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div className="flex h-[350px] items-center justify-center text-muted-foreground">
-                      暫無成員活躍度資料
+                      {t.home.noMemberActivity}
                     </div>
                   )}
                 </CardContent>
@@ -448,10 +465,10 @@ export default function Home() {
                 <CardHeader className="pb-4 md:pb-6">
                   <CardTitle className="flex items-center gap-2 text-xl md:text-2xl">
                     <Smile className="h-5 w-5 md:h-6 md:w-6" />
-                    表情符號統計
+                    {t.stats.emojiStats}
                   </CardTitle>
                   <CardDescription className="text-sm md:text-base">
-                    最常使用的表情符號 Top 10
+                    {t.stats.emojiStatsDesc}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -477,14 +494,14 @@ export default function Home() {
                             </span>
                           </div>
                           <span className="text-sm font-medium text-muted-foreground">
-                            {emoji.count.toLocaleString()} 次
+                            {emoji.count.toLocaleString()} {t.stats.times}
                           </span>
                         </div>
                       ))}
                     </div>
                   ) : (
                     <div className="flex h-[350px] items-center justify-center text-muted-foreground">
-                      暫無表情符號資料
+                      {t.home.noEmojiStats}
                     </div>
                   )}
                 </CardContent>

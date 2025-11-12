@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Card,
   CardContent,
@@ -23,6 +24,7 @@ interface FetchHistoryProps {
 }
 
 export function FetchHistory({ guildId }: FetchHistoryProps) {
+  const { t } = useLanguage();
   const [tasks, setTasks] = useState<HistoryTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("all");
@@ -58,35 +60,35 @@ export function FetchHistory({ guildId }: FetchHistoryProps) {
         return (
           <Badge variant="default" className="bg-green-500">
             <CheckCircle2 className="h-3 w-3 mr-1" />
-            完成
+            {t.admin.completed}
           </Badge>
         );
       case "running":
         return (
           <Badge variant="default" className="bg-blue-500">
             <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-            運行中
+            {t.admin.running}
           </Badge>
         );
       case "failed":
         return (
           <Badge variant="destructive">
             <XCircle className="h-3 w-3 mr-1" />
-            失敗
+            {t.admin.failed}
           </Badge>
         );
       case "warning":
         return (
           <Badge variant="default" className="bg-yellow-500">
             <AlertTriangle className="h-3 w-3 mr-1" />
-            警告
+            {t.admin.warning}
           </Badge>
         );
       case "pending":
         return (
           <Badge variant="secondary">
             <Clock className="h-3 w-3 mr-1" />
-            待處理
+            {t.admin.pending}
           </Badge>
         );
     }
@@ -113,7 +115,9 @@ export function FetchHistory({ guildId }: FetchHistoryProps) {
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="text-center text-muted-foreground">載入中...</div>
+          <div className="text-center text-muted-foreground">
+            {t.common.loading}...
+          </div>
         </CardContent>
       </Card>
     );
@@ -122,8 +126,8 @@ export function FetchHistory({ guildId }: FetchHistoryProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>提取歷史</CardTitle>
-        <CardDescription>查看所有歷史訊息提取任務</CardDescription>
+        <CardTitle>{t.admin.fetchHistory}</CardTitle>
+        <CardDescription>{t.admin.viewAllTasks}</CardDescription>
 
         {/* 篩選器 */}
         <div className="flex gap-2 mt-4">
@@ -135,14 +139,14 @@ export function FetchHistory({ guildId }: FetchHistoryProps) {
               onClick={() => setFilter(f)}
             >
               {f === "all"
-                ? "全部"
+                ? t.admin.all
                 : f === "running"
-                ? "運行中"
+                ? t.admin.running
                 : f === "completed"
-                ? "完成"
+                ? t.admin.completed
                 : f === "failed"
-                ? "失敗"
-                : "警告"}
+                ? t.admin.failed
+                : t.admin.warning}
             </Badge>
           ))}
         </div>
@@ -151,7 +155,7 @@ export function FetchHistory({ guildId }: FetchHistoryProps) {
         <div className="space-y-3">
           {tasks.length === 0 ? (
             <div className="text-center text-muted-foreground py-8">
-              沒有找到任務記錄
+              {t.admin.noTasks}
             </div>
           ) : (
             tasks.map((task) => (
@@ -163,7 +167,7 @@ export function FetchHistory({ guildId }: FetchHistoryProps) {
                       {getStatusBadge(task.status)}
                     </div>
                     <div className="text-sm text-muted-foreground mt-1">
-                      任務 ID: {task.id}
+                      {t.admin.taskId}: {task.id}
                     </div>
                   </div>
                   <div className="text-right text-sm">
@@ -172,7 +176,7 @@ export function FetchHistory({ guildId }: FetchHistoryProps) {
                     </div>
                     {task.started_at && task.completed_at && (
                       <div className="text-xs text-muted-foreground">
-                        耗時:{" "}
+                        {t.admin.duration}:{" "}
                         {formatDuration(task.started_at, task.completed_at)}
                       </div>
                     )}
@@ -181,19 +185,23 @@ export function FetchHistory({ guildId }: FetchHistoryProps) {
 
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <div className="text-muted-foreground">已提取</div>
+                    <div className="text-muted-foreground">
+                      {t.admin.fetched}
+                    </div>
                     <div className="font-medium">
                       {task.messages_fetched?.toLocaleString()}
                     </div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">已儲存</div>
+                    <div className="text-muted-foreground">{t.admin.saved}</div>
                     <div className="font-medium text-green-600">
                       {task.messages_saved?.toLocaleString()}
                     </div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground">重複</div>
+                    <div className="text-muted-foreground">
+                      {t.admin.duplicate}
+                    </div>
                     <div className="font-medium text-yellow-600">
                       {task.messages_duplicate?.toLocaleString()}
                     </div>
@@ -202,13 +210,14 @@ export function FetchHistory({ guildId }: FetchHistoryProps) {
 
                 {task.error_message && (
                   <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
-                    錯誤: {task.error_message}
+                    {t.admin.error}: {task.error_message}
                   </div>
                 )}
 
                 {task.start_message_id && task.end_message_id && (
                   <div className="text-xs text-muted-foreground">
-                    訊息範圍: {task.start_message_id} ~ {task.end_message_id}
+                    {t.admin.messageRange}: {task.start_message_id} ~{" "}
+                    {task.end_message_id}
                   </div>
                 )}
               </div>

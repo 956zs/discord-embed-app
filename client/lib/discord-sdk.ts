@@ -23,6 +23,7 @@ function parseUserFromUrl(): { userId: string; username: string } | null {
 
 export async function initDiscordSdk() {
   if (discordSdk) {
+    console.log("♻️ Discord SDK 已經初始化，重用現有實例");
     return discordSdk;
   }
 
@@ -120,7 +121,10 @@ export function getDiscordSdk() {
 
 export async function getDiscordContext() {
   if (!discordSdk) {
+    console.log("🔄 Discord SDK 未初始化，開始初始化...");
     await initDiscordSdk();
+  } else {
+    console.log("✅ 使用已初始化的 Discord SDK");
   }
 
   if (!discordSdk) {
@@ -129,10 +133,14 @@ export async function getDiscordContext() {
 
   // 如果還沒有用戶信息，嘗試從 URL 獲取
   if (!authInfo) {
+    console.log("🔍 嘗試從 URL 獲取用戶信息...");
     const urlUser = parseUserFromUrl();
     if (urlUser) {
       authInfo = urlUser;
+      console.log("✅ 從 URL 獲取用戶信息成功:", authInfo);
     }
+  } else {
+    console.log("✅ 使用已緩存的用戶信息:", authInfo);
   }
 
   const context = {
@@ -151,6 +159,7 @@ export async function getDiscordContext() {
       channelId: discordSdk.channelId,
       instanceId: discordSdk.instanceId,
       platform: discordSdk.platform,
+      authInfo: authInfo,
     });
   }
 

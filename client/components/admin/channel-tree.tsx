@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Card,
   CardContent,
@@ -47,6 +48,7 @@ interface ChannelTreeProps {
 }
 
 export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
+  const { t } = useLanguage();
   const [channels, setChannels] = useState<Channel[]>([]);
   const [fetchStats, setFetchStats] = useState<Map<string, ChannelFetchStats>>(
     new Map()
@@ -169,7 +171,7 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
   };
 
   const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return "從未提取";
+    if (!dateStr) return t.admin.neverFetched2;
     return new Date(dateStr).toLocaleString("zh-TW");
   };
 
@@ -177,7 +179,9 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="text-center text-muted-foreground">載入中...</div>
+          <div className="text-center text-muted-foreground">
+            {t.common.loading}...
+          </div>
         </CardContent>
       </Card>
     );
@@ -186,8 +190,8 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>頻道列表</CardTitle>
-        <CardDescription>選擇頻道開始提取歷史訊息</CardDescription>
+        <CardTitle>{t.admin.channelList}</CardTitle>
+        <CardDescription>{t.admin.selectChannel}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
@@ -229,21 +233,24 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
                       {hasStats && (
                         <div className="text-xs text-muted-foreground mt-1">
                           <div>
-                            已提取: {stats.total_messages?.toLocaleString()}{" "}
-                            則訊息
+                            {t.admin.fetched}:{" "}
+                            {stats.total_messages?.toLocaleString()}{" "}
+                            {t.stats.messages}
                             {" | "}
-                            任務: {stats.completed_tasks}/{stats.total_tasks}
+                            {t.admin.task}: {stats.completed_tasks}/
+                            {stats.total_tasks}
                             {stats.running_tasks > 0 &&
-                              ` (運行中: ${stats.running_tasks})`}
+                              ` (${t.admin.running}: ${stats.running_tasks})`}
                           </div>
                           <div>
-                            最後提取: {formatDate(stats.last_fetch_time)}
+                            {t.admin.lastFetch}:{" "}
+                            {formatDate(stats.last_fetch_time)}
                           </div>
                         </div>
                       )}
                       {!hasStats && (
                         <div className="text-xs text-muted-foreground mt-1">
-                          尚未提取過歷史訊息
+                          {t.admin.neverFetched2}
                         </div>
                       )}
                     </div>
@@ -254,7 +261,9 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
                     onClick={() => startFetch(channel.id, channel.name)}
                     disabled={startingFetch === channel.id}
                   >
-                    {startingFetch === channel.id ? "啟動中..." : "開始提取"}
+                    {startingFetch === channel.id
+                      ? t.admin.starting
+                      : t.admin.startFetchTask}
                   </Button>
                 </div>
 
@@ -272,18 +281,18 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
                             <span>{thread.name}</span>
                             {thread.archived && (
                               <span className="text-xs text-muted-foreground">
-                                (已歸檔)
+                                ({t.admin.archived})
                               </span>
                             )}
                             {thread.locked && (
                               <span className="text-xs text-muted-foreground">
-                                (已鎖定)
+                                ({t.admin.locked})
                               </span>
                             )}
                           </div>
                           {thread.messageCount > 0 && (
                             <div className="text-xs text-muted-foreground">
-                              {thread.messageCount} 則訊息
+                              {thread.messageCount} {t.stats.messages}
                             </div>
                           )}
                         </div>
