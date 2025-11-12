@@ -1,5 +1,27 @@
 # 故障排除指南
 
+完整的問題診斷和解決方案。
+
+## 快速診斷
+
+### 檢查所有服務狀態
+```bash
+# PostgreSQL
+pg_isready
+
+# 數據庫數據
+psql -U postgres -d discord_stats -c "SELECT COUNT(*) FROM messages;"
+
+# API
+curl -s http://localhost:3001/health
+
+# 前端
+curl -s http://localhost:5173 | head -5
+
+# 環境變數
+grep DISCORD_CLIENT_ID .env client/.env bot/.env 2>/dev/null
+```
+
 ## 問題 1: 本地 http://localhost:5173 空白
 
 ### 可能原因
@@ -264,44 +286,9 @@ curl http://localhost:5173
 - [ ] Bot 已加入伺服器
 - [ ] Bot Intents 已啟用（Server Members, Message Content）
 
-## 快速診斷命令
+## 重置並重新開始
 
-```bash
-# 檢查所有服務狀態
-echo "=== 檢查 PostgreSQL ==="
-pg_isready
-
-echo "=== 檢查數據庫數據 ==="
-psql -U postgres -d discord_stats -c "SELECT COUNT(*) FROM messages;"
-
-echo "=== 檢查 API ==="
-curl -s http://localhost:3001/health
-
-echo "=== 檢查前端 ==="
-curl -s http://localhost:5173 | head -5
-
-echo "=== 檢查環境變數 ==="
-grep DISCORD_CLIENT_ID .env client/.env bot/.env 2>/dev/null
-```
-
-## 仍然有問題？
-
-### 收集診斷資訊
-
-```bash
-# 1. 服務狀態
-ps aux | grep -E "node|postgres"
-
-# 2. 端口使用
-netstat -tuln | grep -E "3001|5173|5432"
-
-# 3. 日誌
-# Bot 日誌
-# API 日誌
-# 瀏覽器控制台截圖
-```
-
-### 重置並重新開始
+如果以上步驟都無法解決問題：
 
 ```bash
 # 1. 停止所有服務
@@ -320,6 +307,19 @@ cd client && npm install && cd ..
 npm run dev
 ```
 
+## 需要幫助？
+
+### 收集診斷資訊
+
+提供以下資訊以獲得幫助：
+
+1. 瀏覽器控制台完整錯誤訊息
+2. Bot 日誌
+3. API 日誌
+4. Discord Developer Portal 配置截圖
+5. 服務狀態：`ps aux | grep -E "node|postgres"`
+6. 端口使用：`netstat -tuln | grep -E "3001|5173|5432"`
+
 ## 常見錯誤訊息
 
 ### `VITE_DISCORD_CLIENT_ID is not defined`
@@ -337,10 +337,8 @@ npm run dev
 ### `Database connection failed`
 **解決**：檢查 PostgreSQL 是否運行，配置是否正確
 
-## 獲取幫助
+## 相關文檔
 
-如果以上步驟都無法解決問題，請提供：
-1. 瀏覽器控制台完整錯誤訊息
-2. Bot 日誌
-3. API 日誌
-4. Discord Developer Portal 配置截圖
+- `SETUP.md` - 完整設置指南
+- `CONFIGURATION.md` - 配置說明
+- `DEVELOPMENT.md` - 開發指南
