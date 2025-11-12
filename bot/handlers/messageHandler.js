@@ -10,11 +10,17 @@ async function saveMessage(pool, message) {
   const parentChannelId = isThread ? message.channel.parentId : null;
   const channelId = isThread ? message.channel.parentId : message.channel.id;
 
+  // 提取附件 URL
+  const attachmentUrls = message.attachments.map((att) => att.url);
+  const hasAttachments = attachmentUrls.length > 0;
+  const attachmentCount = attachmentUrls.length;
+
   const query = `
     INSERT INTO messages (
       message_id, guild_id, channel_id, user_id, username, 
-      message_length, has_emoji, is_thread, thread_id, parent_channel_id, created_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      message_length, has_emoji, has_attachments, attachment_count, 
+      attachment_urls, is_thread, thread_id, parent_channel_id, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
     ON CONFLICT (message_id) 
     WHERE message_id IS NOT NULL 
     DO NOTHING
@@ -30,6 +36,9 @@ async function saveMessage(pool, message) {
     message.author.username,
     message.content.length,
     hasEmoji,
+    hasAttachments,
+    attachmentCount,
+    attachmentUrls.length > 0 ? attachmentUrls : null,
     isThread,
     threadId,
     parentChannelId,
@@ -143,21 +152,24 @@ function extractUnicodeEmojis(text) {
  * 提取自訂表情
  */
 function extractCustomEmojis(message) {
-  const customEmojiRegex = /<a?:(\w+):(\d+)>/g;
+  const customEmojiRegex = /<(a)?:(\w+):(\d+)>/g;
   const emojis = [];
   let match;
 
   while ((match = customEmojiRegex.exec(message.content)) !== null) {
-    const emojiId = match[2];
-    const emojiName = match[1];
-    const isAnimated = message.content.includes("<a:");
+    const isAnimated = match[1] === "a"; // 檢查第一個捕獲組是否為 'a'
+    const emojiName = match[2];
+    const emojiId = match[3];
     const extension = isAnimated ? "gif" : "png";
+
+    // 生成 CDN URL，添加 size 參數以獲得更好的質量
+    const url = `https://cdn.discordapp.com/emojis/${emojiId}.${extension}?size=64&quality=lossless`;
 
     emojis.push({
       identifier: `${emojiName}:${emojiId}`,
       name: emojiName,
       isCustom: true,
-      url: `https://cdn.discordapp.com/emojis/${emojiId}.${extension}`,
+      url: url,
     });
   }
 
