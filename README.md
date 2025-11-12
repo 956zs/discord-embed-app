@@ -47,20 +47,40 @@
 
 ## 🚀 快速開始
 
-### 方法一：一鍵部署（推薦）
+### 方法一：互動式配置（最簡單）
 
 ```bash
 # 1. 克隆專案
-git clone <your-repo-url>
+git clone https://github.com/956zs/discord-embed-app.git
 cd discord-embed-app
 
-# 2. 配置環境變數
+# 2. 執行互動式配置工具
+./setup-env.sh
+# 按照提示輸入 Discord Token、資料庫連接等資訊
+# 工具會自動生成所有配置文件並測試資料庫連接
+
+# 3. 執行一鍵部署
+./deploy.sh
+```
+
+### 方法二：手動配置
+
+```bash
+# 1. 克隆專案
+git clone https://github.com/956zs/discord-embed-app.git
+cd discord-embed-app
+
+# 2. 複製配置文件
 cp .env.example .env
 cp bot/.env.example bot/.env
 cp client/.env.example client/.env.local
-# 編輯這些文件並填入正確的值
 
-# 3. 執行一鍵部署
+# 3. 編輯配置文件（填入你的 Discord Token、資料庫連接等）
+nano .env
+nano bot/.env
+nano client/.env.local
+
+# 4. 執行一鍵部署
 ./deploy.sh
 ```
 
@@ -71,7 +91,9 @@ cp client/.env.example client/.env.local
 - ✅ 構建前端
 - ✅ 使用 PM2 啟動所有服務
 
-### 方法二：手動設置
+### 方法三：完全手動設置
+
+如果你想完全控制每個步驟：
 
 #### 1. 環境需求
 
@@ -79,31 +101,17 @@ cp client/.env.example client/.env.local
 - PostgreSQL 14+
 - Discord Bot Token
 - Discord Application (Embedded App)
-- PM2（可選，用於生產環境）
+- PM2（生產環境必需）
 
 #### 2. 安裝依賴
 
 ```bash
-# 安裝所有依賴
 npm install
 cd client && npm install && cd ..
 cd bot && npm install && cd ..
 ```
 
 #### 3. 配置環境變數
-
-複製並編輯環境變數文件：
-
-```bash
-# 根目錄 .env
-cp .env.example .env
-
-# Bot .env
-cp bot/.env.example bot/.env
-
-# Client .env.local
-cp client/.env.example client/.env.local
-```
 
 詳細配置說明請參考 [CONFIGURATION.md](CONFIGURATION.md)
 
@@ -115,11 +123,7 @@ createdb discord_stats
 
 # 執行架構腳本
 psql -U postgres -d discord_stats -f bot/database/schema.sql
-
-# 添加討論串支援
 psql -U postgres -d discord_stats -f bot/database/add_thread_support.sql
-
-# 添加附件支援
 psql -U postgres -d discord_stats -f bot/database/add_attachments.sql
 ```
 
@@ -143,26 +147,31 @@ pm2 start ecosystem.config.js
 ```
 
 服務將運行在：
-- Server: http://localhost:3008
+- Server + Bot: http://localhost:3008
 - Client: http://localhost:3000
-- Bot: 自動啟動
 
 ## 📚 文檔
 
-### 核心文檔
-- [部署指南](DEPLOYMENT_GUIDE.md) - **完整的部署和管理指南**
+### 🚀 快速開始
+- [部署指南](DEPLOYMENT_GUIDE.md) - **完整的部署和管理指南**（推薦閱讀）
 - [配置指南](CONFIGURATION.md) - 環境變數和配置說明
 - [開發指南](DEVELOPMENT.md) - 開發環境設置和常用命令
 
-### 功能文檔
+### 📖 功能文檔
 - [歷史提取指南](HISTORY_FETCH_GUIDE.md) - 歷史訊息提取功能使用說明
 - [討論串支援](docs/THREAD_SUPPORT.md) - Discord 討論串功能說明
 - [資料庫架構](bot/database/README.md) - 資料庫表結構說明
+- [生產環境架構](PRODUCTION_ARCHITECTURE.md) - 生產環境部署架構說明
 
-### 問題修復
+### 🔧 問題修復
 - [Emoji 修復](EMOJI_FIX.md) - Emoji 圖片顯示問題修復
 - [導航修復](NAVIGATION_FIX.md) - 頁面導航問題修復
+- [頻道獲取修復](CHANNEL_FETCH_FIX.md) - 生產環境頻道獲取問題修復
 - [故障排除](TROUBLESHOOTING.md) - 常見問題解決方案
+
+### 📝 其他文檔
+- [UI 升級](UI_UPGRADE.md) - shadcn/ui 升級記錄
+- [主題自訂](THEME_CUSTOMIZATION.md) - 主題配色自訂指南
 
 ## 專案結構
 
@@ -190,20 +199,21 @@ discord-embed-app/
 ### 部署腳本
 
 ```bash
-# 一鍵部署
-./deploy.sh              # 完整部署（首次使用）
+# 初始配置
+./setup-env.sh           # 互動式環境配置工具（首次使用）
 
-# 快速更新
-./update.sh              # 更新代碼、依賴、重新構建和重啟
+# 部署
+./deploy.sh              # 完整部署（首次使用）
+./update.sh              # 快速更新（更新代碼、依賴、重新構建和重啟）
 
 # 日常管理
 ./manage.sh start        # 啟動所有服務
 ./manage.sh stop         # 停止所有服務
 ./manage.sh restart      # 重啟所有服務
+./manage.sh restart-prod # 重啟生產環境（重新載入配置）
 ./manage.sh status       # 查看服務狀態
 ./manage.sh logs         # 查看所有日誌
-./manage.sh logs-api     # 查看 API 日誌
-./manage.sh logs-bot     # 查看 Bot 日誌
+./manage.sh logs-server  # 查看 Server 日誌（包含 Bot）
 ./manage.sh logs-client  # 查看 Client 日誌
 ./manage.sh backup       # 備份資料庫
 ./manage.sh restore <file> # 還原資料庫
@@ -231,10 +241,12 @@ npm run start:bot        # 啟動 bot
 ```bash
 pm2 status               # 查看所有服務狀態
 pm2 logs                 # 查看所有日誌
-pm2 logs discord-api     # 查看特定服務日誌
+pm2 logs discord-server  # 查看 Server 日誌（包含 Bot）
+pm2 logs discord-client  # 查看 Client 日誌
 pm2 restart all          # 重啟所有服務
 pm2 stop all             # 停止所有服務
 pm2 monit                # 監控面板
+pm2 save                 # 保存當前進程列表
 ```
 
 ## 🔐 管理員功能
@@ -281,8 +293,24 @@ WHERE guild_id = 'your_guild_id' AND user_id = 'user_id';
 
 ## 🌟 最新更新
 
-### v2.0.0 (2024)
+### v2.1.0 (2025-01)
 
+**新功能：**
+- ✅ **互動式配置工具**：`setup-env.sh` 引導式環境配置
+- ✅ **生產環境優化**：改進的 PM2 配置，Server 和 Bot 合併運行
+- ✅ **管理腳本增強**：新增 `restart-prod` 命令
+- ✅ **頻道獲取修復**：解決生產環境頻道獲取問題
+- ✅ **Emoji URL 更新**：支援 Discord 新的 WebP 格式
+
+**改進：**
+- 🔧 更好的錯誤處理和日誌記錄
+- 🔧 優化的資料庫連接測試
+- 🔧 改進的文檔結構和說明
+- 🔧 統一的部署流程
+
+### v2.0.0 (2024-12)
+
+**核心功能：**
 - ✅ **簡繁體中文切換**：完整的國際化支援
 - ✅ **討論串支援**：完整支援 Discord 討論串和論壇頻道
 - ✅ **附件支援**：記錄訊息中的圖片和文件附件
@@ -294,12 +322,11 @@ WHERE guild_id = 'your_guild_id' AND user_id = 'user_id';
 - ✅ **健康檢查**：自動監控服務狀態
 - ✅ **備份還原**：資料庫備份和還原功能
 
-### 技術改進
-
-- 升級到 Next.js 16 和 React 19
-- 使用 Tailwind CSS v4
-- 改進的錯誤處理和日誌記錄
-- 優化的資料庫查詢和索引
+**技術棧：**
+- Next.js 16 + React 19
+- Tailwind CSS v4
+- Discord.js v14
+- PostgreSQL 14+
 - PM2 進程管理
 - 完整的 TypeScript 類型支援
 
@@ -348,8 +375,29 @@ ISC License
 
 1. 查看 [故障排除文檔](TROUBLESHOOTING.md)
 2. 查看 [部署指南](DEPLOYMENT_GUIDE.md)
-3. 提交 [Issue](https://github.com/956zs/discord-embed-app/issues
-4. 查看日誌：`./manage.sh logs`
+3. 查看 [生產環境架構](PRODUCTION_ARCHITECTURE.md)
+4. 提交 [Issue](https://github.com/956zs/discord-embed-app/issues)
+5. 查看日誌：`./manage.sh logs`
+
+### 常見問題
+
+**Q: 如何快速開始？**
+A: 執行 `./setup-env.sh` 配置環境，然後執行 `./deploy.sh` 部署。
+
+**Q: 生產環境如何部署？**
+A: 參考 [部署指南](DEPLOYMENT_GUIDE.md) 和 [生產環境架構](PRODUCTION_ARCHITECTURE.md)。
+
+**Q: 如何添加管理員？**
+A: 使用 SQL 命令添加到 `admin_users` 表，詳見上方「管理員功能」章節。
+
+**Q: Emoji 圖片無法顯示？**
+A: 參考 [Emoji 修復文檔](EMOJI_FIX.md)，Discord 已更新 CDN URL 格式。
+
+**Q: 歷史提取功能無法使用？**
+A: 檢查 bot 是否正常運行，參考 [頻道獲取修復](CHANNEL_FETCH_FIX.md)。
+
+**Q: 如何備份資料庫？**
+A: 執行 `./manage.sh backup`，備份文件會保存在 `backups/` 目錄。
 
 ## 🙏 致謝
 
