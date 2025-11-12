@@ -37,6 +37,10 @@ export function BatchFetch({
   channels,
   onStartBatch,
 }: BatchFetchProps) {
+  console.log("🎨 BatchFetch 組件渲染");
+  console.log("Props:", { guildId, userId, channelsCount: channels.length });
+  console.log("onStartBatch 函數:", typeof onStartBatch);
+
   const [selectedChannels, setSelectedChannels] = useState<Set<string>>(
     new Set()
   );
@@ -47,6 +51,7 @@ export function BatchFetch({
 
   // 根據模式自動選擇頻道
   const autoSelect = (mode: "all" | "never" | "outdated") => {
+    console.log(`🎯 自動選擇模式: ${mode}`);
     setAutoSelectMode(mode);
     const selected = new Set<string>();
 
@@ -60,6 +65,7 @@ export function BatchFetch({
       }
     });
 
+    console.log(`✅ 已選擇 ${selected.size} 個頻道`);
     setSelectedChannels(selected);
   };
 
@@ -74,23 +80,26 @@ export function BatchFetch({
   };
 
   const handleStartBatch = async () => {
+    console.log("🔘 批量提取按鈕被點擊");
+    console.log("已選擇的頻道:", Array.from(selectedChannels));
+
     if (selectedChannels.size === 0) {
+      console.warn("⚠️ 沒有選擇任何頻道");
       alert("請至少選擇一個頻道");
       return;
     }
 
-    const confirmed = confirm(
-      `確定要開始提取 ${selectedChannels.size} 個頻道的歷史訊息嗎？\n\n這可能需要一些時間，請耐心等待。`
-    );
-
-    if (!confirmed) return;
+    console.log(`✅ 準備提取 ${selectedChannels.size} 個頻道`);
+    console.log("🚀 開始執行批量提取...");
 
     setIsStarting(true);
     try {
       await onStartBatch(Array.from(selectedChannels));
+      console.log("✅ 批量提取完成");
       setSelectedChannels(new Set());
     } catch (error) {
-      console.error("批量提取失敗:", error);
+      console.error("❌ 批量提取失敗:", error);
+      alert(`批量提取失敗: ${error}`);
     } finally {
       setIsStarting(false);
     }
@@ -227,8 +236,12 @@ export function BatchFetch({
             已選擇 {selectedChannels.size} 個頻道
           </div>
           <Button
-            onClick={handleStartBatch}
+            onClick={() => {
+              console.log("🖱️ 按鈕被點擊（onClick 觸發）");
+              handleStartBatch();
+            }}
             disabled={selectedChannels.size === 0 || isStarting}
+            className="cursor-pointer"
           >
             {isStarting ? (
               <>

@@ -180,46 +180,77 @@ export default function AdminPage() {
   };
 
   const handleBatchStart = async (channelIds: string[]) => {
-    console.log("🚀 開始批量提取:", channelIds);
+    console.log("🚀 handleBatchStart 被調用");
+    console.log("channelIds:", channelIds);
+    console.log("guildId:", guildId);
+    console.log("userId:", userId);
+    console.log("channelsForBatch:", channelsForBatch);
+
+    if (!guildId || !userId) {
+      console.error("❌ 缺少 guildId 或 userId");
+      alert("錯誤：缺少必要的參數");
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
 
     for (const channelId of channelIds) {
       const channel = channelsForBatch.find((ch) => ch.id === channelId);
-      if (!channel) continue;
+      if (!channel) {
+        console.warn(`⚠️ 找不到頻道: ${channelId}`);
+        continue;
+      }
 
       try {
-        console.log(`📥 提取頻道: ${channel.name}`);
+        console.log(`📥 提取頻道: ${channel.name} (${channel.id})`);
 
-        const response = await fetch(`/api/fetch/${guildId}/start`, {
+        const url = `/api/fetch/${guildId}/start`;
+        const body = {
+          channelId: channel.id,
+          channelName: channel.name,
+          anchorMessageId: "latest",
+          userId,
+        };
+
+        console.log(`發送請求到: ${url}`);
+        console.log("請求內容:", body);
+
+        const response = await fetch(url, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            channelId: channel.id,
-            channelName: channel.name,
-            anchorMessageId: "latest",
-            userId,
-          }),
+          body: JSON.stringify(body),
         });
 
+        console.log(`響應狀態: ${response.status}`);
+
         const data = await response.json();
+        console.log("響應數據:", data);
 
         if (data.success) {
           console.log(`✅ ${channel.name} 提取任務已開始 (ID: ${data.taskId})`);
+          successCount++;
         } else {
           console.error(`❌ ${channel.name} 提取失敗:`, data.error);
+          failCount++;
         }
 
         // 延遲 1 秒避免過快
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } catch (error) {
         console.error(`❌ ${channel.name} 提取失敗:`, error);
+        failCount++;
       }
     }
 
+    console.log(`📊 批量提取完成: 成功 ${successCount}, 失敗 ${failCount}`);
+
     alert(
-      `✅ 批量提取已完成！\n\n已啟動 ${channelIds.length} 個提取任務。\n\n請切換到「提取歷史」標籤查看進度。`
+      `✅ 批量提取已完成！\n\n成功: ${successCount}\n失敗: ${failCount}\n\n請切換到「提取歷史」標籤查看進度。`
     );
 
     // 重新載入數據
+    console.log("🔄 重新載入數據...");
     loadSummary(guildId);
     loadChannelsForBatch(guildId);
   };
