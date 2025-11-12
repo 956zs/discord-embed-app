@@ -43,45 +43,21 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
 
   const loadChannels = async () => {
     try {
-      // 從 Discord SDK 獲取頻道列表
-      const { getDiscordSdk } = await import("@/lib/discord-sdk");
-      const sdk = getDiscordSdk();
+      // 從後端 API 獲取頻道列表（bot 提供）
+      console.log("📡 從 bot 獲取頻道列表...");
+      const response = await fetch(`/api/history/${guildId}/channels`);
 
-      if (!sdk) {
-        console.error("Discord SDK 未初始化");
-        setLoading(false);
-        return;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      // 獲取當前 guild 的頻道
-      const guild = await sdk.commands.getGuild();
-
-      if (guild && guild.channels) {
-        const channelList: Channel[] = guild.channels
-          .filter((ch: any) => ch.type === 0 || ch.type === 2) // 只顯示文字和語音頻道
-          .map((ch: any) => ({
-            id: ch.id,
-            name: ch.name,
-            type: ch.type,
-            position: ch.position || 0,
-          }))
-          .sort((a, b) => a.position - b.position);
-
-        setChannels(channelList);
-        console.log(`✅ 載入了 ${channelList.length} 個頻道`);
-      } else {
-        console.warn("無法獲取頻道列表，使用模擬數據");
-        // 降級：使用模擬數據
-        const mockChannels: Channel[] = [
-          { id: "1", name: "一般", type: 0, position: 0 },
-          { id: "2", name: "閒聊", type: 0, position: 1 },
-          { id: "3", name: "公告", type: 0, position: 2 },
-        ];
-        setChannels(mockChannels);
-      }
+      const channelList: Channel[] = await response.json();
+      setChannels(channelList);
+      console.log(`✅ 載入了 ${channelList.length} 個頻道`);
     } catch (error) {
       console.error("載入頻道失敗:", error);
       // 降級：使用模擬數據
+      console.warn("⚠️ 使用模擬數據");
       const mockChannels: Channel[] = [
         { id: "1", name: "一般", type: 0, position: 0 },
         { id: "2", name: "閒聊", type: 0, position: 1 },
@@ -117,8 +93,11 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
     try {
       setStartingFetch(channelId);
 
-      // 獲取最新訊息作為錨點
-      const anchorMessageId = "latest"; // 實際應該從 Discord API 獲取
+      // 使用 "latest" 作為錨點，bot 會自動獲取最新訊息
+      const anchorMessageId = "latest";
+      console.log(`📍 使用錨點: ${anchorMessageId}`);
+
+      console.log(`🚀 開始提取任務: ${channelName} (${channelId})`);
 
       // 使用相對路徑
       const response = await fetch(`/api/fetch/${guildId}/start`, {
@@ -135,14 +114,22 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
       const data = await response.json();
 
       if (data.success) {
-        alert(`提取任務已開始！任務 ID: ${data.taskId}`);
+        console.log(`✅ 提取任務已開始！任務 ID: ${data.taskId}`);
+        alert(
+          `✅ 提取任務已開始！\n\n任務 ID: ${data.taskId}\n頻道: ${channelName}\n\n請切換到「提取歷史」標籤查看進度。`
+        );
         loadFetchStats();
       } else {
-        alert(`提取失敗: ${data.error}`);
+        console.error("提取失敗:", data.error);
+        alert(`❌ 提取失敗\n\n${data.error || "未知錯誤"}`);
       }
     } catch (error) {
       console.error("開始提取失敗:", error);
-      alert("開始提取失敗");
+      alert(
+        `❌ 開始提取失敗\n\n${
+          error instanceof Error ? error.message : "未知錯誤"
+        }`
+      );
     } finally {
       setStartingFetch(null);
     }

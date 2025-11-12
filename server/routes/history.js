@@ -10,6 +10,8 @@ const {
   getFetchRanges,
   getChannelFetchStats,
   getFetchSummary,
+  getChannels,
+  analyzeChannels,
 } = require("../controllers/historyController");
 const { checkGuildWhitelist } = require("../middleware/guildWhitelist");
 
@@ -26,6 +28,9 @@ router.get("/:guildId/tasks/:taskId", checkGuildWhitelist, getTask);
 // 提取範圍
 router.get("/:guildId/ranges/:channelId", checkGuildWhitelist, getFetchRanges);
 
+// 頻道
+router.get("/:guildId/channels", checkGuildWhitelist, getChannels);
+
 // 統計
 router.get(
   "/:guildId/channel-stats",
@@ -33,5 +38,6 @@ router.get(
   getChannelFetchStats
 );
 router.get("/:guildId/summary", checkGuildWhitelist, getFetchSummary);
+router.get("/:guildId/analyze", checkGuildWhitelist, analyzeChannels);
 
 module.exports = router;

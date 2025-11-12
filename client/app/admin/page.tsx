@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ChannelTree } from "@/components/admin/channel-tree";
 import { FetchHistory } from "@/components/admin/fetch-history";
 import { FetchProgress } from "@/components/admin/fetch-progress";
+import { BatchFetch } from "@/components/admin/batch-fetch";
 import type { FetchSummary } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3008";
@@ -22,9 +23,10 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<FetchSummary | null>(null);
-  const [activeTab, setActiveTab] = useState<"channels" | "history">(
-    "channels"
+  const [activeTab, setActiveTab] = useState<"channels" | "history" | "batch">(
+    "batch"
   );
+  const [channelsForBatch, setChannelsForBatch] = useState<any[]>([]);
 
   useEffect(() => {
     const initAdmin = async () => {
@@ -76,6 +78,7 @@ export default function AdminPage() {
         if (gid && uid) {
           checkAdminStatus(gid, uid);
           loadSummary(gid);
+          loadChannelsForBatch(gid);
         } else {
           console.warn("⚠️ 管理員頁面缺少 guild_id 或 user_id");
           setLoading(false);
@@ -111,6 +114,91 @@ export default function AdminPage() {
     } catch (error) {
       console.error("載入摘要失敗:", error);
     }
+  };
+
+  const loadChannelsForBatch = async (gid: string) => {
+    try {
+      console.log("📡 載入頻道分析數據...");
+
+      // 獲取頻道列表
+      const channelsRes = await fetch(`/api/history/${gid}/channels`);
+      const channels = await channelsRes.json();
+
+      // 獲取分析數據
+      const analysisRes = await fetch(`/api/history/${gid}/analyze`);
+      const analysis = await analysisRes.json();
+
+      // 合併數據
+      const analysisMap = new Map(analysis.map((a: any) => [a.channelId, a]));
+
+      const enrichedChannels = channels.map((ch: any) => {
+        const info = analysisMap.get(ch.id) || {
+          needsUpdate: true,
+          reason: "尚未提取過歷史訊息",
+          messageCount: 0,
+          lastFetchTime: null,
+          lastMessageTime: null,
+        };
+
+        return {
+          id: ch.id,
+          name: ch.name,
+          type: ch.type,
+          position: ch.position,
+          ...info,
+        };
+      });
+
+      setChannelsForBatch(enrichedChannels);
+      console.log(`✅ 載入了 ${enrichedChannels.length} 個頻道的分析數據`);
+    } catch (error) {
+      console.error("載入頻道分析數據失敗:", error);
+    }
+  };
+
+  const handleBatchStart = async (channelIds: string[]) => {
+    console.log("🚀 開始批量提取:", channelIds);
+
+    for (const channelId of channelIds) {
+      const channel = channelsForBatch.find((ch) => ch.id === channelId);
+      if (!channel) continue;
+
+      try {
+        console.log(`📥 提取頻道: ${channel.name}`);
+
+        const response = await fetch(`/api/fetch/${guildId}/start`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            channelId: channel.id,
+            channelName: channel.name,
+            anchorMessageId: "latest",
+            userId,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          console.log(`✅ ${channel.name} 提取任務已開始 (ID: ${data.taskId})`);
+        } else {
+          console.error(`❌ ${channel.name} 提取失敗:`, data.error);
+        }
+
+        // 延遲 1 秒避免過快
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch (error) {
+        console.error(`❌ ${channel.name} 提取失敗:`, error);
+      }
+    }
+
+    alert(
+      `✅ 批量提取已完成！\n\n已啟動 ${channelIds.length} 個提取任務。\n\n請切換到「提取歷史」標籤查看進度。`
+    );
+
+    // 重新載入數據
+    loadSummary(guildId);
+    loadChannelsForBatch(guildId);
   };
 
   if (loading) {
@@ -150,6 +238,12 @@ export default function AdminPage() {
             <h1 className="text-3xl font-bold">管理員控制台</h1>
             <p className="text-muted-foreground">歷史訊息提取與管理</p>
           </div>
+          <Button
+            variant="outline"
+            onClick={() => (window.location.href = "/")}
+          >
+            ← 返回主頁
+          </Button>
         </div>
 
         {/* 摘要卡片 */}
@@ -225,10 +319,16 @@ export default function AdminPage() {
         {/* 標籤切換 */}
         <div className="flex gap-2 border-b">
           <Button
+            variant={activeTab === "batch" ? "default" : "ghost"}
+            onClick={() => setActiveTab("batch")}
+          >
+            批量提取
+          </Button>
+          <Button
             variant={activeTab === "channels" ? "default" : "ghost"}
             onClick={() => setActiveTab("channels")}
           >
-            頻道樹狀圖
+            頻道列表
           </Button>
           <Button
             variant={activeTab === "history" ? "default" : "ghost"}
@@ -239,6 +339,15 @@ export default function AdminPage() {
         </div>
 
         {/* 內容區域 */}
+        {activeTab === "batch" && (
+          <BatchFetch
+            guildId={guildId}
+            userId={userId}
+            channels={channelsForBatch}
+            onStartBatch={handleBatchStart}
+          />
+        )}
+
         {activeTab === "channels" && (
           <ChannelTree guildId={guildId} userId={userId} />
         )}

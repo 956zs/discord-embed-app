@@ -180,6 +180,127 @@ exports.getChannelFetchStats = async (req, res) => {
   }
 };
 
+// 獲取頻道列表（從 bot）
+exports.getChannels = async (req, res) => {
+  try {
+    const { guildId } = req.params;
+    const { Client } = require("discord.js");
+
+    // 從 bot 獲取 client
+    const botModule = require("../../bot/index.js");
+    const client = botModule.client;
+
+    if (!client || !client.isReady()) {
+      return res.status(503).json({ error: "Bot 未就緒" });
+    }
+
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) {
+      return res.status(404).json({ error: "找不到伺服器" });
+    }
+
+    // 獲取所有文字頻道
+    const channels = guild.channels.cache
+      .filter((ch) => ch.type === 0) // 只要文字頻道
+      .map((ch) => ({
+        id: ch.id,
+        name: ch.name,
+        type: ch.type,
+        position: ch.position,
+        parentId: ch.parentId,
+      }))
+      .sort((a, b) => a.position - b.position);
+
+    res.json(channels);
+  } catch (error) {
+    console.error("❌ getChannels 錯誤:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 分析頻道狀態（用於批量提取）
+exports.analyzeChannels = async (req, res) => {
+  try {
+    const { guildId } = req.params;
+
+    // 獲取所有頻道的最後訊息時間（從 messages 表）
+    const channelMessages = await pool.query(
+      `SELECT 
+        channel_id,
+        channel_name,
+        MAX(created_at) as last_message_time,
+        COUNT(*) as message_count
+      FROM messages
+      WHERE guild_id = $1
+      GROUP BY channel_id, channel_name`,
+      [guildId]
+    );
+
+    // 獲取所有頻道的提取記錄
+    const fetchRecords = await pool.query(
+      `SELECT 
+        channel_id,
+        MAX(completed_at) as last_fetch_time,
+        MAX(end_timestamp) as last_fetch_end_time
+      FROM history_fetch_tasks t
+      LEFT JOIN history_fetch_ranges r ON t.id = r.task_id
+      WHERE t.guild_id = $1 AND t.status = 'completed'
+      GROUP BY channel_id`,
+      [guildId]
+    );
+
+    // 建立查找表
+    const fetchMap = new Map();
+    fetchRecords.rows.forEach((row) => {
+      fetchMap.set(row.channel_id, {
+        lastFetchTime: row.last_fetch_time,
+        lastFetchEndTime: row.last_fetch_end_time,
+      });
+    });
+
+    // 分析每個頻道
+    const analysis = channelMessages.rows.map((ch) => {
+      const fetchInfo = fetchMap.get(ch.channel_id);
+      let needsUpdate = false;
+      let reason = "";
+
+      if (!fetchInfo) {
+        needsUpdate = true;
+        reason = "尚未提取過歷史訊息";
+      } else if (ch.last_message_time && fetchInfo.lastFetchEndTime) {
+        const lastMsg = new Date(ch.last_message_time);
+        const lastFetch = new Date(fetchInfo.lastFetchEndTime);
+        const diffHours = (lastMsg - lastFetch) / (1000 * 60 * 60);
+
+        if (diffHours > 24) {
+          needsUpdate = true;
+          reason = `最後訊息時間與提取時間相差 ${Math.round(diffHours)} 小時`;
+        } else {
+          reason = "訊息已是最新";
+        }
+      } else {
+        reason = "無法判斷，建議重新提取";
+        needsUpdate = true;
+      }
+
+      return {
+        channelId: ch.channel_id,
+        channelName: ch.channel_name,
+        lastMessageTime: ch.last_message_time,
+        lastFetchTime: fetchInfo?.lastFetchTime || null,
+        messageCount: parseInt(ch.message_count),
+        needsUpdate,
+        reason,
+      };
+    });
+
+    res.json(analysis);
+  } catch (error) {
+    console.error("❌ analyzeChannels 錯誤:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
 // 獲取提取摘要
 exports.getFetchSummary = async (req, res) => {
   try {
