@@ -277,19 +277,49 @@ log_success "端口已設置為 $PORT"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_info "2/2 - 白名單配置（可選）"
-echo "  這是可選的安全功能"
+if [ "$ENV_MODE" = "production" ]; then
+    log_info "2/2 - 白名單配置（生產環境強烈建議）"
+    printf "  %s⚠️  生產環境強烈建議設置白名單以提高安全性%s\\n" "${YELLOW}" "${NC}"
+    echo "  只有白名單中的伺服器才能使用統計功能"
+else
+    log_info "2/2 - 白名單配置（可選）"
+    echo "  這是可選的安全功能"
+fi
 echo "  如果你只想收集特定伺服器的數據，請輸入伺服器 ID"
 echo "  多個伺服器用逗號分隔，例如：123456789,987654321"
-echo "  ${CYAN}留空表示允許所有伺服器${NC}"
+printf "  %s留空表示允許所有伺服器（不推薦用於生產環境）%s\\n" "${CYAN}" "${NC}"
 echo ""
-ALLOWED_GUILD_IDS=$(read_input "允許的伺服器 ID（可選，直接按 Enter 跳過）" "")
 
-if [ -n "$ALLOWED_GUILD_IDS" ]; then
-    log_success "白名單已設置：$ALLOWED_GUILD_IDS"
-else
-    log_info "未設置白名單，將允許所有伺服器"
-fi
+while true; do
+    ALLOWED_GUILD_IDS=$(read_input "允許的伺服器 ID（直接按 Enter 跳過）" "")
+    
+    if [ -n "$ALLOWED_GUILD_IDS" ]; then
+        log_success "白名單已設置：$ALLOWED_GUILD_IDS"
+        break
+    else
+        if [ "$ENV_MODE" = "production" ]; then
+            log_warning "生產環境未設置白名單，將允許所有伺服器訪問"
+            echo ""
+            read -p "確定要繼續嗎？(y/n): " confirm
+            case $confirm in
+                [Yy]*)
+                    log_info "已確認：未設置白名單"
+                    break
+                    ;;
+                [Nn]*)
+                    echo ""
+                    log_info "請輸入伺服器 ID："
+                    ;;
+                *)
+                    log_error "請輸入 y 或 n"
+                    ;;
+            esac
+        else
+            log_info "未設置白名單，將允許所有伺服器"
+            break
+        fi
+    fi
+done
 
 echo ""
 log_success "✓ 伺服器配置完成 (3/4)"
