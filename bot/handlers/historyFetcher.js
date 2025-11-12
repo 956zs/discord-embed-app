@@ -189,7 +189,38 @@ class HistoryFetcher {
       if (!channel) throw new Error("找不到頻道");
 
       console.log(`📥 開始提取歷史訊息: ${guild.name} > #${channel.name}`);
-      console.log(`   錨點訊息 ID: ${anchorMessageId}`);
+
+      // 如果 anchorMessageId 是 "latest"，獲取最新訊息
+      if (anchorMessageId === "latest") {
+        console.log(`   獲取最新訊息作為錨點...`);
+        try {
+          const latestMessages = await channel.messages.fetch({ limit: 1 });
+          if (latestMessages.size > 0) {
+            anchorMessageId = latestMessages.first().id;
+            console.log(`   ✅ 錨點訊息 ID: ${anchorMessageId}`);
+          } else {
+            console.log(`   ⚠️ 頻道沒有訊息，跳過提取`);
+            await this.updateTaskStatus(taskId, "completed", {
+              completedAt: new Date(),
+              messagesFetched: 0,
+              messagesSaved: 0,
+              messagesDuplicate: 0,
+            });
+            return {
+              success: true,
+              messagesFetched: 0,
+              messagesSaved: 0,
+              messagesDuplicate: 0,
+              status: "completed",
+            };
+          }
+        } catch (fetchError) {
+          console.error(`   ❌ 獲取最新訊息失敗:`, fetchError);
+          throw new Error(`無法獲取頻道最新訊息: ${fetchError.message}`);
+        }
+      } else {
+        console.log(`   錨點訊息 ID: ${anchorMessageId}`);
+      }
 
       // 階段 1: 從錨點向後提取
       let lastId = anchorMessageId;

@@ -122,11 +122,32 @@ export default function AdminPage() {
 
       // 獲取頻道列表
       const channelsRes = await fetch(`/api/history/${gid}/channels`);
+      if (!channelsRes.ok) {
+        throw new Error(`獲取頻道失敗: ${channelsRes.status}`);
+      }
       const channels = await channelsRes.json();
+      console.log("頻道列表:", channels);
 
-      // 獲取分析數據
-      const analysisRes = await fetch(`/api/history/${gid}/analyze`);
-      const analysis = await analysisRes.json();
+      if (!Array.isArray(channels)) {
+        console.error("頻道列表不是數組:", channels);
+        setChannelsForBatch([]);
+        return;
+      }
+
+      // 獲取分析數據（可選，失敗不影響顯示）
+      let analysis = [];
+      try {
+        const analysisRes = await fetch(`/api/history/${gid}/analyze`);
+        if (analysisRes.ok) {
+          const analysisData = await analysisRes.json();
+          console.log("分析數據:", analysisData);
+          analysis = Array.isArray(analysisData) ? analysisData : [];
+        } else {
+          console.warn("獲取分析數據失敗，使用預設值");
+        }
+      } catch (analysisError) {
+        console.warn("分析數據請求失敗:", analysisError);
+      }
 
       // 合併數據
       const analysisMap = new Map(analysis.map((a: any) => [a.channelId, a]));
@@ -153,6 +174,8 @@ export default function AdminPage() {
       console.log(`✅ 載入了 ${enrichedChannels.length} 個頻道的分析數據`);
     } catch (error) {
       console.error("載入頻道分析數據失敗:", error);
+      // 設置空數組避免崩潰
+      setChannelsForBatch([]);
     }
   };
 

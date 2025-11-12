@@ -1,4 +1,4 @@
-import { DiscordSDK, type DiscordSDKOptions } from "@discord/embedded-app-sdk";
+import { DiscordSDK } from "@discord/embedded-app-sdk";
 
 let discordSdk: DiscordSDK | null = null;
 let authInfo: { userId: string; username: string } | null = null;

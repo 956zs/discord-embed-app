@@ -227,25 +227,24 @@ exports.analyzeChannels = async (req, res) => {
     const channelMessages = await pool.query(
       `SELECT 
         channel_id,
-        channel_name,
         MAX(created_at) as last_message_time,
         COUNT(*) as message_count
       FROM messages
       WHERE guild_id = $1
-      GROUP BY channel_id, channel_name`,
+      GROUP BY channel_id`,
       [guildId]
     );
 
     // 獲取所有頻道的提取記錄
     const fetchRecords = await pool.query(
       `SELECT 
-        channel_id,
-        MAX(completed_at) as last_fetch_time,
-        MAX(end_timestamp) as last_fetch_end_time
+        t.channel_id,
+        MAX(t.completed_at) as last_fetch_time,
+        MAX(r.end_timestamp) as last_fetch_end_time
       FROM history_fetch_tasks t
       LEFT JOIN history_fetch_ranges r ON t.id = r.task_id
       WHERE t.guild_id = $1 AND t.status = 'completed'
-      GROUP BY channel_id`,
+      GROUP BY t.channel_id`,
       [guildId]
     );
 
@@ -285,7 +284,6 @@ exports.analyzeChannels = async (req, res) => {
 
       return {
         channelId: ch.channel_id,
-        channelName: ch.channel_name,
         lastMessageTime: ch.last_message_time,
         lastFetchTime: fetchInfo?.lastFetchTime || null,
         messageCount: parseInt(ch.message_count),

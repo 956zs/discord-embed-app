@@ -32,10 +32,28 @@ export function FetchProgress({ guildId }: FetchProgressProps) {
     try {
       // 使用相對路徑
       const response = await fetch(`/api/fetch/active`);
+
+      if (!response.ok) {
+        // 503 表示服務未就緒，靜默處理
+        if (response.status === 503) {
+          setActiveTasks([]);
+          return;
+        }
+        throw new Error(`HTTP ${response.status}`);
+      }
+
       const data = await response.json();
-      setActiveTasks(data);
+
+      // 確保是數組
+      if (Array.isArray(data)) {
+        setActiveTasks(data);
+      } else {
+        console.warn("活躍任務數據不是數組:", data);
+        setActiveTasks([]);
+      }
     } catch (error) {
       console.error("載入活躍任務失敗:", error);
+      setActiveTasks([]);
     }
   };
 
