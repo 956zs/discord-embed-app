@@ -42,7 +42,26 @@ app.use("/api/fetch", fetchRoutes);
 app.use("/api/auth", authRoutes);
 
 app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+  try {
+    const botModule = require("../bot/index.js");
+    const getHistoryFetcher = botModule.historyFetcher;
+    const fetcher = getHistoryFetcher ? getHistoryFetcher() : null;
+
+    res.json({
+      status: "ok",
+      server: "running",
+      bot: fetcher ? "connected" : "disconnected",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.json({
+      status: "ok",
+      server: "running",
+      bot: "error",
+      error: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 // 白名單資訊端點（僅供管理員查看）
@@ -76,20 +95,48 @@ app.listen(PORT, async () => {
     console.log(`   建議在 .env 中設定 ALLOWED_GUILD_IDS`);
   }
 
-  // 嘗試連接到 bot 的 historyFetcher
-  try {
-    const botModule = require("../bot/index.js");
-    const getHistoryFetcher = botModule.historyFetcher;
+  // 啟動 bot（在同一個進程中）
+  const startBot = async () => {
+    try {
+      console.log("🤖 正在啟動 Discord Bot...");
+      const botModule = require("../bot/index.js");
+      const getHistoryFetcher = botModule.historyFetcher;
 
-    // 等待 bot 就緒
-    setTimeout(() => {
-      const fetcher = getHistoryFetcher();
-      if (fetcher) {
-        fetchRoutes.setHistoryFetcher(fetcher);
-        console.log("✅ 已連接到歷史訊息提取器");
+      if (!getHistoryFetcher) {
+        console.log("⚠️  bot 模組未導出 historyFetcher");
+        return false;
       }
-    }, 5000);
-  } catch (error) {
-    console.log("⚠️  無法連接到 bot，歷史提取功能將不可用");
-  }
+
+      // 重試機制：最多嘗試 10 次，每次間隔 2 秒
+      let attempts = 0;
+      const maxAttempts = 10;
+      const retryInterval = 2000;
+
+      const tryConnect = () => {
+        attempts++;
+        console.log(`🔄 等待 bot 就緒... (${attempts}/${maxAttempts})`);
+
+        const fetcher = getHistoryFetcher();
+        if (fetcher) {
+          fetchRoutes.setHistoryFetcher(fetcher);
+          console.log("✅ 歷史訊息提取器已連接");
+          return true;
+        } else {
+          if (attempts < maxAttempts) {
+            setTimeout(tryConnect, retryInterval);
+          } else {
+            console.log("❌ Bot 啟動超時");
+          }
+          return false;
+        }
+      };
+
+      // 首次嘗試延遲 3 秒（等待 bot ready 事件）
+      setTimeout(tryConnect, 3000);
+    } catch (error) {
+      console.log("❌ Bot 啟動失敗:", error.message);
+    }
+  };
+
+  startBot();
 });
