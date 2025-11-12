@@ -66,6 +66,17 @@ case "$1" in
         pm2 status
         ;;
     
+    restart-prod)
+        log_info "重啟生產環境（重新載入配置）..."
+        pm2 delete all 2>/dev/null || log_info "沒有運行中的服務"
+        sleep 2
+        pm2 start ecosystem.config.js
+        pm2 save
+        log_success "生產環境已重啟"
+        sleep 3
+        pm2 status
+        ;;
+    
     status)
         pm2 status
         ;;
@@ -204,6 +215,7 @@ case "$1" in
         echo "  start         - 啟動所有服務"
         echo "  stop          - 停止所有服務"
         echo "  restart       - 重啟所有服務"
+        echo "  restart-prod  - 重啟生產環境（重新載入配置）"
         echo "  status        - 查看服務狀態"
         echo "  logs          - 查看所有日誌"
         echo "  logs-api      - 查看 API 日誌"

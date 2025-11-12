@@ -160,10 +160,12 @@ function extractCustomEmojis(message) {
     const isAnimated = match[1] === "a"; // 檢查第一個捕獲組是否為 'a'
     const emojiName = match[2];
     const emojiId = match[3];
-    const extension = isAnimated ? "gif" : "png";
 
-    // 生成 CDN URL，添加 size 參數以獲得更好的質量
-    const url = `https://cdn.discordapp.com/emojis/${emojiId}.${extension}?size=64&quality=lossless`;
+    // Discord 新的 CDN URL 格式：使用 webp 格式
+    // 動畫 emoji 需要 animated=true 參數
+    const url = isAnimated
+      ? `https://cdn.discordapp.com/emojis/${emojiId}.webp?size=96&animated=true`
+      : `https://cdn.discordapp.com/emojis/${emojiId}.webp?size=96`;
 
     emojis.push({
       identifier: `${emojiName}:${emojiId}`,

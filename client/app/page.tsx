@@ -6,7 +6,6 @@ import { TrendingUp, Hash, Users, Smile, BarChart3 } from "lucide-react";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { UserInfo } from "@/components/user-info";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { EmojiImage } from "@/components/emoji-image";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Card,
@@ -482,11 +481,21 @@ export default function Home() {
                         >
                           <div className="flex items-center gap-4">
                             {emoji.isCustom && emoji.url ? (
-                              <EmojiImage
-                                url={emoji.url}
-                                name={emoji.name}
-                                fallback={emoji.emoji || "❓"}
-                                className="h-6 w-6"
+                              <img
+                                src={emoji.url}
+                                alt={emoji.name}
+                                className="h-6 w-6 object-contain"
+                                onError={(e) => {
+                                  // 如果圖片載入失敗，顯示後備文字
+                                  e.currentTarget.style.display = "none";
+                                  const fallback =
+                                    document.createElement("span");
+                                  fallback.textContent = emoji.emoji || "❓";
+                                  fallback.className = "text-2xl";
+                                  e.currentTarget.parentNode?.appendChild(
+                                    fallback
+                                  );
+                                }}
                               />
                             ) : (
                               <span className="text-2xl">{emoji.emoji}</span>

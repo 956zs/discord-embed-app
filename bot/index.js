@@ -66,6 +66,12 @@ client.on("ready", () => {
   // 啟動每日統計任務
   startDailyStatsJob(pool, client);
 
+  // 啟動任務監聽器（生產環境）
+  if (process.env.NODE_ENV === "production") {
+    console.log("🔄 啟動歷史提取任務監聽器...");
+    startTaskListener();
+  }
+
   console.log("✅ Bot 已準備就緒，開始收集數據...\n");
 
   // 加入所有現有的討論串
@@ -176,6 +182,53 @@ client.login(process.env.DISCORD_BOT_TOKEN).catch((error) => {
   console.error("請檢查 DISCORD_BOT_TOKEN 是否正確");
   process.exit(1);
 });
+
+// 任務監聽器（用於生產環境）
+function startTaskListener() {
+  // 每 5 秒檢查一次待處理的任務
+  setInterval(async () => {
+    if (!historyFetcher) return;
+
+    try {
+      const result = await pool.query(
+        `SELECT id, guild_id, channel_id, anchor_message_id 
+         FROM history_fetch_tasks 
+         WHERE status = 'pending' 
+         ORDER BY created_at ASC 
+         LIMIT 1`
+      );
+
+      if (result.rows.length > 0) {
+        const task = result.rows[0];
+        console.log(`📥 發現待處理任務 ${task.id}，開始執行...`);
+
+        // 更新狀態為 running
+        await pool.query(
+          `UPDATE history_fetch_tasks 
+           SET status = 'running', started_at = NOW() 
+           WHERE id = $1`,
+          [task.id]
+        );
+
+        // 執行提取
+        historyFetcher
+          .startFetch(
+            task.id,
+            task.guild_id,
+            task.channel_id,
+            task.anchor_message_id
+          )
+          .catch((error) => {
+            console.error(`❌ 任務 ${task.id} 執行失敗:`, error.message);
+          });
+      }
+    } catch (error) {
+      console.error("❌ 檢查任務失敗:", error.message);
+    }
+  }, 5000);
+
+  console.log("✅ 任務監聽器已啟動（每 5 秒檢查一次）");
+}
 
 // 導出 historyFetcher 供 server 使用
 module.exports = { client, historyFetcher: () => historyFetcher };

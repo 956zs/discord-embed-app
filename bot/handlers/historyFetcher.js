@@ -182,11 +182,53 @@ class HistoryFetcher {
       // 更新任務為運行中
       await this.updateTaskStatus(taskId, "running", { startedAt: startTime });
 
-      const guild = this.client.guilds.cache.get(guildId);
-      if (!guild) throw new Error("找不到伺服器");
+      // 獲取伺服器
+      let guild = this.client.guilds.cache.get(guildId);
+      if (!guild) {
+        console.log(`   ⚠️ 伺服器不在 cache 中，嘗試 fetch...`);
+        try {
+          guild = await this.client.guilds.fetch(guildId);
+          console.log(`   ✅ 成功 fetch 伺服器: ${guild.name}`);
+        } catch (error) {
+          console.error(`   ❌ 無法 fetch 伺服器:`, error);
+          throw new Error(`找不到伺服器 ${guildId}: ${error.message}`);
+        }
+      }
 
-      const channel = guild.channels.cache.get(channelId);
-      if (!channel) throw new Error("找不到頻道");
+      // 驗證 guild 對象
+      if (!guild || !guild.channels) {
+        throw new Error(`伺服器對象無效: ${guildId}`);
+      }
+
+      // 獲取頻道
+      let channel = guild.channels.cache.get(channelId);
+      if (!channel) {
+        console.log(`   ⚠️ 頻道不在 cache 中，嘗試 fetch...`);
+        try {
+          channel = await guild.channels.fetch(channelId);
+          if (channel) {
+            console.log(
+              `   ✅ 成功 fetch 頻道: ${channel.name} (類型: ${channel.type})`
+            );
+          }
+        } catch (error) {
+          console.error(`   ❌ 無法 fetch 頻道:`, error);
+          throw new Error(`找不到頻道 ${channelId}: ${error.message}`);
+        }
+      }
+
+      // 驗證 channel 對象
+      if (!channel) {
+        throw new Error(
+          `無法獲取頻道 ${channelId}（可能已被刪除或 bot 無權限訪問）`
+        );
+      }
+
+      if (!channel.messages) {
+        throw new Error(
+          `頻道 ${channel.name} 不支援訊息操作（類型: ${channel.type}）`
+        );
+      }
 
       console.log(`📥 開始提取歷史訊息: ${guild.name} > #${channel.name}`);
 
@@ -194,6 +236,12 @@ class HistoryFetcher {
       if (anchorMessageId === "latest") {
         console.log(`   獲取最新訊息作為錨點...`);
         try {
+          if (
+            !channel.messages ||
+            typeof channel.messages.fetch !== "function"
+          ) {
+            throw new Error(`頻道 ${channel.name} 的 messages 對象無效`);
+          }
           const latestMessages = await channel.messages.fetch({ limit: 1 });
           if (latestMessages.size > 0) {
             anchorMessageId = latestMessages.first().id;

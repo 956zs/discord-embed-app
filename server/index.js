@@ -95,10 +95,22 @@ app.listen(PORT, async () => {
     console.log(`   建議在 .env 中設定 ALLOWED_GUILD_IDS`);
   }
 
-  // 啟動 bot（在同一個進程中）
+  // 啟動 bot（僅在開發模式或單進程模式）
   const startBot = async () => {
+    // 檢查是否應該在同一進程中啟動 bot
+    const shouldStartBot =
+      process.env.NODE_ENV !== "production" ||
+      process.env.START_BOT_IN_SERVER === "true";
+
+    if (!shouldStartBot) {
+      console.log("⚠️  生產模式：Bot 應該作為獨立進程運行（使用 PM2）");
+      console.log("   歷史提取功能將在 bot 進程中運行");
+      console.log("   Server 將通過資料庫與 bot 通信");
+      return;
+    }
+
     try {
-      console.log("🤖 正在啟動 Discord Bot...");
+      console.log("🤖 正在啟動 Discord Bot（同進程模式）...");
       const botModule = require("../bot/index.js");
       const getHistoryFetcher = botModule.historyFetcher;
 
@@ -135,6 +147,7 @@ app.listen(PORT, async () => {
       setTimeout(tryConnect, 3000);
     } catch (error) {
       console.log("❌ Bot 啟動失敗:", error.message);
+      console.log("   請確保 bot 作為獨立進程運行");
     }
   };
 

@@ -6,6 +6,24 @@ const nextConfig: NextConfig = {
     "https://1401130025411018772.discordsays.com",
   ],
   
+  // 配置外部圖片域名
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cdn.discordapp.com',
+        pathname: '/emojis/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.discordapp.com',
+        pathname: '/attachments/**',
+      },
+    ],
+    // 禁用圖片優化以避免 Discord CDN 問題
+    unoptimized: true,
+  },
+  
   async rewrites() {
     return [
       {

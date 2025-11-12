@@ -49,7 +49,7 @@ function extractCustomEmojis(message) {
 }
 ```
 
-**修改後**：
+**修改後（最新版本）**：
 ```javascript
 function extractCustomEmojis(message) {
   const customEmojiRegex = /<(a)?:(\w+):(\d+)>/g; // ✅ 捕獲 'a' 標記
@@ -60,10 +60,11 @@ function extractCustomEmojis(message) {
     const isAnimated = match[1] === "a"; // ✅ 正確：檢查當前 emoji
     const emojiName = match[2];
     const emojiId = match[3];
-    const extension = isAnimated ? "gif" : "png";
 
-    // ✅ 添加質量參數
-    const url = `https://cdn.discordapp.com/emojis/${emojiId}.${extension}?size=64&quality=lossless`;
+    // ✅ 使用 Discord 新的 CDN URL 格式（WebP）
+    const url = isAnimated
+      ? `https://cdn.discordapp.com/emojis/${emojiId}.webp?size=96&animated=true`
+      : `https://cdn.discordapp.com/emojis/${emojiId}.webp?size=96`;
 
     emojis.push({
       identifier: `${emojiName}:${emojiId}`,
@@ -78,10 +79,11 @@ function extractCustomEmojis(message) {
 ```
 
 **改進點**：
-- 正確捕獲動畫標記 `<a>` 或 `<:>`
-- 為每個 emoji 單獨判斷是否為動畫
-- 添加 `size=64` 和 `quality=lossless` 參數提升圖片質量
-- 更清晰的變量命名
+- ✅ 正確捕獲動畫標記 `<a>` 或 `<:>`
+- ✅ 為每個 emoji 單獨判斷是否為動畫
+- ✅ 使用 Discord 新的 WebP 格式
+- ✅ 動畫 emoji 添加 `animated=true` 參數
+- ✅ 使用 `size=96` 獲得更好的顯示效果
 
 ### 2. 創建 EmojiImage 組件
 
@@ -141,21 +143,31 @@ function extractCustomEmojis(message) {
 
 ## Discord CDN URL 格式
 
-Discord 自定義 emoji 的 CDN URL 格式：
+### 新格式（2024+）
+
+Discord 更新了 CDN URL 格式，現在使用 WebP 格式：
 
 ```
-https://cdn.discordapp.com/emojis/{emoji_id}.{extension}?size={size}&quality={quality}
+https://cdn.discordapp.com/emojis/{emoji_id}.webp?size={size}&animated={true|false}
 ```
 
 **參數說明**：
 - `emoji_id`: Emoji 的唯一 ID
-- `extension`: `png` 或 `gif`（動畫 emoji）
-- `size`: 圖片大小（16, 32, 64, 128, 256, 512, 1024, 2048, 4096）
-- `quality`: `lossless` 或省略（預設有損壓縮）
+- `size`: 圖片大小（16, 32, 64, 96, 128, 256, 512, 1024, 2048, 4096）
+- `animated`: `true`（動畫 emoji）或省略（靜態 emoji）
 
 **範例**：
-- 靜態 emoji: `https://cdn.discordapp.com/emojis/123456789.png?size=64&quality=lossless`
-- 動畫 emoji: `https://cdn.discordapp.com/emojis/987654321.gif?size=64&quality=lossless`
+- 靜態 emoji: `https://cdn.discordapp.com/emojis/123456789.webp?size=96`
+- 動畫 emoji: `https://cdn.discordapp.com/emojis/987654321.webp?size=96&animated=true`
+
+### 舊格式（已棄用）
+
+```
+https://cdn.discordapp.com/emojis/{emoji_id}.{extension}?size={size}
+```
+
+- `extension`: `png` 或 `gif`
+- ⚠️ 這種格式可能無法訪問，會返回 "Invalid resource" 錯誤
 
 ## 測試步驟
 

@@ -1,36 +1,24 @@
 module.exports = {
   apps: [
+    // Server + Bot (合併在一起，更簡單可靠)
     {
-      name: "discord-bot",
-      cwd: "./bot",
-      script: "index.js",
-      instances: 1,
-      autorestart: true,
-      watch: false,
-      max_memory_restart: "500M",
-      env: {
-        NODE_ENV: "production",
-      },
-      error_file: "./logs/bot-error.log",
-      out_file: "./logs/bot-out.log",
-      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
-    },
-    {
-      name: "discord-api",
+      name: "discord-server",
       cwd: "./server",
       script: "index.js",
       instances: 1,
       autorestart: true,
       watch: false,
-      max_memory_restart: "500M",
+      max_memory_restart: "1G",
       env: {
         NODE_ENV: "production",
         PORT: 3008,
+        START_BOT_IN_SERVER: "true", // 讓 server 啟動 bot
       },
-      error_file: "./logs/api-error.log",
-      out_file: "./logs/api-out.log",
+      error_file: "./logs/server-error.log",
+      out_file: "./logs/server-out.log",
       log_date_format: "YYYY-MM-DD HH:mm:ss Z",
     },
+    // Client (Next.js)
     {
       name: "discord-client",
       cwd: "./client",
