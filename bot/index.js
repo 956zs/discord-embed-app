@@ -14,6 +14,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
   ],
+  partials: ["CHANNEL"], // 支援 threads
 });
 
 // 白名單檢查
@@ -66,6 +67,31 @@ client.on("ready", () => {
   startDailyStatsJob(pool, client);
 
   console.log("✅ Bot 已準備就緒，開始收集數據...\n");
+
+  // 加入所有現有的討論串
+  client.guilds.cache.forEach((guild) => {
+    if (isGuildAllowed(guild.id)) {
+      guild.channels.cache.forEach((channel) => {
+        if (channel.isThread()) {
+          channel.join().catch((err) => {
+            console.error(`❌ 無法加入討論串 ${channel.name}:`, err.message);
+          });
+        }
+      });
+    }
+  });
+});
+
+// 當創建新討論串時自動加入
+client.on("threadCreate", async (thread) => {
+  if (!isGuildAllowed(thread.guild.id)) return;
+
+  try {
+    await thread.join();
+    console.log(`✅ 已加入新討論串: ${thread.name} (${thread.id})`);
+  } catch (error) {
+    console.error(`❌ 無法加入討論串 ${thread.name}:`, error.message);
+  }
 });
 
 // 訊息事件監聽

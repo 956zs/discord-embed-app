@@ -408,6 +408,89 @@ class HistoryFetcher {
         );
       }
 
+      // 階段 3: 提取該頻道的所有討論串
+      console.log(`   階段 3: 檢查討論串...`);
+      try {
+        const threads = await channel.threads.fetchActive();
+        const archivedThreads = await channel.threads.fetchArchived();
+
+        const allThreads = [
+          ...threads.threads.values(),
+          ...archivedThreads.threads.values(),
+        ];
+
+        if (allThreads.length > 0) {
+          console.log(`   找到 ${allThreads.length} 個討論串`);
+
+          for (const thread of allThreads) {
+            console.log(`   📝 提取討論串: ${thread.name}`);
+
+            try {
+              // 提取討論串的所有訊息
+              const threadMessages = await thread.messages.fetch({
+                limit: 100,
+              });
+              let threadLastId = threadMessages.last()?.id;
+
+              // 持續提取直到沒有更多訊息
+              while (threadLastId) {
+                const olderMessages = await thread.messages.fetch({
+                  limit: 100,
+                  before: threadLastId,
+                });
+
+                if (olderMessages.size === 0) break;
+
+                threadMessages.concat(olderMessages);
+                threadLastId = olderMessages.last()?.id;
+              }
+
+              // 儲存討論串訊息
+              for (const [, message] of threadMessages) {
+                if (message.author.bot) continue;
+
+                messagesFetched++;
+
+                try {
+                  const existing = await this.pool.query(
+                    "SELECT 1 FROM messages WHERE message_id = $1",
+                    [message.id]
+                  );
+
+                  if (existing.rows.length > 0) {
+                    messagesDuplicate++;
+                  } else {
+                    await saveMessage(this.pool, message);
+                    if (message.content && message.content.length > 0) {
+                      await saveEmojiUsage(this.pool, message);
+                    }
+                    messagesSaved++;
+                  }
+                } catch (error) {
+                  console.error(
+                    `❌ 儲存討論串訊息失敗 ${message.id}:`,
+                    error.message
+                  );
+                }
+              }
+
+              console.log(
+                `   ✅ 討論串 "${thread.name}": ${threadMessages.size} 則訊息`
+              );
+            } catch (threadError) {
+              console.error(
+                `   ❌ 提取討論串 "${thread.name}" 失敗:`,
+                threadError.message
+              );
+            }
+          }
+        } else {
+          console.log(`   ℹ️  沒有討論串`);
+        }
+      } catch (threadsError) {
+        console.error(`   ⚠️  無法獲取討論串:`, threadsError.message);
+      }
+
       // 完成任務
       await this.updateTaskStatus(taskId, finalStatus, {
         completedAt: new Date(),

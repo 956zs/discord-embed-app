@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 interface UserInfoProps {
   username?: string | null;

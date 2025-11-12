@@ -143,11 +143,12 @@ export function BatchFetch({
         {/* 快速選擇 */}
         <div className="space-y-2">
           <div className="text-sm font-medium">快速選擇：</div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
             <Button
               size="sm"
               variant={autoSelectMode === "outdated" ? "default" : "outline"}
               onClick={() => autoSelect("outdated")}
+              className="whitespace-nowrap flex-shrink-0"
             >
               需要更新的頻道 ({needsUpdateCount})
             </Button>
@@ -155,6 +156,7 @@ export function BatchFetch({
               size="sm"
               variant={autoSelectMode === "never" ? "default" : "outline"}
               onClick={() => autoSelect("never")}
+              className="whitespace-nowrap flex-shrink-0"
             >
               尚未提取的頻道 ({neverFetchedCount})
             </Button>
@@ -162,6 +164,7 @@ export function BatchFetch({
               size="sm"
               variant={autoSelectMode === "all" ? "default" : "outline"}
               onClick={() => autoSelect("all")}
+              className="whitespace-nowrap flex-shrink-0"
             >
               全部頻道 ({channels.length})
             </Button>
@@ -169,6 +172,7 @@ export function BatchFetch({
               size="sm"
               variant="outline"
               onClick={() => setSelectedChannels(new Set())}
+              className="whitespace-nowrap flex-shrink-0"
             >
               清除選擇
             </Button>

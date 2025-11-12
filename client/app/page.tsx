@@ -374,7 +374,7 @@ export default function Home() {
             </Card>
           </section>
 
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:gap-8 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
             {/* 頻道使用圖表 */}
             <section id="channels">
               <Card className="border-2 shadow-lg">

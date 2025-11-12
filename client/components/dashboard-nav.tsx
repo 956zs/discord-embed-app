@@ -63,88 +63,90 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
   const isMobile = useIsMobile();
 
   return (
-    <NavigationMenu viewport={isMobile}>
-      <NavigationMenuList className="flex-wrap">
-        {isAdmin && (
+    <div className="flex items-center gap-2">
+      <NavigationMenu viewport={isMobile}>
+        <NavigationMenuList className="flex-wrap">
+          {isAdmin && (
+            <NavigationMenuItem>
+              <NavigationMenuLink
+                asChild
+                className={navigationMenuTriggerStyle()}
+              >
+                <Link href="/admin">
+                  <Settings className="mr-2 h-4 w-4" />
+                  管理員
+                </Link>
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+          )}
+
           <NavigationMenuItem>
-            <NavigationMenuLink
-              asChild
-              className={navigationMenuTriggerStyle()}
-            >
-              <Link href="/admin">
-                <Settings className="mr-2 h-4 w-4" />
-                管理員
-              </Link>
-            </NavigationMenuLink>
+            <NavigationMenuTrigger>統計項目</NavigationMenuTrigger>
+            <NavigationMenuContent>
+              <ul className="grid gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                {statsItems.map((item) => (
+                  <ListItem
+                    key={item.title}
+                    title={item.title}
+                    href={item.href}
+                    icon={item.icon}
+                  >
+                    {item.description}
+                  </ListItem>
+                ))}
+              </ul>
+            </NavigationMenuContent>
           </NavigationMenuItem>
-        )}
 
-        <NavigationMenuItem>
-          <NavigationMenuTrigger>統計項目</NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <ul className="grid gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-              {statsItems.map((item) => (
-                <ListItem
-                  key={item.title}
-                  title={item.title}
-                  href={item.href}
-                  icon={item.icon}
-                >
-                  {item.description}
-                </ListItem>
-              ))}
-            </ul>
-          </NavigationMenuContent>
-        </NavigationMenuItem>
-
-        <NavigationMenuItem className="hidden md:block">
-          <NavigationMenuTrigger>快速跳轉</NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <ul className="grid w-[300px] gap-3 p-4">
-              <li>
-                <NavigationMenuLink asChild>
-                  <Link
-                    href="#server"
-                    className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                  >
-                    <div className="flex items-center gap-2 text-sm font-medium leading-none">
-                      <BarChart3 className="h-4 w-4" />
-                      伺服器概覽
-                    </div>
-                  </Link>
-                </NavigationMenuLink>
-              </li>
-              <li>
-                <NavigationMenuLink asChild>
-                  <Link
-                    href="#messages"
-                    className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                  >
-                    <div className="flex items-center gap-2 text-sm font-medium leading-none">
-                      <TrendingUp className="h-4 w-4" />
-                      訊息趨勢
-                    </div>
-                  </Link>
-                </NavigationMenuLink>
-              </li>
-              <li>
-                <NavigationMenuLink asChild>
-                  <Link
-                    href="#members"
-                    className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                  >
-                    <div className="flex items-center gap-2 text-sm font-medium leading-none">
-                      <Users className="h-4 w-4" />
-                      成員活躍度
-                    </div>
-                  </Link>
-                </NavigationMenuLink>
-              </li>
-            </ul>
-          </NavigationMenuContent>
-        </NavigationMenuItem>
-      </NavigationMenuList>
-    </NavigationMenu>
+          <NavigationMenuItem className="hidden md:block">
+            <NavigationMenuTrigger>快速跳轉</NavigationMenuTrigger>
+            <NavigationMenuContent>
+              <ul className="grid w-[300px] gap-3 p-4">
+                <li>
+                  <NavigationMenuLink asChild>
+                    <Link
+                      href="#server"
+                      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium leading-none">
+                        <BarChart3 className="h-4 w-4" />
+                        伺服器概覽
+                      </div>
+                    </Link>
+                  </NavigationMenuLink>
+                </li>
+                <li>
+                  <NavigationMenuLink asChild>
+                    <Link
+                      href="#messages"
+                      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium leading-none">
+                        <TrendingUp className="h-4 w-4" />
+                        訊息趨勢
+                      </div>
+                    </Link>
+                  </NavigationMenuLink>
+                </li>
+                <li>
+                  <NavigationMenuLink asChild>
+                    <Link
+                      href="#members"
+                      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium leading-none">
+                        <Users className="h-4 w-4" />
+                        成員活躍度
+                      </div>
+                    </Link>
+                  </NavigationMenuLink>
+                </li>
+              </ul>
+            </NavigationMenuContent>
+          </NavigationMenuItem>
+        </NavigationMenuList>
+      </NavigationMenu>
+    </div>
   );
 }
 

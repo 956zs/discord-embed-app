@@ -4,11 +4,17 @@
  * 儲存訊息記錄
  */
 async function saveMessage(pool, message) {
+  // 檢查是否為討論串訊息
+  const isThread = message.channel.isThread();
+  const threadId = isThread ? message.channel.id : null;
+  const parentChannelId = isThread ? message.channel.parentId : null;
+  const channelId = isThread ? message.channel.parentId : message.channel.id;
+
   const query = `
     INSERT INTO messages (
       message_id, guild_id, channel_id, user_id, username, 
-      message_length, has_emoji, created_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      message_length, has_emoji, is_thread, thread_id, parent_channel_id, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     ON CONFLICT (message_id) 
     WHERE message_id IS NOT NULL 
     DO NOTHING
@@ -19,11 +25,14 @@ async function saveMessage(pool, message) {
   const values = [
     message.id || null, // Discord 訊息 ID（可能為 null）
     message.guild.id,
-    message.channel.id,
+    channelId, // 使用父頻道 ID（如果是討論串）
     message.author.id,
     message.author.username,
     message.content.length,
     hasEmoji,
+    isThread,
+    threadId,
+    parentChannelId,
     message.createdAt,
   ];
 

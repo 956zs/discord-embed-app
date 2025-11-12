@@ -184,7 +184,7 @@ exports.getChannelFetchStats = async (req, res) => {
 exports.getChannels = async (req, res) => {
   try {
     const { guildId } = req.params;
-    const { Client } = require("discord.js");
+    const { includeThreads } = req.query; // 新增：是否包含討論串
 
     // 從 bot 獲取 client
     const botModule = require("../../bot/index.js");
@@ -199,17 +199,97 @@ exports.getChannels = async (req, res) => {
       return res.status(404).json({ error: "找不到伺服器" });
     }
 
-    // 獲取所有文字頻道
+    // 獲取所有文字頻道和論壇頻道
     const channels = guild.channels.cache
-      .filter((ch) => ch.type === 0) // 只要文字頻道
+      .filter((ch) => ch.type === 0 || ch.type === 15) // 文字頻道(0) 和 論壇頻道(15)
       .map((ch) => ({
         id: ch.id,
         name: ch.name,
         type: ch.type,
         position: ch.position,
         parentId: ch.parentId,
+        isThread: false,
+        isForum: ch.type === 15,
+        threads: [], // 將在下面填充
       }))
       .sort((a, b) => a.position - b.position);
+
+    // 如果需要包含討論串
+    if (includeThreads === "true") {
+      console.log("📝 獲取討論串信息...");
+
+      // 優化：先一次性從資料庫獲取所有討論串的統計
+      const threadStatsResult = await pool.query(
+        `SELECT 
+          thread_id,
+          COUNT(*) as count
+        FROM messages 
+        WHERE guild_id = $1 AND thread_id IS NOT NULL
+        GROUP BY thread_id`,
+        [guildId]
+      );
+
+      const threadStatsMap = new Map(
+        threadStatsResult.rows.map((row) => [
+          row.thread_id,
+          parseInt(row.count),
+        ])
+      );
+
+      // 並行獲取所有頻道的討論串
+      await Promise.all(
+        channels.map(async (channel) => {
+          try {
+            const discordChannel = guild.channels.cache.get(channel.id);
+            if (!discordChannel) return;
+
+            // 獲取活躍和已歸檔的討論串（限制數量避免太慢）
+            const [activeThreads, archivedThreads] = await Promise.all([
+              discordChannel.threads
+                .fetchActive()
+                .catch(() => ({ threads: new Map() })),
+              discordChannel.threads
+                .fetchArchived({ limit: 50 })
+                .catch(() => ({ threads: new Map() })),
+            ]);
+
+            const allThreads = [
+              ...activeThreads.threads.values(),
+              ...archivedThreads.threads.values(),
+            ];
+
+            // 使用預先獲取的統計數據（避免逐個查詢）
+            channel.threads = allThreads.map((thread) => ({
+              id: thread.id,
+              name: thread.name,
+              type: thread.type,
+              archived: thread.archived,
+              locked: thread.locked,
+              messageCount: threadStatsMap.get(thread.id) || 0,
+              createdAt: thread.createdAt,
+              parentId: channel.id,
+              isThread: true,
+            }));
+
+            channel.threadCount = allThreads.length;
+          } catch (threadError) {
+            console.error(
+              `⚠️  獲取頻道 ${channel.name} 的討論串失敗:`,
+              threadError.message
+            );
+            channel.threads = [];
+            channel.threadCount = 0;
+          }
+        })
+      );
+
+      console.log(
+        `✅ 已獲取 ${channels.reduce(
+          (sum, ch) => sum + (ch.threadCount || 0),
+          0
+        )} 個討論串`
+      );
+    }
 
     res.json(channels);
   } catch (error) {

@@ -15,14 +15,30 @@ import {
   Hash,
   Volume2,
   MessageSquare,
+  MessagesSquare,
 } from "lucide-react";
 import type { ChannelFetchStats } from "@/types";
+
+interface Thread {
+  id: string;
+  name: string;
+  type: number;
+  archived: boolean;
+  locked: boolean;
+  messageCount: number;
+  createdAt: string;
+  parentId: string;
+  isThread: boolean;
+}
 
 interface Channel {
   id: string;
   name: string;
   type: number;
   position: number;
+  isThread: boolean;
+  threads?: Thread[];
+  threadCount?: number;
 }
 
 interface ChannelTreeProps {
@@ -36,16 +52,28 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
     new Map()
   );
   const [loading, setLoading] = useState(true);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+  const [expandedChannels, setExpandedChannels] = useState<Set<string>>(
     new Set()
   );
   const [startingFetch, setStartingFetch] = useState<string | null>(null);
 
+  const toggleChannel = (channelId: string) => {
+    const newExpanded = new Set(expandedChannels);
+    if (newExpanded.has(channelId)) {
+      newExpanded.delete(channelId);
+    } else {
+      newExpanded.add(channelId);
+    }
+    setExpandedChannels(newExpanded);
+  };
+
   const loadChannels = async () => {
     try {
-      // 從後端 API 獲取頻道列表（bot 提供）
-      console.log("📡 從 bot 獲取頻道列表...");
-      const response = await fetch(`/api/history/${guildId}/channels`);
+      // 從後端 API 獲取頻道列表（bot 提供），包含討論串
+      console.log("📡 從 bot 獲取頻道列表（包含討論串）...");
+      const response = await fetch(
+        `/api/history/${guildId}/channels?includeThreads=true`
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -56,14 +84,6 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
       console.log(`✅ 載入了 ${channelList.length} 個頻道`);
     } catch (error) {
       console.error("載入頻道失敗:", error);
-      // 降級：使用模擬數據
-      console.warn("⚠️ 使用模擬數據");
-      const mockChannels: Channel[] = [
-        { id: "1", name: "一般", type: 0, position: 0 },
-        { id: "2", name: "閒聊", type: 0, position: 1 },
-        { id: "3", name: "公告", type: 0, position: 2 },
-      ];
-      setChannels(mockChannels);
     } finally {
       setLoading(false);
     }
@@ -141,6 +161,8 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
         return <Hash className="h-4 w-4" />;
       case 2:
         return <Volume2 className="h-4 w-4" />;
+      case 15:
+        return <MessagesSquare className="h-4 w-4" />; // 論壇頻道
       default:
         return <MessageSquare className="h-4 w-4" />;
     }
@@ -172,44 +194,103 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
           {channels.map((channel) => {
             const stats = fetchStats.get(channel.id);
             const hasStats = !!stats;
+            const hasThreads = (channel.threads?.length || 0) > 0;
+            const isExpanded = expandedChannels.has(channel.id);
 
             return (
-              <div
-                key={channel.id}
-                className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors"
-              >
-                <div className="flex items-center gap-3 flex-1">
-                  {getChannelIcon(channel.type)}
-                  <div className="flex-1">
-                    <div className="font-medium">{channel.name}</div>
-                    {hasStats && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        <div>
-                          已提取: {stats.total_messages?.toLocaleString()}{" "}
-                          則訊息
-                          {" | "}
-                          任務: {stats.completed_tasks}/{stats.total_tasks}
-                          {stats.running_tasks > 0 &&
-                            ` (運行中: ${stats.running_tasks})`}
+              <div key={channel.id} className="space-y-1">
+                {/* 主頻道 */}
+                <div className="flex items-center justify-between p-3 rounded-lg border hover:bg-accent transition-colors">
+                  <div className="flex items-center gap-3 flex-1">
+                    {/* 展開/收起按鈕 */}
+                    {hasThreads && (
+                      <button
+                        onClick={() => toggleChannel(channel.id)}
+                        className="hover:bg-muted rounded p-1"
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
+
+                    {getChannelIcon(channel.type)}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{channel.name}</span>
+                        {hasThreads && (
+                          <span className="text-xs text-muted-foreground">
+                            ({channel.threadCount} 個討論串)
+                          </span>
+                        )}
+                      </div>
+                      {hasStats && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          <div>
+                            已提取: {stats.total_messages?.toLocaleString()}{" "}
+                            則訊息
+                            {" | "}
+                            任務: {stats.completed_tasks}/{stats.total_tasks}
+                            {stats.running_tasks > 0 &&
+                              ` (運行中: ${stats.running_tasks})`}
+                          </div>
+                          <div>
+                            最後提取: {formatDate(stats.last_fetch_time)}
+                          </div>
                         </div>
-                        <div>最後提取: {formatDate(stats.last_fetch_time)}</div>
-                      </div>
-                    )}
-                    {!hasStats && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        尚未提取過歷史訊息
-                      </div>
-                    )}
+                      )}
+                      {!hasStats && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          尚未提取過歷史訊息
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  <Button
+                    size="sm"
+                    onClick={() => startFetch(channel.id, channel.name)}
+                    disabled={startingFetch === channel.id}
+                  >
+                    {startingFetch === channel.id ? "啟動中..." : "開始提取"}
+                  </Button>
                 </div>
 
-                <Button
-                  size="sm"
-                  onClick={() => startFetch(channel.id, channel.name)}
-                  disabled={startingFetch === channel.id}
-                >
-                  {startingFetch === channel.id ? "啟動中..." : "開始提取"}
-                </Button>
+                {/* 討論串列表 */}
+                {hasThreads && isExpanded && (
+                  <div className="ml-8 space-y-1">
+                    {channel.threads?.map((thread) => (
+                      <div
+                        key={thread.id}
+                        className="flex items-center gap-2 p-2 rounded-lg border border-dashed hover:bg-accent/50 transition-colors text-sm"
+                      >
+                        <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span>{thread.name}</span>
+                            {thread.archived && (
+                              <span className="text-xs text-muted-foreground">
+                                (已歸檔)
+                              </span>
+                            )}
+                            {thread.locked && (
+                              <span className="text-xs text-muted-foreground">
+                                (已鎖定)
+                              </span>
+                            )}
+                          </div>
+                          {thread.messageCount > 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              {thread.messageCount} 則訊息
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

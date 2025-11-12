@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS messages (
     username VARCHAR(100),
     message_length INTEGER,
     has_emoji BOOLEAN DEFAULT FALSE,
+    is_thread BOOLEAN DEFAULT FALSE,           -- 是否為討論串訊息
+    thread_id VARCHAR(20),                     -- 討論串 ID（如果是討論串訊息）
+    parent_channel_id VARCHAR(20),             -- 父頻道 ID（如果是討論串訊息）
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
