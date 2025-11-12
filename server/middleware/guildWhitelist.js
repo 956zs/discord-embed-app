@@ -9,6 +9,12 @@ const checkGuildWhitelist = (req, res, next) => {
         .filter((id) => id)
     : [];
 
+  console.log(
+    `🔍 檢查白名單: guildId=${guildId}, allowedGuilds=${JSON.stringify(
+      allowedGuilds
+    )}`
+  );
+
   // 如果沒有設定白名單，允許所有伺服器（開發模式）
   if (allowedGuilds.length === 0) {
     console.warn("⚠️  警告: 未設定伺服器白名單，允許所有伺服器訪問");
@@ -18,6 +24,9 @@ const checkGuildWhitelist = (req, res, next) => {
   // 檢查伺服器是否在白名單中
   if (!allowedGuilds.includes(guildId)) {
     console.log(`🚫 拒絕訪問: 伺服器 ${guildId} 不在白名單中`);
+    console.log(
+      `   類型比較: guildId type=${typeof guildId}, first allowed type=${typeof allowedGuilds[0]}`
+    );
     return res.status(403).json({
       error: "此伺服器未被授權使用統計功能",
       message: "請聯繫管理員將您的伺服器加入白名單",

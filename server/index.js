@@ -11,16 +11,23 @@ const PORT = process.env.PORT || 3001;
 app.use(
   cors({
     origin: [
+      "http://localhost:3000",
       "http://localhost:5173",
       "https://discord.com",
-      "https://*.discord.com",
+      "https://1401130025411018772.discordsays.com",
+      /\.discord\.com$/,
+      /\.discordsays\.com$/,
     ],
     credentials: true,
   })
 );
 app.use(express.json());
 
-// 路由
+// 路由（添加日誌）
+app.use((req, res, next) => {
+  console.log(`📥 ${req.method} ${req.url}`);
+  next();
+});
 app.use("/api/stats", statsRoutes);
 
 app.get("/health", (req, res) => {

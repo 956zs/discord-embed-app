@@ -10,14 +10,12 @@ const {
 } = require("../controllers/statsController");
 const { checkGuildWhitelist } = require("../middleware/guildWhitelist");
 
-// 所有路由都需要通過白名單檢查
-router.use(checkGuildWhitelist);
-
-router.get("/server/:guildId", getServerStats);
-router.get("/members/:guildId", getMemberActivity);
-router.get("/channels/:guildId", getChannelUsage);
-router.get("/messages/:guildId", getMessageTrends);
-router.get("/emojis/:guildId", getEmojiStats);
-router.get("/keywords/:guildId", getKeywordCloud);
+// 每個路由單獨應用白名單檢查
+router.get("/server/:guildId", checkGuildWhitelist, getServerStats);
+router.get("/members/:guildId", checkGuildWhitelist, getMemberActivity);
+router.get("/channels/:guildId", checkGuildWhitelist, getChannelUsage);
+router.get("/messages/:guildId", checkGuildWhitelist, getMessageTrends);
+router.get("/emojis/:guildId", checkGuildWhitelist, getEmojiStats);
+router.get("/keywords/:guildId", checkGuildWhitelist, getKeywordCloud);
 
 module.exports = router;

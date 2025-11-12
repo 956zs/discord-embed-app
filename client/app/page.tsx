@@ -48,27 +48,31 @@ export default function Home() {
     setLoading(true);
     setError(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+      console.log("🔄 開始載入資料，Guild ID:", id);
 
+      // 使用相對路徑，透過 Next.js rewrites 代理到後端
       const [server, messages, channels, members, emojis, keywordsData] =
         await Promise.all([
-          axios.get(`${apiUrl}/api/stats/server/${id}`),
-          axios.get(`${apiUrl}/api/stats/messages/${id}`),
-          axios.get(`${apiUrl}/api/stats/channels/${id}`),
-          axios.get(`${apiUrl}/api/stats/members/${id}`),
-          axios.get(`${apiUrl}/api/stats/emojis/${id}`),
-          axios.get(`${apiUrl}/api/stats/keywords/${id}`),
+          axios.get(`/api/stats/server/${id}`),
+          axios.get(`/api/stats/messages/${id}`),
+          axios.get(`/api/stats/channels/${id}`),
+          axios.get(`/api/stats/members/${id}`),
+          axios.get(`/api/stats/emojis/${id}`),
+          axios.get(`/api/stats/keywords/${id}`),
         ]);
 
+      console.log("✅ 資料載入成功");
       setServerStats(server.data);
       setMessageTrends(messages.data);
       setChannelUsage(channels.data);
       setMemberActivity(members.data);
       setEmojiStats(emojis.data);
       setKeywords(keywordsData.data);
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ 載入資料失敗:", error);
-      setError("載入資料失敗，請確認 API 伺服器是否運行");
+      const errorMsg =
+        error.response?.data?.error || error.message || "未知錯誤";
+      setError(`載入資料失敗: ${errorMsg}`);
     } finally {
       setLoading(false);
     }
@@ -87,10 +91,19 @@ export default function Home() {
 
   if (error) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="space-y-4 text-center">
+      <div className="flex min-h-screen items-center justify-center p-8">
+        <div className="max-w-md space-y-4 text-center">
           <div className="text-2xl font-bold text-destructive">載入失敗</div>
           <div className="text-muted-foreground">{error}</div>
+          <button
+            onClick={() => {
+              const devGuildId = process.env.NEXT_PUBLIC_DEV_GUILD_ID || "";
+              if (devGuildId) fetchAllData(devGuildId);
+            }}
+            className="rounded-lg bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
+          >
+            重試
+          </button>
         </div>
       </div>
     );
