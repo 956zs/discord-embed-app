@@ -18,8 +18,6 @@ import { FetchProgress } from "@/components/admin/fetch-progress";
 import { BatchFetch } from "@/components/admin/batch-fetch";
 import type { FetchSummary } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3008";
-
 export default function AdminPage() {
   const router = useRouter();
   const { t } = useLanguage();

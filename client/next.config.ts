@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const DISCORD_CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || '';
 const DISCORD_ORIGIN = `https://${DISCORD_CLIENT_ID}.discordsays.com`;
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
 
 const nextConfig: NextConfig = {
   // Allow Discord Embedded App cross-origin requests
@@ -26,14 +25,8 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${API_URL}/api/:path*`,
-      },
-    ];
-  },
+  // Note: API requests are now handled by Next.js API routes (app/api/)
+  // which proxy to the Express backend using BACKEND_URL environment variable
   
   async headers() {
     return [

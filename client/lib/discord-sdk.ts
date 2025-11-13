@@ -59,8 +59,8 @@ export async function initDiscordSdk() {
 
       // 使用後端 API 交換 token 並獲取用戶信息
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3008";
-        const response = await fetch(`${apiUrl}/api/auth/token`, {
+        // 使用相對路徑，通過 Next.js API route 代理到後端
+        const response = await fetch("/api/auth/token", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
