@@ -1,16 +1,16 @@
 #!/bin/bash
 
 # ============================================================================
-# Discord 統計應用 - 環境配置工具
+# Discord Stats App - Environment Setup Tool
 # ============================================================================
-# 使用方式: ./setup-env.sh
+# Usage: ./setup-env.sh
 # 
-# 此腳本會引導你完成所有環境變數的配置
+# This script will guide you through configuring all environment variables
 # ============================================================================
 
 set -e
 
-# 顏色定義
+# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -18,38 +18,38 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# 日誌函數
+# Logging functions
 log_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+    echo -e "${BLUE}[INFO] $1${NC}"
 }
 
 log_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+    echo -e "${GREEN}[SUCCESS] $1${NC}"
 }
 
 log_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+    echo -e "${YELLOW}[WARNING] $1${NC}"
 }
 
 log_error() {
-    echo -e "${RED}❌ $1${NC}"
+    echo -e "${RED}[ERROR] $1${NC}"
 }
 
 log_section() {
     echo ""
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}======================================================================${NC}"
     echo -e "${CYAN}$1${NC}"
-    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}======================================================================${NC}"
 }
 
-# 讀取用戶輸入
+# Read user input
 read_input() {
     local prompt="$1"
     local default="$2"
     local secret="$3"
     
     if [ -n "$default" ]; then
-        echo -ne "${BLUE}$prompt${NC} ${YELLOW}[預設: $default]${NC}: "
+        echo -ne "${BLUE}$prompt${NC} ${YELLOW}[default: $default]${NC}: "
     else
         echo -ne "${BLUE}$prompt${NC}: "
     fi
@@ -68,19 +68,19 @@ read_input() {
     echo "$value"
 }
 
-# 驗證必填項
+# Validate required field
 validate_required() {
     local value="$1"
     local name="$2"
     
     if [ -z "$value" ]; then
-        log_error "$name 不能為空！"
+        log_error "$name cannot be empty!"
         return 1
     fi
     return 0
 }
 
-# 測試資料庫連接
+# Test database connection
 test_db_connection() {
     local host="$1"
     local port="$2"
@@ -88,19 +88,19 @@ test_db_connection() {
     local password="$4"
     local dbname="$5"
     
-    log_info "測試資料庫連接..."
+    log_info "Testing database connection..."
     
     if PGPASSWORD="$password" psql -h "$host" -p "$port" -U "$user" -d "$dbname" -c "SELECT 1" > /dev/null 2>&1; then
-        log_success "資料庫連接成功！"
+        log_success "Database connection successful!"
         return 0
     else
-        log_error "資料庫連接失敗！"
+        log_error "Database connection failed!"
         return 1
     fi
 }
 
 # ============================================================================
-# 開始配置
+# Start configuration
 # ============================================================================
 
 clear
@@ -108,435 +108,468 @@ echo -e "${CYAN}"
 cat << "EOF"
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
-║   Discord 伺服器統計與可視化 Embedded App                     ║
-║   環境配置工具                                                ║
+║   Discord Server Stats & Visualization Embedded App          ║
+║   Environment Configuration Tool                             ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 EOF
 echo -e "${NC}"
 
-log_info "此工具將引導你完成所有環境變數的配置"
+log_info "This tool will guide you through configuring all environment variables"
 echo ""
 
-# 選擇環境類型
-log_section "選擇環境類型"
+# Select environment type
+log_section "Select Environment Type"
 echo ""
-echo "  1) 開發環境 (Development)"
-echo "     - 適合本地開發和測試"
-echo "     - 啟用開發模式功能"
-echo "     - 使用 localhost"
+echo "  1) Development"
+echo "     - For local development and testing"
+echo "     - Enable dev mode features"
+echo "     - Use localhost"
 echo ""
-echo "  2) 生產環境 (Production)"
-echo "     - 適合部署到伺服器"
-echo "     - 使用實際域名"
-echo "     - 優化的安全設置"
+echo "  2) Production"
+echo "     - For server deployment"
+echo "     - Use actual domain"
+echo "     - Optimized security settings"
 echo ""
 
 while true; do
-    read -p "請選擇環境類型 (1 或 2): " ENV_TYPE
+    read -p "Select environment type (1 or 2): " ENV_TYPE
     case $ENV_TYPE in
         1)
             ENV_MODE="development"
-            log_success "已選擇：開發環境"
+            log_success "Selected: Development"
             break
             ;;
         2)
             ENV_MODE="production"
-            log_success "已選擇：生產環境"
+            log_success "Selected: Production"
             break
             ;;
         *)
-            log_error "請輸入 1 或 2"
+            log_error "Please enter 1 or 2"
             ;;
     esac
 done
 
 echo ""
-log_warning "配置流程包含 4 個步驟："
-echo "  步驟 1/4 - Discord 配置（Bot Token、Client ID、Client Secret）"
-echo "  步驟 2/4 - PostgreSQL 資料庫配置"
-echo "  步驟 3/4 - 伺服器配置（端口、白名單）"
-echo "  步驟 4/4 - 前端配置（開發模式、API URL）"
+log_warning "Configuration includes 4 steps:"
+echo "  Step 1/4 - Discord Configuration (Bot Token, Client ID, Client Secret)"
+echo "  Step 2/4 - PostgreSQL Database Configuration"
+echo "  Step 3/4 - Server Configuration (Ports, Whitelist)"
+echo "  Step 4/4 - Frontend Configuration (Dev Mode, API URL)"
 echo ""
-log_info "請準備好以下資訊："
-echo "  ✓ Discord Bot Token"
-echo "  ✓ Discord Application Client ID 和 Secret"
-echo "  ✓ PostgreSQL 資料庫連接資訊"
-echo "  ○ Discord 伺服器 ID（可選）"
+log_info "Please prepare the following information:"
+echo "  - Discord Bot Token"
+echo "  - Discord Application Client ID and Secret"
+echo "  - PostgreSQL database connection info"
+echo "  - Discord Server ID (optional)"
 echo ""
-log_info "預計需要 5-10 分鐘完成配置"
+log_info "Estimated time: 5-10 minutes"
 echo ""
-read -p "準備好了嗎？按 Enter 開始配置..."
+read -p "Ready? Press Enter to start..."
 
 # ============================================================================
-# 1. Discord 配置
+# 1. Discord Configuration
 # ============================================================================
-log_section "步驟 1/4: Discord 配置"
+log_section "Step 1/4: Discord Configuration"
 
-log_info "請前往 Discord Developer Portal 獲取以下資訊："
+log_info "Visit Discord Developer Portal to get the following:"
 echo "  https://discord.com/developers/applications"
 echo ""
-log_warning "需要以下三項資訊："
-echo "  1. Bot Token（在 Bot 頁面）"
-echo "  2. Client ID（在 General Information 頁面）"
-echo "  3. Client Secret（在 OAuth2 頁面）"
+log_warning "You need these three items:"
+echo "  1. Bot Token (from Bot page)"
+echo "  2. Client ID (from General Information page)"
+echo "  3. Client Secret (from OAuth2 page)"
 echo ""
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "----------------------------------------------------------------------"
 log_info "1/3 - Bot Token"
-echo "  這是你的 Discord Bot 的認證令牌"
-echo "  位置：Bot 頁面 → Reset Token"
-DISCORD_BOT_TOKEN=$(read_input "請輸入 Bot Token" "" "true")
+echo "  This is your Discord Bot authentication token"
+echo "  Location: Bot page -> Reset Token"
+DISCORD_BOT_TOKEN=$(read_input "Enter Bot Token" "" "true")
 validate_required "$DISCORD_BOT_TOKEN" "Bot Token" || exit 1
-log_success "Bot Token 已設置"
+log_success "Bot Token set"
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "----------------------------------------------------------------------"
 log_info "2/3 - Client ID"
-echo "  這是你的 Discord Application 的唯一識別碼"
-echo "  位置：General Information 頁面 → Application ID"
-DISCORD_CLIENT_ID=$(read_input "請輸入 Client ID" "")
+echo "  This is your Discord Application unique identifier"
+echo "  Location: General Information page -> Application ID"
+DISCORD_CLIENT_ID=$(read_input "Enter Client ID" "")
 validate_required "$DISCORD_CLIENT_ID" "Client ID" || exit 1
-log_success "Client ID 已設置"
+log_success "Client ID set"
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "----------------------------------------------------------------------"
 log_info "3/3 - Client Secret"
-echo "  這是你的 OAuth2 認證密鑰"
-echo "  位置：OAuth2 頁面 → Client Secret → Reset Secret"
-DISCORD_CLIENT_SECRET=$(read_input "請輸入 Client Secret" "" "true")
+echo "  This is your OAuth2 authentication secret"
+echo "  Location: OAuth2 page -> Client Secret -> Reset Secret"
+DISCORD_CLIENT_SECRET=$(read_input "Enter Client Secret" "" "true")
 validate_required "$DISCORD_CLIENT_SECRET" "Client Secret" || exit 1
-log_success "Client Secret 已設置"
+log_success "Client Secret set"
 
 echo ""
-log_success "✓ Discord 配置完成 (1/4)"
+log_success "Discord configuration complete (1/4)"
 
 # ============================================================================
-# 2. 資料庫配置
+# 2. Database Configuration
 # ============================================================================
-log_section "步驟 2/4: PostgreSQL 資料庫配置"
+log_section "Step 2/4: PostgreSQL Database Configuration"
 
-log_info "配置 PostgreSQL 資料庫連接資訊"
-echo "  如果你還沒有創建資料庫，可以稍後執行："
+log_info "Configure PostgreSQL database connection"
+echo "  If you haven't created the database yet, you can do it later:"
 echo "  createdb discord_stats"
 echo ""
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_info "1/5 - 資料庫主機"
-echo "  通常是 localhost（本地）或遠端伺服器 IP"
-DB_HOST=$(read_input "請輸入資料庫主機" "localhost")
+echo "----------------------------------------------------------------------"
+log_info "1/5 - Database Host"
+echo "  Usually localhost (local) or remote server IP"
+DB_HOST=$(read_input "Enter database host" "localhost")
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_info "2/5 - 資料庫端口"
-echo "  PostgreSQL 預設端口是 5432"
-DB_PORT=$(read_input "請輸入資料庫端口" "5432")
+echo "----------------------------------------------------------------------"
+log_info "2/5 - Database Port"
+echo "  PostgreSQL default port is 5432"
+DB_PORT=$(read_input "Enter database port" "5432")
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_info "3/5 - 資料庫名稱"
-echo "  建議使用 discord_stats"
-DB_NAME=$(read_input "請輸入資料庫名稱" "discord_stats")
+echo "----------------------------------------------------------------------"
+log_info "3/5 - Database Name"
+echo "  Recommended: discord_stats"
+DB_NAME=$(read_input "Enter database name" "discord_stats")
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_info "4/5 - 資料庫用戶"
-echo "  PostgreSQL 預設用戶是 postgres"
-DB_USER=$(read_input "請輸入資料庫用戶" "postgres")
+echo "----------------------------------------------------------------------"
+log_info "4/5 - Database User"
+echo "  PostgreSQL default user is postgres"
+DB_USER=$(read_input "Enter database user" "postgres")
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_info "5/5 - 資料庫密碼"
-echo "  輸入時不會顯示，這是正常的"
-DB_PASSWORD=$(read_input "請輸入資料庫密碼" "" "true")
-validate_required "$DB_PASSWORD" "資料庫密碼" || exit 1
+echo "----------------------------------------------------------------------"
+log_info "5/5 - Database Password"
+echo "  Input will be hidden, this is normal"
+DB_PASSWORD=$(read_input "Enter database password" "" "true")
+validate_required "$DB_PASSWORD" "Database password" || exit 1
 
 echo ""
-# 測試連接
+# Test connection
 if ! test_db_connection "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASSWORD" "$DB_NAME"; then
-    log_warning "資料庫連接失敗，但配置將繼續"
-    log_info "請確保稍後手動創建資料庫："
+    log_warning "Database connection failed, but configuration will continue"
+    log_info "Please ensure you manually create the database later:"
     echo "  createdb $DB_NAME"
     echo ""
-    read -p "按 Enter 繼續..."
+    read -p "Press Enter to continue..."
 fi
 
-log_success "✓ 資料庫配置完成 (2/4)"
+log_success "Database configuration complete (2/4)"
 
 # ============================================================================
-# 3. 伺服器配置
+# 3. Server Configuration
 # ============================================================================
-log_section "步驟 3/4: 伺服器配置"
+log_section "Step 3/4: Server Configuration"
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_info "1/3 - API Server 端口"
-echo "  API 伺服器運行的端口號"
-echo "  預設是 3008，確保此端口未被佔用"
-PORT=$(read_input "請輸入 API Server 端口" "3008")
-log_success "端口已設置為 $PORT"
-
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_info "2/3 - Client 端口（開發環境）"
-echo "  Next.js 前端開發伺服器的端口號"
-echo "  預設是 3000，確保此端口未被佔用"
-CLIENT_PORT=$(read_input "請輸入 Client 端口" "3000")
-log_success "Client 端口已設置為 $CLIENT_PORT"
+echo "----------------------------------------------------------------------"
+log_info "1/3 - API Server Port"
+echo "  Port number for API server"
+echo "  Default is 3008, ensure this port is not in use"
+PORT=$(read_input "Enter API Server port" "3008")
+log_success "Port set to $PORT"
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "----------------------------------------------------------------------"
+log_info "2/3 - Client Port (Development)"
+echo "  Port number for Next.js frontend dev server"
+echo "  Default is 3000, ensure this port is not in use"
+CLIENT_PORT=$(read_input "Enter Client port" "3000")
+log_success "Client port set to $CLIENT_PORT"
+
+echo ""
+echo "----------------------------------------------------------------------"
 if [ "$ENV_MODE" = "production" ]; then
-    log_info "3/3 - 白名單配置（生產環境強烈建議）"
-    printf "  %s⚠️  生產環境強烈建議設置白名單以提高安全性%s\\n" "${YELLOW}" "${NC}"
-    echo "  只有白名單中的伺服器才能使用統計功能"
+    log_info "3/3 - Whitelist Configuration (Strongly recommended for production)"
+    log_warning "Production environment strongly recommends setting whitelist for security"
+    echo "  Only whitelisted servers can use stats features"
 else
-    log_info "3/3 - 白名單配置（可選）"
-    echo "  這是可選的安全功能"
+    log_info "3/3 - Whitelist Configuration (Optional)"
+    echo "  This is an optional security feature"
 fi
-echo "  如果你只想收集特定伺服器的數據，請輸入伺服器 ID"
-echo "  多個伺服器用逗號分隔，例如：123456789,987654321"
-printf "  %s留空表示允許所有伺服器（不推薦用於生產環境）%s\\n" "${CYAN}" "${NC}"
+echo "  If you only want to collect data from specific servers, enter server IDs"
+echo "  Multiple servers separated by commas, e.g.: 123456789,987654321"
+echo "  Leave empty to allow all servers (not recommended for production)"
 echo ""
 
 while true; do
-    ALLOWED_GUILD_IDS=$(read_input "允許的伺服器 ID（直接按 Enter 跳過）" "")
+    ALLOWED_GUILD_IDS=$(read_input "Allowed server IDs (press Enter to skip)" "")
     
     if [ -n "$ALLOWED_GUILD_IDS" ]; then
-        log_success "白名單已設置：$ALLOWED_GUILD_IDS"
+        log_success "Whitelist set: $ALLOWED_GUILD_IDS"
         break
     else
         if [ "$ENV_MODE" = "production" ]; then
-            log_warning "生產環境未設置白名單，將允許所有伺服器訪問"
+            log_warning "Production environment without whitelist will allow all servers"
             echo ""
-            read -p "確定要繼續嗎？(y/n): " confirm
+            read -p "Are you sure you want to continue? (y/n): " confirm
             case $confirm in
                 [Yy]*)
-                    log_info "已確認：未設置白名單"
+                    log_info "Confirmed: No whitelist set"
                     break
                     ;;
                 [Nn]*)
                     echo ""
-                    log_info "請輸入伺服器 ID："
+                    log_info "Please enter server IDs:"
                     ;;
                 *)
-                    log_error "請輸入 y 或 n"
+                    log_error "Please enter y or n"
                     ;;
             esac
         else
-            log_info "未設置白名單，將允許所有伺服器"
+            log_info "No whitelist set, will allow all servers"
             break
         fi
     fi
 done
 
 echo ""
-log_success "✓ 伺服器配置完成 (3/4)"
+log_success "Server configuration complete (3/4)"
 
 # ============================================================================
-# 4. 前端配置
+# 4. Frontend Configuration
 # ============================================================================
-log_section "步驟 4/4: 前端配置"
+log_section "Step 4/4: Frontend Configuration"
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_info "1/2 - 開發模式配置"
+echo "----------------------------------------------------------------------"
+log_info "1/2 - Development Mode Configuration"
 
 if [ "$ENV_MODE" = "development" ]; then
-    log_info "開發環境：自動啟用開發模式"
+    log_info "Development environment: Auto-enable dev mode"
     NEXT_PUBLIC_ENABLE_DEV_MODE="true"
     echo ""
-    echo "  開發模式需要測試用的伺服器和用戶 ID"
-    echo "  這樣你可以在本地測試，無需 Discord Embedded App"
+    echo "  Dev mode requires test server and user IDs"
+    echo "  This allows local testing without Discord Embedded App"
     echo ""
-    echo "  測試用伺服器 ID："
-    echo "  在 Discord 中右鍵點擊伺服器圖標 → 複製 ID"
-    NEXT_PUBLIC_DEV_GUILD_ID=$(read_input "  請輸入測試用伺服器 ID" "")
+    echo "  Test Server ID:"
+    echo "  Right-click server icon in Discord -> Copy ID"
+    NEXT_PUBLIC_DEV_GUILD_ID=$(read_input "  Enter test server ID" "")
     echo ""
-    echo "  測試用用戶 ID："
-    echo "  在 Discord 中右鍵點擊你的用戶名 → 複製 ID"
-    NEXT_PUBLIC_DEV_USER_ID=$(read_input "  請輸入測試用用戶 ID" "")
-    log_success "開發模式配置完成"
+    echo "  Test User ID:"
+    echo "  Right-click your username in Discord -> Copy ID"
+    NEXT_PUBLIC_DEV_USER_ID=$(read_input "  Enter test user ID" "")
+    log_success "Dev mode configuration complete"
 else
-    log_info "生產環境：開發模式已禁用"
+    log_info "Production environment: Dev mode disabled"
     NEXT_PUBLIC_ENABLE_DEV_MODE="false"
     NEXT_PUBLIC_DEV_GUILD_ID=""
     NEXT_PUBLIC_DEV_USER_ID=""
 fi
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "----------------------------------------------------------------------"
 log_info "2/2 - API URL"
 
 if [ "$ENV_MODE" = "development" ]; then
-    log_info "開發環境：使用 localhost"
+    log_info "Development environment: Using localhost"
     NEXT_PUBLIC_API_URL="http://localhost:$PORT"
-    log_success "API URL 已設置為 $NEXT_PUBLIC_API_URL"
+    log_success "API URL set to $NEXT_PUBLIC_API_URL"
 else
-    echo "  生產環境中前端訪問 API 的 URL"
-    echo "  應該是你的域名，例如：https://api.yourdomain.com"
-    echo "  或使用 localhost 進行本地測試"
-    NEXT_PUBLIC_API_URL=$(read_input "請輸入 API URL" "http://localhost:$PORT")
-    log_success "API URL 已設置為 $NEXT_PUBLIC_API_URL"
+    echo "  Production API URL for frontend to access API"
+    echo "  Should be your domain, e.g.: https://api.yourdomain.com"
+    echo "  Or use localhost for local testing"
+    NEXT_PUBLIC_API_URL=$(read_input "Enter API URL" "http://localhost:$PORT")
+    log_success "API URL set to $NEXT_PUBLIC_API_URL"
 fi
 
 echo ""
-log_success "✓ 前端配置完成 (4/4)"
+log_success "Frontend configuration complete (4/4)"
 
 # ============================================================================
-# 5. 生成配置文件
+# 5. Generate configuration files
 # ============================================================================
-log_section "步驟 5: 生成配置文件"
+log_section "Step 5: Generate Configuration Files"
 
-log_info "正在生成配置文件..."
+log_info "Generating configuration files..."
 
-# 根目錄 .env
-cat > .env << EOF
+# Root .env
+cat > .env << 'ENVEOF'
 # ============================================================================
-# Discord 統計應用 - 環境配置
+# Discord Stats App - Environment Configuration
 # ============================================================================
-# 環境類型: $ENV_MODE
-# 由 setup-env.sh 自動生成於 $(date)
+# Environment: ENV_MODE_PLACEHOLDER
+# Generated by setup-env.sh at TIMESTAMP_PLACEHOLDER
 # ============================================================================
 
-# Discord 配置
-DISCORD_CLIENT_ID=$DISCORD_CLIENT_ID
-DISCORD_CLIENT_SECRET=$DISCORD_CLIENT_SECRET
-DISCORD_BOT_TOKEN=$DISCORD_BOT_TOKEN
+# Discord Configuration
+DISCORD_CLIENT_ID=CLIENT_ID_PLACEHOLDER
+DISCORD_CLIENT_SECRET=CLIENT_SECRET_PLACEHOLDER
+DISCORD_BOT_TOKEN=BOT_TOKEN_PLACEHOLDER
 
-# API 配置
-PORT=$PORT
-CLIENT_PORT=$CLIENT_PORT
+# API Configuration
+PORT=PORT_PLACEHOLDER
+CLIENT_PORT=CLIENT_PORT_PLACEHOLDER
 
-# 白名單（可選，逗號分隔）
-ALLOWED_GUILD_IDS=$ALLOWED_GUILD_IDS
+# Whitelist (optional, comma-separated)
+ALLOWED_GUILD_IDS=GUILD_IDS_PLACEHOLDER
 
-# 環境模式
-NODE_ENV=$ENV_MODE
-EOF
+# Environment Mode
+NODE_ENV=NODE_ENV_PLACEHOLDER
+ENVEOF
 
-log_success "已創建 .env"
+# Replace placeholders
+sed -i "s|ENV_MODE_PLACEHOLDER|$ENV_MODE|g" .env
+sed -i "s|TIMESTAMP_PLACEHOLDER|$(date)|g" .env
+sed -i "s|CLIENT_ID_PLACEHOLDER|$DISCORD_CLIENT_ID|g" .env
+sed -i "s|CLIENT_SECRET_PLACEHOLDER|$DISCORD_CLIENT_SECRET|g" .env
+sed -i "s|BOT_TOKEN_PLACEHOLDER|$DISCORD_BOT_TOKEN|g" .env
+sed -i "s|PORT_PLACEHOLDER|$PORT|g" .env
+sed -i "s|CLIENT_PORT_PLACEHOLDER|$CLIENT_PORT|g" .env
+sed -i "s|GUILD_IDS_PLACEHOLDER|$ALLOWED_GUILD_IDS|g" .env
+sed -i "s|NODE_ENV_PLACEHOLDER|$ENV_MODE|g" .env
+
+log_success "Created .env"
 
 # Bot .env
-cat > bot/.env << EOF
+cat > bot/.env << 'ENVEOF'
 # ============================================================================
-# Discord Bot 配置
+# Discord Bot Configuration
 # ============================================================================
-# 環境類型: $ENV_MODE
-# 由 setup-env.sh 自動生成於 $(date)
+# Environment: ENV_MODE_PLACEHOLDER
+# Generated by setup-env.sh at TIMESTAMP_PLACEHOLDER
 # ============================================================================
 
-# 資料庫配置
-DB_HOST=$DB_HOST
-DB_PORT=$DB_PORT
-DB_NAME=$DB_NAME
-DB_USER=$DB_USER
-DB_PASSWORD=$DB_PASSWORD
+# Database Configuration
+DB_HOST=DB_HOST_PLACEHOLDER
+DB_PORT=DB_PORT_PLACEHOLDER
+DB_NAME=DB_NAME_PLACEHOLDER
+DB_USER=DB_USER_PLACEHOLDER
+DB_PASSWORD=DB_PASSWORD_PLACEHOLDER
 
 # Discord Bot Token
-DISCORD_BOT_TOKEN=$DISCORD_BOT_TOKEN
+DISCORD_BOT_TOKEN=BOT_TOKEN_PLACEHOLDER
 
-# 白名單（與根目錄相同）
-ALLOWED_GUILD_IDS=$ALLOWED_GUILD_IDS
+# Whitelist (same as root)
+ALLOWED_GUILD_IDS=GUILD_IDS_PLACEHOLDER
 
-# 環境模式
-NODE_ENV=$ENV_MODE
-EOF
+# Environment Mode
+NODE_ENV=NODE_ENV_PLACEHOLDER
+ENVEOF
 
-log_success "已創建 bot/.env"
+# Replace placeholders
+sed -i "s|ENV_MODE_PLACEHOLDER|$ENV_MODE|g" bot/.env
+sed -i "s|TIMESTAMP_PLACEHOLDER|$(date)|g" bot/.env
+sed -i "s|DB_HOST_PLACEHOLDER|$DB_HOST|g" bot/.env
+sed -i "s|DB_PORT_PLACEHOLDER|$DB_PORT|g" bot/.env
+sed -i "s|DB_NAME_PLACEHOLDER|$DB_NAME|g" bot/.env
+sed -i "s|DB_USER_PLACEHOLDER|$DB_USER|g" bot/.env
+sed -i "s|DB_PASSWORD_PLACEHOLDER|$DB_PASSWORD|g" bot/.env
+sed -i "s|BOT_TOKEN_PLACEHOLDER|$DISCORD_BOT_TOKEN|g" bot/.env
+sed -i "s|GUILD_IDS_PLACEHOLDER|$ALLOWED_GUILD_IDS|g" bot/.env
+sed -i "s|NODE_ENV_PLACEHOLDER|$ENV_MODE|g" bot/.env
+
+log_success "Created bot/.env"
 
 # Client .env.local
-cat > client/.env.local << EOF
+cat > client/.env.local << 'ENVEOF'
 # ============================================================================
-# Next.js 前端配置
+# Next.js Frontend Configuration
 # ============================================================================
-# 環境類型: $ENV_MODE
-# 由 setup-env.sh 自動生成於 $(date)
+# Environment: ENV_MODE_PLACEHOLDER
+# Generated by setup-env.sh at TIMESTAMP_PLACEHOLDER
 # ============================================================================
 
-# Discord 配置
-NEXT_PUBLIC_DISCORD_CLIENT_ID=$DISCORD_CLIENT_ID
+# Discord Configuration
+NEXT_PUBLIC_DISCORD_CLIENT_ID=CLIENT_ID_PLACEHOLDER
 
 # API URL
-NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+NEXT_PUBLIC_API_URL=API_URL_PLACEHOLDER
 
-# 開發模式
-NEXT_PUBLIC_ENABLE_DEV_MODE=$NEXT_PUBLIC_ENABLE_DEV_MODE
-NEXT_PUBLIC_DEV_GUILD_ID=$NEXT_PUBLIC_DEV_GUILD_ID
-NEXT_PUBLIC_DEV_USER_ID=$NEXT_PUBLIC_DEV_USER_ID
+# Development Mode
+NEXT_PUBLIC_ENABLE_DEV_MODE=DEV_MODE_PLACEHOLDER
+NEXT_PUBLIC_DEV_GUILD_ID=DEV_GUILD_PLACEHOLDER
+NEXT_PUBLIC_DEV_USER_ID=DEV_USER_PLACEHOLDER
 
-# 環境模式
-NODE_ENV=$ENV_MODE
-EOF
+# Environment Mode
+NODE_ENV=NODE_ENV_PLACEHOLDER
+ENVEOF
 
-log_success "已創建 client/.env.local"
+# Replace placeholders
+sed -i "s|ENV_MODE_PLACEHOLDER|$ENV_MODE|g" client/.env.local
+sed -i "s|TIMESTAMP_PLACEHOLDER|$(date)|g" client/.env.local
+sed -i "s|CLIENT_ID_PLACEHOLDER|$DISCORD_CLIENT_ID|g" client/.env.local
+sed -i "s|API_URL_PLACEHOLDER|$NEXT_PUBLIC_API_URL|g" client/.env.local
+sed -i "s|DEV_MODE_PLACEHOLDER|$NEXT_PUBLIC_ENABLE_DEV_MODE|g" client/.env.local
+sed -i "s|DEV_GUILD_PLACEHOLDER|$NEXT_PUBLIC_DEV_GUILD_ID|g" client/.env.local
+sed -i "s|DEV_USER_PLACEHOLDER|$NEXT_PUBLIC_DEV_USER_ID|g" client/.env.local
+sed -i "s|NODE_ENV_PLACEHOLDER|$ENV_MODE|g" client/.env.local
+
+log_success "Created client/.env.local"
 
 # ============================================================================
-# 6. 顯示摘要
+# 6. Display summary
 # ============================================================================
-log_section "配置完成！"
+log_section "Configuration Complete!"
 
 echo ""
-log_success "所有配置文件已生成："
-echo "  ✓ .env"
-echo "  ✓ bot/.env"
-echo "  ✓ client/.env.local"
+log_success "All configuration files generated:"
+echo "  - .env"
+echo "  - bot/.env"
+echo "  - client/.env.local"
 echo ""
 
-log_info "配置摘要："
-echo "  環境類型: $ENV_MODE"
+log_info "Configuration Summary:"
+echo "  Environment: $ENV_MODE"
 echo "  Discord Client ID: $DISCORD_CLIENT_ID"
-echo "  資料庫: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
-echo "  API Server 端口: $PORT"
-echo "  Client 端口: $CLIENT_PORT"
+echo "  Database: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
+echo "  API Server Port: $PORT"
+echo "  Client Port: $CLIENT_PORT"
 echo "  API URL: $NEXT_PUBLIC_API_URL"
 if [ -n "$ALLOWED_GUILD_IDS" ]; then
-    echo "  白名單: $ALLOWED_GUILD_IDS"
+    echo "  Whitelist: $ALLOWED_GUILD_IDS"
 else
-    echo "  白名單: 未設置（允許所有伺服器）"
+    echo "  Whitelist: Not set (allows all servers)"
 fi
 if [ "$NEXT_PUBLIC_ENABLE_DEV_MODE" = "true" ]; then
-    echo "  開發模式: 已啟用"
-    echo "  測試伺服器: $NEXT_PUBLIC_DEV_GUILD_ID"
-    echo "  測試用戶: $NEXT_PUBLIC_DEV_USER_ID"
+    echo "  Dev Mode: Enabled"
+    echo "  Test Server: $NEXT_PUBLIC_DEV_GUILD_ID"
+    echo "  Test User: $NEXT_PUBLIC_DEV_USER_ID"
 else
-    echo "  開發模式: 未啟用"
+    echo "  Dev Mode: Disabled"
 fi
 echo ""
 
-log_warning "下一步："
+log_warning "Next Steps:"
 echo ""
 
 if [ "$ENV_MODE" = "development" ]; then
-    echo "開發環境設置："
+    echo "Development Setup:"
     echo ""
-    echo "1. 初始化資料庫："
-    echo "   createdb $DB_NAME  # 如果資料庫不存在"
+    echo "1. Initialize database:"
+    echo "   createdb $DB_NAME  # if database doesn't exist"
     echo "   psql -U $DB_USER -d $DB_NAME -f bot/database/schema.sql"
     echo "   psql -U $DB_USER -d $DB_NAME -f bot/database/add_thread_support.sql"
     echo "   psql -U $DB_USER -d $DB_NAME -f bot/database/add_attachments.sql"
     echo ""
-    echo "2. 安裝依賴："
+    echo "2. Install dependencies:"
     echo "   npm install"
     echo "   cd client && npm install && cd .."
     echo "   cd bot && npm install && cd .."
     echo ""
-    echo "3. 啟動開發服務器："
+    echo "3. Start development servers:"
     echo "   npm run dev"
     echo ""
-    echo "4. 訪問應用："
+    echo "4. Access application:"
     echo "   http://localhost:$CLIENT_PORT"
 else
-    echo "生產環境設置："
+    echo "Production Setup:"
     echo ""
-    echo "1. 初始化資料庫："
-    echo "   createdb $DB_NAME  # 如果資料庫不存在"
+    echo "1. Initialize database:"
+    echo "   createdb $DB_NAME  # if database doesn't exist"
     echo "   psql -U $DB_USER -d $DB_NAME -f bot/database/schema.sql"
     echo "   psql -U $DB_USER -d $DB_NAME -f bot/database/add_thread_support.sql"
     echo "   psql -U $DB_USER -d $DB_NAME -f bot/database/add_attachments.sql"
     echo ""
-    echo "2. 執行一鍵部署："
+    echo "2. Run one-click deployment:"
     echo "   ./deploy.sh"
     echo ""
-    echo "3. 或手動部署："
+    echo "3. Or manual deployment:"
     echo "   npm install && cd client && npm install && cd .. && cd bot && npm install && cd .."
     echo "   cd client && npm run build && cd .."
     echo "   pm2 start ecosystem.config.js"
@@ -544,9 +577,9 @@ else
 fi
 echo ""
 
-log_info "需要修改配置？"
-echo "  直接編輯對應的 .env 文件即可"
+log_info "Need to modify configuration?"
+echo "  Just edit the corresponding .env files"
 echo ""
 
-log_success "配置完成！祝你使用愉快 🎉"
+log_success "Configuration complete! Enjoy!"
 echo ""

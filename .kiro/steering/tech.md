@@ -69,3 +69,6 @@ Root `.env`: DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_BOT_TOKEN, PORT (
 Bot `.env`: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DISCORD_BOT_TOKEN, ALLOWED_GUILD_IDS
 
 Client `.env.local`: NEXT_PUBLIC_DISCORD_CLIENT_ID, NEXT_PUBLIC_API_URL, NEXT_PUBLIC_DEV_GUILD_ID, NEXT_PUBLIC_ENABLE_DEV_MODE
+
+
+Silent Execution (Default): Unless explicitly requested, do not create documents, run tests, compile, execute the target program, or produce summaries during an agent run.

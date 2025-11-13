@@ -47,7 +47,7 @@
 
 ## 🚀 快速開始
 
-### 方法一：互動式配置（最簡單）
+### 方法一：互動式配置（最簡單，推薦）
 
 ```bash
 # 1. 克隆專案
@@ -58,10 +58,15 @@ cd discord-embed-app
 ./setup-env.sh
 # 按照提示輸入 Discord Token、資料庫連接等資訊
 # 工具會自動生成所有配置文件並測試資料庫連接
+# ✅ 無中文編碼問題
+# ✅ 自動驗證配置
+# ✅ 支援開發和生產環境
 
 # 3. 執行一鍵部署
 ./deploy.sh
 ```
+
+> **注意：** 新版本的 `setup-env.sh` 已完全重寫，使用英文和正確的編碼處理，不會再有中文字符寫入 `.env` 文件的問題。
 
 ### 方法二：手動配置
 
@@ -153,9 +158,12 @@ pm2 start ecosystem.config.js
 ## 📚 文檔
 
 ### 🚀 快速開始
-- [部署指南](DEPLOYMENT_GUIDE.md) - **完整的部署和管理指南**（推薦閱讀）
+- [快速參考](QUICK_REFERENCE.md) - **常用命令和配置速查表**（推薦收藏）
+- [部署指南](DEPLOYMENT_GUIDE.md) - 完整的部署和管理指南
+- [環境變數指南](docs/ENVIRONMENT_VARIABLES.md) - **詳細的環境變數配置說明**（推薦閱讀）
 - [配置指南](CONFIGURATION.md) - 環境變數和配置說明
 - [開發指南](DEVELOPMENT.md) - 開發環境設置和常用命令
+- [專案清理摘要](PROJECT_CLEANUP_SUMMARY.md) - 最新的專案結構改進說明
 
 ### 📖 功能文檔
 - [歷史提取指南](HISTORY_FETCH_GUIDE.md) - 歷史訊息提取功能使用說明
@@ -292,6 +300,28 @@ WHERE guild_id = 'your_guild_id' AND user_id = 'user_id';
 同一個用戶可以在多個伺服器擁有管理員權限，權限是按伺服器獨立管理的。
 
 ## 🌟 最新更新
+
+### v2.2.0 (2025-01) - 環境變數重構
+
+**重大改進：**
+- ✅ **環境變數完全重構**：所有配置文件現在使用環境變數，無硬編碼值
+- ✅ **setup-env.sh 重寫**：修復中文編碼問題，使用英文和正確的編碼處理
+- ✅ **動態配置**：`next.config.ts` 和 `ecosystem.config.js` 現在從環境變數讀取
+- ✅ **專案清理工具**：新增 `cleanup-project.sh` 互動式專案整理工具
+- ✅ **完整文檔**：新增詳細的環境變數指南和快速參考
+
+**配置文件改進：**
+- 🔧 `client/next.config.ts`：使用 `NEXT_PUBLIC_DISCORD_CLIENT_ID` 和 `NEXT_PUBLIC_API_URL`
+- 🔧 `ecosystem.config.js`：使用 `process.env.PORT` 和 `process.env.CLIENT_PORT`
+- 🔧 所有 `.env.example` 文件：統一格式，清晰的英文註釋
+
+**新增文檔：**
+- 📖 `docs/ENVIRONMENT_VARIABLES.md` - 完整的環境變數配置指南
+- 📖 `QUICK_REFERENCE.md` - 常用命令和配置速查表
+- 📖 `PROJECT_CLEANUP_SUMMARY.md` - 專案重構詳細說明
+
+**遷移指南：**
+如果你已經在使用舊版本，請參考 [PROJECT_CLEANUP_SUMMARY.md](PROJECT_CLEANUP_SUMMARY.md) 了解如何遷移。
 
 ### v2.1.0 (2025-01)
 

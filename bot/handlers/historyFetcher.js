@@ -224,6 +224,69 @@ class HistoryFetcher {
         );
       }
 
+      // 檢查是否為論壇頻道（類型 15）
+      if (channel.type === 15) {
+        console.log(`📋 檢測到論壇頻道: ${channel.name}`);
+        console.log(`   論壇頻道需要提取其底下的討論串，而不是頻道本身`);
+
+        // 獲取論壇頻道的所有活躍討論串
+        try {
+          const threads = await channel.threads.fetchActive();
+          const archivedThreads = await channel.threads.fetchArchived();
+
+          const allThreads = [
+            ...threads.threads.values(),
+            ...archivedThreads.threads.values(),
+          ];
+
+          console.log(`   找到 ${allThreads.length} 個討論串`);
+
+          if (allThreads.length === 0) {
+            throw new Error(`論壇頻道 ${channel.name} 沒有討論串可提取`);
+          }
+
+          // 提取所有討論串的訊息
+          let totalMessages = 0;
+          for (const thread of allThreads) {
+            console.log(`   📝 提取討論串: ${thread.name}`);
+            try {
+              const threadMessages = await this.fetchMessagesFromChannel(
+                thread,
+                guild,
+                taskId,
+                anchorMessageId
+              );
+              totalMessages += threadMessages;
+            } catch (error) {
+              console.error(
+                `   ❌ 討論串 ${thread.name} 提取失敗:`,
+                error.message
+              );
+            }
+          }
+
+          console.log(
+            `✅ 論壇頻道 ${channel.name} 提取完成，共 ${totalMessages} 條訊息`
+          );
+
+          // 更新任務狀態
+          await this.db.query(
+            `UPDATE fetch_history 
+             SET status = 'completed', 
+                 messages_fetched = $1,
+                 completed_at = NOW(),
+                 error_message = NULL
+             WHERE id = $2`,
+            [totalMessages, taskId]
+          );
+
+          return totalMessages;
+        } catch (error) {
+          console.error(`❌ 論壇頻道處理失敗:`, error);
+          throw error;
+        }
+      }
+
       if (!channel.messages) {
         throw new Error(
           `頻道 ${channel.name} 不支援訊息操作（類型: ${channel.type}）`
@@ -608,6 +671,138 @@ class HistoryFetcher {
       taskId,
       ...data,
     }));
+  }
+
+  // 從單個頻道或討論串提取訊息（用於論壇頻道的討論串）
+  async fetchMessagesFromChannel(channel, guild, taskId, anchorMessageId) {
+    let messagesFetched = 0;
+    let messagesSaved = 0;
+    let messagesDuplicate = 0;
+
+    try {
+      // 如果 anchorMessageId 是 "latest"，獲取最新訊息
+      let actualAnchorId = anchorMessageId;
+      if (anchorMessageId === "latest") {
+        try {
+          const latestMessages = await channel.messages.fetch({ limit: 1 });
+          if (latestMessages.size > 0) {
+            actualAnchorId = latestMessages.first().id;
+          } else {
+            console.log(`      ⚠️ 討論串沒有訊息，跳過`);
+            return 0;
+          }
+        } catch (error) {
+          console.error(`      ❌ 獲取最新訊息失敗:`, error.message);
+          return 0;
+        }
+      }
+
+      // 從錨點向後提取（歷史訊息）
+      let lastId = actualAnchorId;
+      let hasMore = true;
+      const batchSize = 100;
+
+      while (hasMore) {
+        const messages = await this.fetchBatch(channel, {
+          limit: batchSize,
+          before: lastId,
+        });
+
+        if (messages.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        // 處理訊息
+        for (const message of messages) {
+          const saved = await saveMessage(this.pool, message, guild.id);
+          messagesFetched++;
+          if (saved) {
+            messagesSaved++;
+          } else {
+            messagesDuplicate++;
+          }
+
+          // 處理 emoji
+          if (message.reactions && message.reactions.cache.size > 0) {
+            for (const reaction of message.reactions.cache.values()) {
+              await saveEmojiUsage(
+                this.pool,
+                guild.id,
+                reaction.emoji,
+                message.author.id
+              );
+            }
+          }
+        }
+
+        if (messages.length < batchSize) {
+          hasMore = false;
+        } else {
+          lastId = messages[messages.length - 1].id;
+        }
+
+        // 短暫延遲避免速率限制
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+
+      // 從錨點向前提取（較新的訊息）
+      lastId = actualAnchorId;
+      hasMore = true;
+
+      while (hasMore) {
+        const messages = await this.fetchBatch(channel, {
+          limit: batchSize,
+          after: lastId,
+        });
+
+        if (messages.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        // 處理訊息
+        for (const message of messages) {
+          const saved = await saveMessage(this.pool, message, guild.id);
+          messagesFetched++;
+          if (saved) {
+            messagesSaved++;
+          } else {
+            messagesDuplicate++;
+          }
+
+          // 處理 emoji
+          if (message.reactions && message.reactions.cache.size > 0) {
+            for (const reaction of message.reactions.cache.values()) {
+              await saveEmojiUsage(
+                this.pool,
+                guild.id,
+                reaction.emoji,
+                message.author.id
+              );
+            }
+          }
+        }
+
+        if (messages.length < batchSize) {
+          hasMore = false;
+        } else {
+          lastId = messages[0].id;
+        }
+
+        // 短暫延遲避免速率限制
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+
+      console.log(
+        `      ✅ 提取完成: ${messagesFetched} 條訊息 (新增: ${messagesSaved}, 重複: ${messagesDuplicate})`
+      );
+
+      return messagesFetched;
+    } catch (error) {
+      console.error(`      ❌ 提取失敗:`, error.message);
+      throw error;
+    }
   }
 }
 

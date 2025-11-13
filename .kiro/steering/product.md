@@ -30,3 +30,6 @@ Production deployments must configure `ALLOWED_GUILD_IDS` in `.env` to restrict 
 ## Development Mode
 
 Set `NEXT_PUBLIC_ENABLE_DEV_MODE=true` in `client/.env.local` to enable direct localhost access with a default guild ID. Otherwise, the app requires `guild_id` URL parameter (automatically provided by Discord Embedded App).
+
+
+Silent Execution (Default): Unless explicitly requested, do not create documents, run tests, compile, execute the target program, or produce summaries during an agent run.

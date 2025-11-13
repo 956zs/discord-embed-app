@@ -1,12 +1,14 @@
 import type { NextConfig } from "next";
 
+const DISCORD_CLIENT_ID = process.env.NEXT_PUBLIC_DISCORD_CLIENT_ID || '';
+const DISCORD_ORIGIN = `https://${DISCORD_CLIENT_ID}.discordsays.com`;
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3008';
+
 const nextConfig: NextConfig = {
-  // 允許 Discord Embedded App 的跨域請求
-  allowedDevOrigins: [
-    "https://1401130025411018772.discordsays.com",
-  ],
+  // Allow Discord Embedded App cross-origin requests
+  allowedDevOrigins: DISCORD_CLIENT_ID ? [DISCORD_ORIGIN] : [],
   
-  // 配置外部圖片域名
+  // Configure external image domains
   images: {
     remotePatterns: [
       {
@@ -20,7 +22,7 @@ const nextConfig: NextConfig = {
         pathname: '/attachments/**',
       },
     ],
-    // 禁用圖片優化以避免 Discord CDN 問題
+    // Disable image optimization to avoid Discord CDN issues
     unoptimized: true,
   },
   
@@ -28,7 +30,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:3008/api/:path*',
+        destination: `${API_URL}/api/:path*`,
       },
     ];
   },
@@ -40,7 +42,7 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: 'https://1401130025411018772.discordsays.com',
+            value: DISCORD_CLIENT_ID ? DISCORD_ORIGIN : '*',
           },
           {
             key: 'Access-Control-Allow-Methods',

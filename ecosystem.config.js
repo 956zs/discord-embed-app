@@ -1,6 +1,8 @@
+require("dotenv").config();
+
 module.exports = {
   apps: [
-    // Server + Bot (合併在一起，更簡單可靠)
+    // Server + Bot
     {
       name: "discord-server",
       cwd: "./server",
@@ -11,8 +13,8 @@ module.exports = {
       max_memory_restart: "1G",
       env: {
         NODE_ENV: "production",
-        PORT: 3008,
-        START_BOT_IN_SERVER: "true", // 讓 server 啟動 bot
+        PORT: process.env.PORT || 3008,
+        START_BOT_IN_SERVER: "true",
       },
       error_file: "./logs/server-error.log",
       out_file: "./logs/server-out.log",
@@ -23,7 +25,7 @@ module.exports = {
       name: "discord-client",
       cwd: "./client",
       script: "node_modules/next/dist/bin/next",
-      args: "start -p 3000",
+      args: `start -p ${process.env.CLIENT_PORT || 3000}`,
       instances: 1,
       autorestart: true,
       watch: false,
