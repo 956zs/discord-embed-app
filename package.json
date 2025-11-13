@@ -8,7 +8,7 @@
     "dev:separate": "concurrently \"npm run server:only\" \"npm run client\" \"npm run bot\"",
     "server": "nodemon server/index.js",
     "server:only": "nodemon --ignore bot/ server/index.js",
-    "client": "cd client && npm run dev",
+    "client": "cd client && PORT=${CLIENT_PORT:-3000} npm run dev",
     "bot": "cd bot && nodemon index.js",
     "build": "cd client && npm run build",
     "start": "node server/index.js",

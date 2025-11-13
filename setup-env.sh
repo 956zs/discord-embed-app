@@ -269,7 +269,7 @@ log_success "✓ 資料庫配置完成 (2/4)"
 log_section "步驟 3/4: 伺服器配置"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-log_info "1/2 - API Server 端口"
+log_info "1/3 - API Server 端口"
 echo "  API 伺服器運行的端口號"
 echo "  預設是 3008，確保此端口未被佔用"
 PORT=$(read_input "請輸入 API Server 端口" "3008")
@@ -277,12 +277,20 @@ log_success "端口已設置為 $PORT"
 
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+log_info "2/3 - Client 端口（開發環境）"
+echo "  Next.js 前端開發伺服器的端口號"
+echo "  預設是 3000，確保此端口未被佔用"
+CLIENT_PORT=$(read_input "請輸入 Client 端口" "3000")
+log_success "Client 端口已設置為 $CLIENT_PORT"
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if [ "$ENV_MODE" = "production" ]; then
-    log_info "2/2 - 白名單配置（生產環境強烈建議）"
+    log_info "3/3 - 白名單配置（生產環境強烈建議）"
     printf "  %s⚠️  生產環境強烈建議設置白名單以提高安全性%s\\n" "${YELLOW}" "${NC}"
     echo "  只有白名單中的伺服器才能使用統計功能"
 else
-    log_info "2/2 - 白名單配置（可選）"
+    log_info "3/3 - 白名單配置（可選）"
     echo "  這是可選的安全功能"
 fi
 echo "  如果你只想收集特定伺服器的數據，請輸入伺服器 ID"
@@ -360,13 +368,13 @@ log_info "2/2 - API URL"
 
 if [ "$ENV_MODE" = "development" ]; then
     log_info "開發環境：使用 localhost"
-    NEXT_PUBLIC_API_URL="http://localhost:3008"
+    NEXT_PUBLIC_API_URL="http://localhost:$PORT"
     log_success "API URL 已設置為 $NEXT_PUBLIC_API_URL"
 else
     echo "  生產環境中前端訪問 API 的 URL"
     echo "  應該是你的域名，例如：https://api.yourdomain.com"
     echo "  或使用 localhost 進行本地測試"
-    NEXT_PUBLIC_API_URL=$(read_input "請輸入 API URL" "http://localhost:3008")
+    NEXT_PUBLIC_API_URL=$(read_input "請輸入 API URL" "http://localhost:$PORT")
     log_success "API URL 已設置為 $NEXT_PUBLIC_API_URL"
 fi
 
@@ -396,6 +404,7 @@ DISCORD_BOT_TOKEN=$DISCORD_BOT_TOKEN
 
 # API 配置
 PORT=$PORT
+CLIENT_PORT=$CLIENT_PORT
 
 # 白名單（可選，逗號分隔）
 ALLOWED_GUILD_IDS=$ALLOWED_GUILD_IDS
@@ -476,7 +485,8 @@ log_info "配置摘要："
 echo "  環境類型: $ENV_MODE"
 echo "  Discord Client ID: $DISCORD_CLIENT_ID"
 echo "  資料庫: $DB_USER@$DB_HOST:$DB_PORT/$DB_NAME"
-echo "  API 端口: $PORT"
+echo "  API Server 端口: $PORT"
+echo "  Client 端口: $CLIENT_PORT"
 echo "  API URL: $NEXT_PUBLIC_API_URL"
 if [ -n "$ALLOWED_GUILD_IDS" ]; then
     echo "  白名單: $ALLOWED_GUILD_IDS"
@@ -513,7 +523,7 @@ if [ "$ENV_MODE" = "development" ]; then
     echo "   npm run dev"
     echo ""
     echo "4. 訪問應用："
-    echo "   http://localhost:3000"
+    echo "   http://localhost:$CLIENT_PORT"
 else
     echo "生產環境設置："
     echo ""

@@ -254,8 +254,8 @@ DISCORD_CLIENT_SECRET=你的_client_secret
 DISCORD_BOT_TOKEN=你的_bot_token
 
 # 伺服器配置
-PORT=3001
-VITE_API_URL=http://localhost:3001
+PORT=3008                    # API Server 端口
+CLIENT_PORT=3000             # Next.js 開發伺服器端口
 
 # 白名單
 ALLOWED_GUILD_IDS=你的伺服器ID

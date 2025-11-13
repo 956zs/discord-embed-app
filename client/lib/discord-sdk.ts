@@ -52,14 +52,15 @@ export async function initDiscordSdk() {
         response_type: "code",
         state: "",
         prompt: "none",
-        scope: ["identify", "guilds"],
+        scope: ["identify", "guilds", "guilds.members.read"],
       });
 
-      console.log("✅ OAuth2 授權成功，獲取 access token...");
+      console.log("✅ OAuth2 授權成功，code:", code?.substring(0, 10) + "...");
 
       // 使用後端 API 交換 token 並獲取用戶信息
       try {
-        const response = await fetch("/api/auth/token", {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3008";
+        const response = await fetch(`${apiUrl}/api/auth/token`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -75,21 +76,43 @@ export async function initDiscordSdk() {
           };
           console.log("✅ 從後端 API 獲取用戶信息成功:", authInfo);
         } else {
-          console.error("❌ 後端 API 返回錯誤:", await response.text());
+          const errorText = await response.text();
+          console.error("❌ 後端 API 返回錯誤:", response.status, errorText);
         }
       } catch (apiError) {
         console.error("❌ 調用後端 API 失敗:", apiError);
       }
     } catch (authError: any) {
-      console.error("❌ OAuth2 認證失敗:", authError);
+      console.error("❌ OAuth2 認證失敗:", {
+        message: authError.message,
+        code: authError.code,
+        details: authError,
+      });
       console.log("嘗試其他方法獲取用戶信息...");
 
-      // 嘗試從 instanceId 獲取
-      if (discordSdk.instanceId) {
+      // 方法 1: 嘗試使用 authenticate 命令（較新的 SDK 版本）
+      // 注意：authenticate 可能需要 access_token，但我們沒有，所以跳過這個方法
+      // try {
+      //   console.log("🔄 嘗試使用 authenticate 命令...");
+      //   const auth = await discordSdk.commands.authenticate({});
+      //   if (auth?.user) {
+      //     authInfo = {
+      //       userId: auth.user.id,
+      //       username: auth.user.username,
+      //     };
+      //     console.log("✅ 從 authenticate 獲取用戶信息:", authInfo);
+      //   }
+      // } catch (authenticateError) {
+      //   console.error("❌ authenticate 失敗:", authenticateError);
+      // }
+
+      // 方法 2: 嘗試從 instanceId 獲取參與者
+      if (!authInfo && discordSdk.instanceId) {
         try {
+          console.log("🔄 嘗試獲取參與者信息...");
           const participants =
             await discordSdk.commands.getInstanceConnectedParticipants();
-          console.log("👥 獲取參與者信息:", participants);
+          console.log("👥 參與者信息:", participants);
 
           // 嘗試獲取當前用戶
           if (participants && participants.participants) {
