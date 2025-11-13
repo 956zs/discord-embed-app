@@ -274,18 +274,25 @@ log_section "步驟 9: 健康檢查"
 log_info "等待服務啟動..."
 sleep 5
 
+# 載入環境變數
+if [ -f ".env" ]; then
+    export $(cat .env | grep -v '^#' | grep -v '^$' | xargs)
+fi
+
 # 檢查 API 服務
 log_info "檢查 API 服務..."
-if curl -s http://localhost:3008/health > /dev/null 2>&1; then
-    log_success "API 服務運行正常 (http://localhost:3008)"
+API_PORT=${PORT:-3008}
+if curl -s http://localhost:${API_PORT}/health > /dev/null 2>&1; then
+    log_success "API 服務運行正常 (http://localhost:${API_PORT})"
 else
     log_warning "API 服務可能未正常啟動"
 fi
 
 # 檢查 Client 服務
 log_info "檢查 Client 服務..."
-if curl -s http://localhost:3000 > /dev/null 2>&1; then
-    log_success "Client 服務運行正常 (http://localhost:3000)"
+CLIENT_PORT_VAL=${CLIENT_PORT:-3000}
+if curl -s http://localhost:${CLIENT_PORT_VAL} > /dev/null 2>&1; then
+    log_success "Client 服務運行正常 (http://localhost:${CLIENT_PORT_VAL})"
 else
     log_warning "Client 服務可能未正常啟動"
 fi
@@ -299,8 +306,8 @@ echo ""
 log_success "所有服務已成功部署並啟動"
 echo ""
 echo "📊 服務信息:"
-echo "  - API Server: http://localhost:3008"
-echo "  - Client: http://localhost:3000"
+echo "  - API Server: http://localhost:${PORT:-3008}"
+echo "  - Client: http://localhost:${CLIENT_PORT:-3000}"
 echo "  - Bot: 運行中"
 echo ""
 echo "📝 常用命令:"

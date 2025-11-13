@@ -52,15 +52,15 @@ case "$1" in
         ;;
     
     stop)
-        log_info "停止所有服務..."
-        pm2 stop all
+        log_info "停止 Discord 應用服務..."
+        pm2 stop discord-server discord-client
         log_success "服務已停止"
         pm2 status
         ;;
     
     restart)
-        log_info "重啟所有服務..."
-        pm2 restart all
+        log_info "重啟 Discord 應用服務..."
+        pm2 restart discord-server discord-client
         log_success "服務已重啟"
         sleep 2
         pm2 status
@@ -68,7 +68,7 @@ case "$1" in
     
     restart-prod)
         log_info "重啟生產環境（重新載入配置）..."
-        pm2 delete all 2>/dev/null || log_info "沒有運行中的服務"
+        pm2 delete discord-server discord-client 2>/dev/null || log_info "沒有運行中的服務"
         sleep 2
         pm2 start ecosystem.config.js
         pm2 save
@@ -167,16 +167,18 @@ case "$1" in
         
         # 檢查 API
         echo "API 健康檢查:"
-        if curl -s http://localhost:3008/health > /dev/null 2>&1; then
-            log_success "API 服務正常 (http://localhost:3008)"
+        API_PORT=${PORT:-3008}
+        if curl -s http://localhost:${API_PORT}/health > /dev/null 2>&1; then
+            log_success "API 服務正常 (http://localhost:${API_PORT})"
         else
             log_error "API 服務異常"
         fi
         
         # 檢查 Client
         echo "Client 健康檢查:"
-        if curl -s http://localhost:3000 > /dev/null 2>&1; then
-            log_success "Client 服務正常 (http://localhost:3000)"
+        CLIENT_PORT_VAL=${CLIENT_PORT:-3000}
+        if curl -s http://localhost:${CLIENT_PORT_VAL} > /dev/null 2>&1; then
+            log_success "Client 服務正常 (http://localhost:${CLIENT_PORT_VAL})"
         else
             log_error "Client 服務異常"
         fi

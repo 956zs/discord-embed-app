@@ -147,7 +147,7 @@ curl http://localhost:3000
 
 ## 🔄 零停機更新
 
-`update.sh` 腳本已經使用 `pm2 reload` 實現零停機更新：
+`update.sh` 腳本已經使用 `pm2 reload` 實現零停機更新，且只重啟此專案的服務：
 
 ```bash
 # 自動零停機更新
@@ -158,7 +158,7 @@ curl http://localhost:3000
 # 2. 拉取最新代碼
 # 3. 更新依賴
 # 4. 重新構建前端
-# 5. 使用 pm2 reload（零停機）
+# 5. 只重啟 discord-server 和 discord-client（不影響其他 PM2 進程）
 ```
 
 ### 手動零停機更新
@@ -173,12 +173,13 @@ cd bot && npm install && cd ..
 # 2. 構建前端
 cd client && npm run build && cd ..
 
-# 3. 使用 reload 而不是 restart（零停機）
-pm2 reload ecosystem.config.js
+# 3. 只重啟此專案的服務（不影響其他 PM2 進程）
+pm2 reload discord-server
+pm2 reload discord-client
 
 # 4. 驗證
 pm2 status
-pm2 logs --lines 20
+pm2 logs discord-server discord-client --lines 20
 ```
 
 ### 藍綠部署（最安全）
@@ -229,7 +230,7 @@ mv discord-embed-app-new discord-embed-app
 ```bash
 git pull
 cd client && npm run build && cd ..
-pm2 reload ecosystem.config.js  # 零停機
+pm2 reload discord-server discord-client  # 零停機，只重啟此專案
 ```
 
 ### 場景 2：更新代碼 + 依賴
@@ -239,7 +240,7 @@ git pull
 npm install
 cd client && npm install && npm run build && cd ..
 cd bot && npm install && cd ..
-pm2 reload ecosystem.config.js  # 零停機
+pm2 reload discord-server discord-client  # 零停機，只重啟此專案
 ```
 
 ### 場景 3：更新代碼 + 資料庫
@@ -260,7 +261,7 @@ cd client && npm install && npm run build && cd ..
 cd bot && npm install && cd ..
 
 # 5. 重啟（資料庫變更建議用 restart 確保完全重啟）
-pm2 restart ecosystem.config.js
+pm2 restart discord-server discord-client  # 只重啟此專案
 ```
 
 ### 場景 4：緊急回滾
