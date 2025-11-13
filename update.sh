@@ -201,14 +201,27 @@ if [ -d ".git" ]; then
     if ! git diff-index --quiet HEAD --; then
         log_warning "檢測到未提交的變更"
         git status --short
+        echo ""
         
         if confirm "是否暫存這些變更？" "y"; then
             git stash
             log_success "變更已暫存"
             STASHED=true
         else
-            log_error "請先處理未提交的變更"
-            exit 1
+            echo ""
+            if confirm "是否丟棄這些變更並用遠端版本覆蓋？" "n"; then
+                log_warning "丟棄本地變更..."
+                git reset --hard HEAD
+                log_success "本地變更已丟棄"
+            else
+                log_error "請先處理未提交的變更"
+                echo ""
+                echo "💡 你可以："
+                echo "  1. 手動暫存: git stash"
+                echo "  2. 手動丟棄: git reset --hard HEAD"
+                echo "  3. 手動提交: git add . && git commit -m 'update'"
+                exit 1
+            fi
         fi
     fi
     
