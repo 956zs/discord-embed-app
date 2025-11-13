@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3008';
-    const path = params.path.join('/');
+    const { path } = await params;
+    const backendUrl = process.env.BACKEND_URL;
+    const pathStr = path.join('/');
     const searchParams = request.nextUrl.searchParams.toString();
-    const url = `${backendUrl}/api/fetch/${path}${searchParams ? `?${searchParams}` : ''}`;
+    const url = `${backendUrl}/api/fetch/${pathStr}${searchParams ? `?${searchParams}` : ''}`;
 
     const response = await fetch(url);
     const data = await response.json();
@@ -29,13 +30,14 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:3008';
-    const path = params.path.join('/');
+    const { path } = await params;
+    const backendUrl = process.env.BACKEND_URL;
+    const pathStr = path.join('/');
     const body = await request.json();
-    const url = `${backendUrl}/api/fetch/${path}`;
+    const url = `${backendUrl}/api/fetch/${pathStr}`;
 
     const response = await fetch(url, {
       method: 'POST',
