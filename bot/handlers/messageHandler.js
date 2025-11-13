@@ -5,7 +5,11 @@
  */
 async function saveMessage(pool, message) {
   // 檢查是否為討論串訊息
-  const isThread = message.channel.isThread();
+  // 安全檢查：確保 message.channel 存在且有 isThread 方法
+  const isThread =
+    message.channel && typeof message.channel.isThread === "function"
+      ? message.channel.isThread()
+      : false;
   const threadId = isThread ? message.channel.id : null;
   const parentChannelId = isThread ? message.channel.parentId : null;
   const channelId = isThread ? message.channel.parentId : message.channel.id;
