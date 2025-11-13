@@ -36,17 +36,13 @@ NEXT_PUBLIC_API_URL=
 BACKEND_URL=http://localhost:3008
 ```
 
-## 添加新的代理端點
+## 現有的代理端點
 
-創建新文件 `client/app/api/your-endpoint/route.ts`：
+所有 API 請求都會自動代理到後端：
 
-```typescript
-import { NextRequest, NextResponse } from 'next/server';
+- `/api/auth/*` → `${BACKEND_URL}/api/auth/*`
+- `/api/stats/*` → `${BACKEND_URL}/api/stats/*`
+- `/api/history/*` → `${BACKEND_URL}/api/history/*`
+- `/api/fetch/*` → `${BACKEND_URL}/api/fetch/*`
 
-export async function GET(request: NextRequest) {
-  const backendUrl = process.env.BACKEND_URL || 'http://localhost:3102';
-  const response = await fetch(`${backendUrl}/api/your-endpoint`);
-  const data = await response.json();
-  return NextResponse.json(data);
-}
-```
+使用 Next.js 的 catch-all routes (`[...path]`) 實現動態代理。
