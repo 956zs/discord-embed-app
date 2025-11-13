@@ -1,20 +1,20 @@
-# Environment Variables Guide
+# 環境變數指南
 
-This document describes all environment variables used in the Discord Stats App.
+本文檔描述 Discord 統計應用中使用的所有環境變數。
 
-## Quick Setup
+## 快速設置
 
-The easiest way to configure environment variables is to run:
+配置環境變數最簡單的方法是執行：
 
 ```bash
 ./setup-env.sh
 ```
 
-This interactive script will guide you through all configuration steps.
+這個互動式腳本會引導你完成所有配置步驟。
 
-## Manual Setup
+## 手動設置
 
-If you prefer manual configuration, copy the example files and edit them:
+如果你偏好手動配置，複製範例文件並編輯它們：
 
 ```bash
 cp .env.example .env
@@ -22,55 +22,55 @@ cp bot/.env.example bot/.env
 cp client/.env.example client/.env.local
 ```
 
-## Environment Files
+## 環境文件
 
-### Root `.env`
+### 根目錄 `.env`
 
-Main configuration file for the entire application.
+整個應用程式的主要配置文件。
 
-| Variable | Required | Default | Description |
+| 變數 | 必需 | 預設值 | 說明 |
 |----------|----------|---------|-------------|
-| `DISCORD_CLIENT_ID` | Yes | - | Discord Application Client ID from Developer Portal |
-| `DISCORD_CLIENT_SECRET` | Yes | - | Discord OAuth2 Client Secret |
-| `DISCORD_BOT_TOKEN` | Yes | - | Discord Bot Token |
-| `PORT` | No | 3008 | API server port |
-| `CLIENT_PORT` | No | 3000 | Next.js client port (dev mode) |
-| `ALLOWED_GUILD_IDS` | No | - | Comma-separated list of allowed Discord server IDs |
-| `NODE_ENV` | No | development | Environment mode: `development` or `production` |
+| `DISCORD_CLIENT_ID` | 是 | - | Discord Developer Portal 的 Application Client ID |
+| `DISCORD_CLIENT_SECRET` | 是 | - | Discord OAuth2 Client Secret |
+| `DISCORD_BOT_TOKEN` | 是 | - | Discord Bot Token |
+| `PORT` | 否 | 3008 | API 伺服器端口 |
+| `CLIENT_PORT` | 否 | 3000 | Next.js 前端端口（開發模式）|
+| `ALLOWED_GUILD_IDS` | 否 | - | 允許的 Discord 伺服器 ID（逗號分隔）|
+| `NODE_ENV` | 否 | development | 環境模式：`development` 或 `production` |
 
 ### Bot `bot/.env`
 
-Configuration for the Discord bot data collector.
+Discord bot 資料收集器的配置。
 
-| Variable | Required | Default | Description |
+| 變數 | 必需 | 預設值 | 說明 |
 |----------|----------|---------|-------------|
-| `DB_HOST` | Yes | localhost | PostgreSQL host |
-| `DB_PORT` | No | 5432 | PostgreSQL port |
-| `DB_NAME` | Yes | discord_stats | Database name |
-| `DB_USER` | Yes | postgres | Database user |
-| `DB_PASSWORD` | Yes | - | Database password |
-| `DISCORD_BOT_TOKEN` | Yes | - | Discord Bot Token (same as root) |
-| `ALLOWED_GUILD_IDS` | No | - | Comma-separated list of allowed server IDs (same as root) |
-| `NODE_ENV` | No | development | Environment mode |
+| `DB_HOST` | 是 | localhost | PostgreSQL 主機 |
+| `DB_PORT` | 否 | 5432 | PostgreSQL 端口 |
+| `DB_NAME` | 是 | discord_stats | 資料庫名稱 |
+| `DB_USER` | 是 | postgres | 資料庫用戶 |
+| `DB_PASSWORD` | 是 | - | 資料庫密碼 |
+| `DISCORD_BOT_TOKEN` | 是 | - | Discord Bot Token（與根目錄相同）|
+| `ALLOWED_GUILD_IDS` | 否 | - | 允許的伺服器 ID（逗號分隔，與根目錄相同）|
+| `NODE_ENV` | 否 | development | 環境模式 |
 
 ### Client `client/.env.local`
 
-Configuration for the Next.js frontend.
+Next.js 前端的配置。
 
-| Variable | Required | Default | Description |
+| 變數 | 必需 | 預設值 | 說明 |
 |----------|----------|---------|-------------|
-| `NEXT_PUBLIC_DISCORD_CLIENT_ID` | Yes | - | Discord Application Client ID |
-| `NEXT_PUBLIC_API_URL` | Yes | http://localhost:3008 | API server URL |
-| `NEXT_PUBLIC_ENABLE_DEV_MODE` | No | false | Enable dev mode for local testing |
-| `NEXT_PUBLIC_DEV_GUILD_ID` | No | - | Test server ID (dev mode only) |
-| `NEXT_PUBLIC_DEV_USER_ID` | No | - | Test user ID (dev mode only) |
-| `NODE_ENV` | No | development | Environment mode |
+| `NEXT_PUBLIC_DISCORD_CLIENT_ID` | 是 | - | Discord Application Client ID |
+| `NEXT_PUBLIC_API_URL` | 是 | http://localhost:3008 | API 伺服器 URL |
+| `NEXT_PUBLIC_ENABLE_DEV_MODE` | 否 | false | 啟用開發模式進行本地測試 |
+| `NEXT_PUBLIC_DEV_GUILD_ID` | 否 | - | 測試伺服器 ID（僅開發模式）|
+| `NEXT_PUBLIC_DEV_USER_ID` | 否 | - | 測試用戶 ID（僅開發模式）|
+| `NODE_ENV` | 否 | development | 環境模式 |
 
-## Configuration by Environment
+## 按環境配置
 
-### Development Environment
+### 開發環境
 
-For local development and testing:
+用於本地開發和測試：
 
 **Root `.env`:**
 ```env
@@ -105,9 +105,9 @@ NEXT_PUBLIC_DEV_USER_ID=your_user_id
 NODE_ENV=development
 ```
 
-### Production Environment
+### 生產環境
 
-For server deployment:
+用於伺服器部署：
 
 **Root `.env`:**
 ```env
@@ -140,176 +140,176 @@ NEXT_PUBLIC_ENABLE_DEV_MODE=false
 NODE_ENV=production
 ```
 
-## Getting Discord Credentials
+## 獲取 Discord 憑證
 
 ### 1. Discord Application Client ID
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Select your application
-3. Go to **General Information**
-4. Copy the **Application ID**
+1. 前往 [Discord Developer Portal](https://discord.com/developers/applications)
+2. 選擇你的應用程式
+3. 前往 **General Information**
+4. 複製 **Application ID**
 
 ### 2. Discord Client Secret
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Select your application
-3. Go to **OAuth2** → **General**
-4. Click **Reset Secret** (or copy existing secret)
-5. Copy the **Client Secret**
+1. 前往 [Discord Developer Portal](https://discord.com/developers/applications)
+2. 選擇你的應用程式
+3. 前往 **OAuth2** → **General**
+4. 點擊 **Reset Secret**（或複製現有密鑰）
+5. 複製 **Client Secret**
 
 ### 3. Discord Bot Token
 
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Select your application
-3. Go to **Bot**
-4. Click **Reset Token** (or copy existing token)
-5. Copy the **Bot Token**
+1. 前往 [Discord Developer Portal](https://discord.com/developers/applications)
+2. 選擇你的應用程式
+3. 前往 **Bot**
+4. 點擊 **Reset Token**（或複製現有 token）
+5. 複製 **Bot Token**
 
-### 4. Discord Server ID (Guild ID)
+### 4. Discord 伺服器 ID (Guild ID)
 
-1. Enable Developer Mode in Discord:
-   - User Settings → Advanced → Developer Mode
-2. Right-click on your server icon
-3. Click **Copy ID**
+1. 在 Discord 中啟用開發者模式：
+   - 用戶設置 → 進階 → 開發者模式
+2. 右鍵點擊你的伺服器圖標
+3. 點擊 **複製 ID**
 
-### 5. Discord User ID
+### 5. Discord 用戶 ID
 
-1. Enable Developer Mode in Discord (if not already enabled)
-2. Right-click on your username
-3. Click **Copy ID**
+1. 在 Discord 中啟用開發者模式（如果尚未啟用）
+2. 右鍵點擊你的用戶名
+3. 點擊 **複製 ID**
 
-## Security Best Practices
+## 安全最佳實踐
 
-### 1. Never Commit `.env` Files
+### 1. 永遠不要提交 `.env` 文件
 
-The `.gitignore` file already excludes `.env` files, but always double-check:
+`.gitignore` 文件已經排除了 `.env` 文件，但請務必再次確認：
 
 ```bash
-# Check if .env is ignored
+# 檢查 .env 是否被忽略
 git check-ignore .env bot/.env client/.env.local
 ```
 
-### 2. Use Strong Passwords
+### 2. 使用強密碼
 
-For production databases, use strong, randomly generated passwords:
+對於生產資料庫，使用強隨機生成的密碼：
 
 ```bash
-# Generate a secure password
+# 生成安全密碼
 openssl rand -base64 32
 ```
 
-### 3. Restrict Guild Access
+### 3. 限制伺服器訪問
 
-In production, always set `ALLOWED_GUILD_IDS` to limit which Discord servers can use your app:
+在生產環境中，務必設置 `ALLOWED_GUILD_IDS` 來限制哪些 Discord 伺服器可以使用你的應用：
 
 ```env
 ALLOWED_GUILD_IDS=123456789012345678,987654321098765432
 ```
 
-### 4. Use Environment-Specific Secrets
+### 4. 使用環境特定的密鑰
 
-Never use the same tokens/secrets across development and production environments.
+永遠不要在開發和生產環境中使用相同的 token/密鑰。
 
-### 5. Rotate Secrets Regularly
+### 5. 定期輪換密鑰
 
-Periodically rotate your Discord tokens and database passwords, especially if:
-- A team member leaves
-- You suspect a security breach
-- As part of regular security maintenance
+定期輪換你的 Discord token 和資料庫密碼，特別是在以下情況：
+- 團隊成員離職
+- 懷疑安全漏洞
+- 作為定期安全維護的一部分
 
-## Troubleshooting
+## 故障排除
 
-### Issue: "Cannot connect to database"
+### 問題："無法連接資料庫"
 
-**Check:**
-- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` are correct
-- PostgreSQL is running
-- Database exists: `createdb discord_stats`
-- User has access permissions
+**檢查：**
+- `DB_HOST`、`DB_PORT`、`DB_NAME`、`DB_USER`、`DB_PASSWORD` 是否正確
+- PostgreSQL 是否正在運行
+- 資料庫是否存在：`createdb discord_stats`
+- 用戶是否有訪問權限
 
-### Issue: "Discord authentication failed"
+### 問題："Discord 認證失敗"
 
-**Check:**
-- `DISCORD_BOT_TOKEN` is correct and not expired
-- `DISCORD_CLIENT_ID` and `DISCORD_CLIENT_SECRET` match
-- Bot has proper intents enabled in Developer Portal
+**檢查：**
+- `DISCORD_BOT_TOKEN` 是否正確且未過期
+- `DISCORD_CLIENT_ID` 和 `DISCORD_CLIENT_SECRET` 是否匹配
+- Bot 在 Developer Portal 中是否啟用了適當的 intents
 
-### Issue: "Guild not whitelisted"
+### 問題："伺服器未在白名單中"
 
-**Check:**
-- `ALLOWED_GUILD_IDS` includes your server ID
-- No extra spaces in the comma-separated list
-- Server ID is correct (right-click server → Copy ID)
+**檢查：**
+- `ALLOWED_GUILD_IDS` 是否包含你的伺服器 ID
+- 逗號分隔列表中沒有多餘的空格
+- 伺服器 ID 是否正確（右鍵伺服器 → 複製 ID）
 
-### Issue: "API URL not working"
+### 問題："API URL 無效"
 
-**Check:**
-- `NEXT_PUBLIC_API_URL` matches your API server URL
-- Port matches `PORT` in root `.env`
-- No trailing slash in URL
+**檢查：**
+- `NEXT_PUBLIC_API_URL` 是否與你的 API 伺服器 URL 匹配
+- 端口是否與根目錄 `.env` 中的 `PORT` 匹配
+- URL 末尾沒有斜線
 
-### Issue: "Dev mode not working"
+### 問題："開發模式無效"
 
-**Check:**
-- `NEXT_PUBLIC_ENABLE_DEV_MODE=true` in `client/.env.local`
-- `NEXT_PUBLIC_DEV_GUILD_ID` and `NEXT_PUBLIC_DEV_USER_ID` are set
-- You're accessing via localhost, not Discord Embedded App
+**檢查：**
+- `client/.env.local` 中 `NEXT_PUBLIC_ENABLE_DEV_MODE=true`
+- `NEXT_PUBLIC_DEV_GUILD_ID` 和 `NEXT_PUBLIC_DEV_USER_ID` 是否已設置
+- 你是通過 localhost 訪問，而不是 Discord Embedded App
 
-## Environment Variable Loading
+## 環境變數載入
 
-### Load Order
+### 載入順序
 
-1. **Root `.env`**: Loaded by server and ecosystem.config.js
-2. **Bot `bot/.env`**: Loaded by bot process
-3. **Client `client/.env.local`**: Loaded by Next.js (dev and build)
-4. **Client `client/.env.production`**: Loaded by Next.js (production build only)
+1. **根目錄 `.env`**：由 server 和 ecosystem.config.js 載入
+2. **Bot `bot/.env`**：由 bot 進程載入
+3. **Client `client/.env.local`**：由 Next.js 載入（開發和構建）
+4. **Client `client/.env.production`**：由 Next.js 載入（僅生產構建）
 
-### Next.js Environment Variables
+### Next.js 環境變數
 
-Next.js has special rules for environment variables:
+Next.js 對環境變數有特殊規則：
 
-- **`NEXT_PUBLIC_*`**: Exposed to browser (client-side)
-- **Other variables**: Server-side only
+- **`NEXT_PUBLIC_*`**：暴露給瀏覽器（客戶端）
+- **其他變數**：僅伺服器端
 
-**Important:** Only use `NEXT_PUBLIC_` prefix for variables that should be accessible in the browser. Never use it for secrets!
+**重要：** 只對應該在瀏覽器中訪問的變數使用 `NEXT_PUBLIC_` 前綴。永遠不要用於密鑰！
 
-### PM2 Environment Variables
+### PM2 環境變數
 
-When using PM2 (production), environment variables are loaded from:
+使用 PM2（生產環境）時，環境變數從以下位置載入：
 
-1. Root `.env` (via `dotenv` in `ecosystem.config.js`)
-2. Process-specific `env` object in `ecosystem.config.js`
+1. 根目錄 `.env`（通過 `ecosystem.config.js` 中的 `dotenv`）
+2. `ecosystem.config.js` 中進程特定的 `env` 對象
 
-## Validation
+## 驗證
 
-To validate your environment configuration:
+驗證你的環境配置：
 
 ```bash
-# Check if all required files exist
+# 檢查所有必需文件是否存在
 ls -la .env bot/.env client/.env.local
 
-# Test database connection
+# 測試資料庫連接
 psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT 1"
 
-# Test API server
+# 測試 API 伺服器
 curl http://localhost:3008/health
 
-# Test client
+# 測試前端
 curl http://localhost:3000
 ```
 
-## Migration from Old Configuration
+## 從舊配置遷移
 
-If you're upgrading from an older version with hardcoded values:
+如果你正在從具有硬編碼值的舊版本升級：
 
-1. Run `./setup-env.sh` to generate new `.env` files
-2. Update `client/next.config.ts` (already uses env vars)
-3. Update `ecosystem.config.js` (already uses env vars)
-4. Restart all services: `pm2 restart all`
+1. 執行 `./setup-env.sh` 生成新的 `.env` 文件
+2. 更新 `client/next.config.ts`（已使用環境變數）
+3. 更新 `ecosystem.config.js`（已使用環境變數）
+4. 重啟所有服務：`pm2 restart all`
 
-## Additional Resources
+## 其他資源
 
 - [Discord Developer Portal](https://discord.com/developers/applications)
-- [Next.js Environment Variables](https://nextjs.org/docs/basic-features/environment-variables)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-- [PM2 Documentation](https://pm2.keymetrics.io/docs/usage/environment/)
+- [Next.js 環境變數](https://nextjs.org/docs/basic-features/environment-variables)
+- [PostgreSQL 文檔](https://www.postgresql.org/docs/)
+- [PM2 文檔](https://pm2.keymetrics.io/docs/usage/environment/)

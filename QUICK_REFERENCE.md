@@ -1,219 +1,219 @@
-# Quick Reference Guide
+# 快速參考指南
 
-## Environment Setup
+## 環境設置
 
-### First Time Setup
+### 首次設置
 ```bash
 ./setup-env.sh
 ```
 
-### Manual Setup
+### 手動設置
 ```bash
 cp .env.example .env
 cp bot/.env.example bot/.env
 cp client/.env.example client/.env.local
-# Edit files with your values
+# 編輯文件並填入你的值
 ```
 
-## Environment Variables
+## 環境變數
 
-### Required Variables
+### 必需變數
 
-| File | Variable | Where to Get |
+| 文件 | 變數 | 獲取位置 |
 |------|----------|--------------|
 | `.env` | `DISCORD_CLIENT_ID` | Discord Developer Portal → General Information |
 | `.env` | `DISCORD_CLIENT_SECRET` | Discord Developer Portal → OAuth2 |
 | `.env` | `DISCORD_BOT_TOKEN` | Discord Developer Portal → Bot |
-| `bot/.env` | `DB_PASSWORD` | Your PostgreSQL password |
-| `client/.env.local` | `NEXT_PUBLIC_API_URL` | Your API URL (e.g., http://localhost:3008) |
+| `bot/.env` | `DB_PASSWORD` | 你的 PostgreSQL 密碼 |
+| `client/.env.local` | `NEXT_PUBLIC_API_URL` | 你的 API URL（例如：http://localhost:3008）|
 
-### Optional Variables
+### 可選變數
 
-| File | Variable | Purpose |
+| 文件 | 變數 | 用途 |
 |------|----------|---------|
-| `.env` | `ALLOWED_GUILD_IDS` | Whitelist specific Discord servers |
-| `client/.env.local` | `NEXT_PUBLIC_ENABLE_DEV_MODE` | Enable local testing without Discord |
-| `client/.env.local` | `NEXT_PUBLIC_DEV_GUILD_ID` | Test server ID for dev mode |
+| `.env` | `ALLOWED_GUILD_IDS` | 白名單特定 Discord 伺服器 |
+| `client/.env.local` | `NEXT_PUBLIC_ENABLE_DEV_MODE` | 啟用本地測試（無需 Discord）|
+| `client/.env.local` | `NEXT_PUBLIC_DEV_GUILD_ID` | 開發模式的測試伺服器 ID |
 
-## Common Commands
+## 常用命令
 
-### Development
+### 開發
 ```bash
-npm run dev          # Start all services (dev mode)
-npm run server       # Start API server only
-npm run client       # Start Next.js client only
-npm run bot          # Start bot only
+npm run dev          # 啟動所有服務（開發模式）
+npm run server       # 只啟動 API 伺服器
+npm run client       # 只啟動 Next.js 前端
+npm run bot          # 只啟動 bot
 ```
 
-### Production
+### 生產
 ```bash
-./deploy.sh          # One-click deployment
-./update.sh          # Quick update and restart
-./manage.sh restart  # Restart all services
-pm2 logs             # View logs
+./deploy.sh          # 一鍵部署
+./update.sh          # 快速更新並重啟
+./manage.sh restart  # 重啟所有服務
+pm2 logs             # 查看日誌
 ```
 
-### Database
+### 資料庫
 ```bash
-# Initialize database
+# 初始化資料庫
 createdb discord_stats
 psql -U postgres -d discord_stats -f bot/database/schema.sql
 
-# Backup
+# 備份
 ./manage.sh backup
 
-# Restore
+# 還原
 ./manage.sh restore backups/discord_stats_YYYYMMDD_HHMMSS.sql.gz
 ```
 
-### Management
+### 管理
 ```bash
-./manage.sh status   # View service status
-./manage.sh logs     # View all logs
-./manage.sh health   # Health check
-./manage.sh clean    # Clean logs
+./manage.sh status   # 查看服務狀態
+./manage.sh logs     # 查看所有日誌
+./manage.sh health   # 健康檢查
+./manage.sh clean    # 清理日誌
 ```
 
-## Project Structure
+## 專案結構
 
 ```
 discord-embed-app/
-├── .env                    # Root configuration
+├── .env                    # 根目錄配置
 ├── bot/
-│   ├── .env               # Bot configuration
-│   └── database/          # Database schemas
+│   ├── .env               # Bot 配置
+│   └── database/          # 資料庫架構
 ├── client/
-│   ├── .env.local         # Client configuration
-│   └── next.config.ts     # Next.js config (uses env vars)
-├── server/                # API server
-├── docs/                  # Documentation
+│   ├── .env.local         # 前端配置
+│   └── next.config.ts     # Next.js 配置（使用環境變數）
+├── server/                # API 伺服器
+├── docs/                  # 文檔
 │   ├── ENVIRONMENT_VARIABLES.md
 │   └── ...
-├── ecosystem.config.js    # PM2 config (uses env vars)
-├── setup-env.sh          # Interactive setup
-├── deploy.sh             # Deployment script
-├── manage.sh             # Management script
-└── cleanup-project.sh    # Cleanup script
+├── ecosystem.config.js    # PM2 配置（使用環境變數）
+├── setup-env.sh          # 互動式設置
+├── deploy.sh             # 部署腳本
+├── manage.sh             # 管理腳本
+└── cleanup-project.sh    # 清理腳本
 ```
 
-## Configuration Files
+## 配置文件
 
 ### client/next.config.ts
-- ✅ Uses `NEXT_PUBLIC_DISCORD_CLIENT_ID`
-- ✅ Uses `NEXT_PUBLIC_API_URL`
-- ✅ Dynamic CORS and rewrites
+- ✅ 使用 `NEXT_PUBLIC_DISCORD_CLIENT_ID`
+- ✅ 使用 `NEXT_PUBLIC_API_URL`
+- ✅ 動態 CORS 和 rewrites
 
 ### ecosystem.config.js
-- ✅ Loads `.env` with dotenv
-- ✅ Uses `process.env.PORT`
-- ✅ Uses `process.env.CLIENT_PORT`
+- ✅ 使用 dotenv 載入 `.env`
+- ✅ 使用 `process.env.PORT`
+- ✅ 使用 `process.env.CLIENT_PORT`
 
-## Troubleshooting
+## 故障排除
 
-### Can't connect to database
+### 無法連接資料庫
 ```bash
-# Check connection
+# 檢查連接
 psql -h localhost -U postgres -d discord_stats -c "SELECT 1"
 
-# Check .env values
+# 檢查 .env 值
 cat bot/.env | grep DB_
 ```
 
-### API not responding
+### API 無響應
 ```bash
-# Check if running
+# 檢查是否運行
 curl http://localhost:3008/health
 
-# Check port in .env
+# 檢查 .env 中的端口
 cat .env | grep PORT
 
-# Restart
+# 重啟
 pm2 restart discord-server
 ```
 
-### Client not loading
+### 前端無法載入
 ```bash
-# Check if running
+# 檢查是否運行
 curl http://localhost:3000
 
-# Rebuild
+# 重新構建
 cd client && npm run build && cd ..
 
-# Restart
+# 重啟
 pm2 restart discord-client
 ```
 
-### Environment variables not working
+### 環境變數無效
 ```bash
-# Clear cache
+# 清除緩存
 rm -rf client/.next
 
-# Rebuild
+# 重新構建
 cd client && npm run build && cd ..
 
-# Restart all
+# 重啟所有服務
 pm2 restart all
 ```
 
-## Security Checklist
+## 安全檢查清單
 
-- [ ] `.env` files are in `.gitignore`
-- [ ] Different tokens for dev and production
-- [ ] `ALLOWED_GUILD_IDS` set in production
-- [ ] Strong database password
-- [ ] Regular secret rotation
+- [ ] `.env` 文件在 `.gitignore` 中
+- [ ] 開發和生產使用不同的 token
+- [ ] 生產環境設置了 `ALLOWED_GUILD_IDS`
+- [ ] 使用強密碼保護資料庫
+- [ ] 定期輪換密鑰
 
-## Port Reference
+## 端口參考
 
-| Service | Default Port | Environment Variable |
+| 服務 | 預設端口 | 環境變數 |
 |---------|--------------|---------------------|
-| API Server | 3008 | `PORT` |
-| Next.js Client | 3000 | `CLIENT_PORT` |
+| API 伺服器 | 3008 | `PORT` |
+| Next.js 前端 | 3000 | `CLIENT_PORT` |
 | PostgreSQL | 5432 | `DB_PORT` |
 
-## URLs
+## URL 參考
 
-| Environment | API URL | Client URL |
+| 環境 | API URL | 前端 URL |
 |-------------|---------|------------|
-| Development | http://localhost:3008 | http://localhost:3000 |
-| Production | https://api.yourdomain.com | https://yourdomain.com |
+| 開發 | http://localhost:3008 | http://localhost:3000 |
+| 生產 | https://api.yourdomain.com | https://yourdomain.com |
 | Discord Embedded | - | https://{CLIENT_ID}.discordsays.com |
 
-## Getting Discord IDs
+## 獲取 Discord ID
 
 ### Application Client ID
 1. Discord Developer Portal
-2. Your Application → General Information
-3. Copy "Application ID"
+2. 你的應用 → General Information
+3. 複製 "Application ID"
 
-### Server ID (Guild ID)
-1. Enable Developer Mode in Discord
-2. Right-click server icon
-3. Copy ID
+### 伺服器 ID (Guild ID)
+1. 在 Discord 中啟用開發者模式
+2. 右鍵點擊伺服器圖標
+3. 複製 ID
 
-### User ID
-1. Enable Developer Mode in Discord
-2. Right-click username
-3. Copy ID
+### 用戶 ID
+1. 在 Discord 中啟用開發者模式
+2. 右鍵點擊用戶名
+3. 複製 ID
 
-## Documentation
+## 文檔
 
-- `README.md` - Project overview
-- `SETUP.md` - Setup instructions
-- `CONFIGURATION.md` - Configuration guide
-- `DEVELOPMENT.md` - Development guide
-- `TROUBLESHOOTING.md` - Troubleshooting guide
-- `docs/ENVIRONMENT_VARIABLES.md` - Complete env vars reference
-- `PROJECT_CLEANUP_SUMMARY.md` - Recent changes and migration
+- `README.md` - 專案概覽
+- `SETUP.md` - 設置說明
+- `CONFIGURATION.md` - 配置指南
+- `DEVELOPMENT.md` - 開發指南
+- `TROUBLESHOOTING.md` - 故障排除指南
+- `docs/ENVIRONMENT_VARIABLES.md` - 完整環境變數參考
+- `PROJECT_CLEANUP_SUMMARY.md` - 最近變更和遷移指南
 
-## Support
+## 支援
 
-Need help? Check:
-1. `docs/ENVIRONMENT_VARIABLES.md` - Detailed configuration
-2. `TROUBLESHOOTING.md` - Common issues
-3. `pm2 logs` - Service logs
-4. `./manage.sh health` - Health check
+需要幫助？查看：
+1. `docs/ENVIRONMENT_VARIABLES.md` - 詳細配置
+2. `TROUBLESHOOTING.md` - 常見問題
+3. `pm2 logs` - 服務日誌
+4. `./manage.sh health` - 健康檢查
 
 ---
 
-**Tip:** Run `./cleanup-project.sh` to organize and validate your project structure.
+**提示：** 執行 `./cleanup-project.sh` 來整理和驗證你的專案結構。
