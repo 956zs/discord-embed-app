@@ -6,3 +6,7 @@ client/node_modules/
 *.log
 .DS_Store
 .vscode
+
+# Backup files created by update.sh and manage.sh
+*.backup.*
+version.backup.*.txt
