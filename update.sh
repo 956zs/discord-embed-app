@@ -366,24 +366,25 @@ if confirm "是否重啟服務？" "y"; then
     
     # 只重啟這個專案的服務，不影響其他 PM2 進程
     # 使用 reload 實現零停機更新
+    # --update-env 確保重新加載環境變數
     
     # 重啟 server（包含 bot）
     log_info "重啟 discord-server..."
-    if pm2 reload discord-server; then
+    if pm2 reload discord-server --update-env; then
         log_success "discord-server reload 完成"
     else
         log_warning "discord-server reload 失敗，嘗試 restart..."
-        pm2 restart discord-server
+        pm2 restart discord-server --update-env
         log_success "discord-server restart 完成"
     fi
     
     # 重啟 client
     log_info "重啟 discord-client..."
-    if pm2 reload discord-client; then
+    if pm2 reload discord-client --update-env; then
         log_success "discord-client reload 完成"
     else
         log_warning "discord-client reload 失敗，嘗試 restart..."
-        pm2 restart discord-client
+        pm2 restart discord-client --update-env
         log_success "discord-client restart 完成"
     fi
     
@@ -393,8 +394,8 @@ if confirm "是否重啟服務？" "y"; then
 else
     log_warning "跳過服務重啟"
     log_warning "請手動執行:"
-    echo "  pm2 reload discord-server"
-    echo "  pm2 reload discord-client"
+    echo "  pm2 reload discord-server --update-env"
+    echo "  pm2 reload discord-client --update-env"
 fi
 
 # ============================================================================
@@ -410,10 +411,13 @@ echo ""
 
 # 檢查 API
 log_info "檢查 API 服務..."
-if curl -s http://localhost:${PORT:-3008}/health > /dev/null 2>&1; then
-    log_success "API 服務正常"
+# 從 .env 或 bot/.env 讀取 PORT，默認 3008
+API_PORT=${PORT:-3008}
+if curl -s http://localhost:${API_PORT}/health > /dev/null 2>&1; then
+    log_success "API 服務正常 (port ${API_PORT})"
 else
-    log_error "API 服務異常"
+    log_error "API 服務異常 (port ${API_PORT})"
+    log_info "提示：檢查 .env 中的 PORT 設定是否正確"
 fi
 
 # 檢查前端

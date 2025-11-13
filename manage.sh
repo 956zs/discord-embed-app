@@ -59,15 +59,15 @@ case "$1" in
         ;;
     
     restart)
-        log_info "重啟 Discord 應用服務..."
-        pm2 restart discord-server discord-client
+        log_info "重啟 Discord 應用服務（重新載入環境變數）..."
+        pm2 restart discord-server discord-client --update-env
         log_success "服務已重啟"
         sleep 2
         pm2 status
         ;;
     
     restart-prod)
-        log_info "重啟生產環境（重新載入配置）..."
+        log_info "重啟生產環境（完全重新載入配置）..."
         pm2 delete discord-server discord-client 2>/dev/null || log_info "沒有運行中的服務"
         sleep 2
         pm2 start ecosystem.config.js
