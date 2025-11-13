@@ -411,8 +411,8 @@ echo ""
 
 # 檢查 API
 log_info "檢查 API 服務..."
-# 從 .env 或 bot/.env 讀取 PORT，默認 3008
-API_PORT=${PORT:-3008}
+# 從 .env 或 bot/.env 讀取 PORT，默認 3102
+API_PORT=${PORT:-3102}
 if curl -s http://localhost:${API_PORT}/health > /dev/null 2>&1; then
     log_success "API 服務正常 (port ${API_PORT})"
 else
