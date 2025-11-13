@@ -4,8 +4,18 @@
  * 儲存訊息記錄
  */
 async function saveMessage(pool, message) {
+  // 安全檢查：確保必要的對象存在
+  if (!message || !message.guild || !message.author || !message.channel) {
+    console.error("❌ 訊息對象缺少必要屬性:", {
+      hasMessage: !!message,
+      hasGuild: !!message?.guild,
+      hasAuthor: !!message?.author,
+      hasChannel: !!message?.channel,
+    });
+    throw new Error("訊息對象缺少必要屬性");
+  }
+
   // 檢查是否為討論串訊息
-  // 安全檢查：確保 message.channel 存在且有 isThread 方法
   const isThread =
     message.channel && typeof message.channel.isThread === "function"
       ? message.channel.isThread()
@@ -15,7 +25,9 @@ async function saveMessage(pool, message) {
   const channelId = isThread ? message.channel.parentId : message.channel.id;
 
   // 提取附件 URL
-  const attachmentUrls = message.attachments.map((att) => att.url);
+  const attachmentUrls = message.attachments
+    ? message.attachments.map((att) => att.url)
+    : [];
   const hasAttachments = attachmentUrls.length > 0;
   const attachmentCount = attachmentUrls.length;
 
@@ -30,7 +42,7 @@ async function saveMessage(pool, message) {
     DO NOTHING
   `;
 
-  const hasEmoji = hasEmojiInMessage(message.content);
+  const hasEmoji = hasEmojiInMessage(message.content || "");
 
   const values = [
     message.id || null, // Discord 訊息 ID（可能為 null）
@@ -38,7 +50,7 @@ async function saveMessage(pool, message) {
     channelId, // 使用父頻道 ID（如果是討論串）
     message.author.id,
     message.author.username,
-    message.content.length,
+    (message.content || "").length,
     hasEmoji,
     hasAttachments,
     attachmentCount,
@@ -95,8 +107,14 @@ async function updateChannelStats(pool, guildId, channelId, channelName) {
  */
 async function saveEmojiUsage(pool, message) {
   try {
+    // 安全檢查
+    if (!message || !message.guild || !message.author) {
+      console.error("❌ saveEmojiUsage: 訊息對象缺少必要屬性");
+      return;
+    }
+
     // 提取 Unicode 表情
-    const unicodeEmojis = extractUnicodeEmojis(message.content);
+    const unicodeEmojis = extractUnicodeEmojis(message.content || "");
 
     // 提取自訂表情
     const customEmojis = extractCustomEmojis(message);
