@@ -34,41 +34,65 @@ TypeScript config: strict type checking, ES2020 target, bundler module resolutio
 ## Database
 
 PostgreSQL with tables:
-- `messages` - message records with indexes on guild_id, user_id, channel_id, created_at
-- `emoji_usage` - emoji tracking
+- `messages` - message records with thread support (is_thread, thread_id, parent_channel_id)
+- `emoji_usage` - emoji tracking with custom emoji URLs
 - `daily_stats` - aggregated statistics (JSONB columns)
 - `channel_stats` - per-channel message counts
+- `history_fetch_tasks` - historical fetch task tracking
+- `history_fetch_ranges` - fetch range records (prevents duplicate fetching)
+- `admin_users` - admin permission management (per-guild)
 
 ## Common Commands
 
 ```bash
-# Install all dependencies
-npm install && cd client && npm install && cd ../bot && npm install
+# Setup (first time)
+./setup-env.sh              # Interactive environment setup
+./deploy.sh                 # One-click deployment
 
-# Development (all services)
-npm run dev
-
-# Individual services
-npm run server    # API server (port 3008)
-npm run client    # Next.js dev server (port 3000)
-npm run bot       # Data collection bot
+# Development
+npm run dev                 # Start all services
+npm run server              # API server (port 3008)
+npm run client              # Next.js dev server (port 3000)
+npm run bot                 # Data collection bot
 
 # Production
-cd client && npm run build  # Build Next.js client
-npm start                   # Start API server
-npm run start:bot          # Start bot
+./update.sh                 # Update with backup
+./manage.sh start           # Start services
+./manage.sh restart         # Restart services
+./manage.sh restart-prod    # Restart with config reload
+./manage.sh backup          # Backup database
+./manage.sh restore <file>  # Restore database
+./manage.sh health          # Health check
+pm2 logs                    # View logs
 
-# Database setup
-psql -U username -d discord_stats -f bot/database/create_tables.sql
+# Database
+createdb discord_stats
+psql -U postgres -d discord_stats -f bot/database/schema.sql
+psql -U postgres -d discord_stats -f bot/database/add_thread_support.sql
+psql -U postgres -d discord_stats -f bot/database/add_attachments.sql
 ```
 
 ## Environment Variables
 
-Root `.env`: DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_BOT_TOKEN, PORT (3008), ALLOWED_GUILD_IDS
+**Root `.env`:**
+- DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, DISCORD_BOT_TOKEN
+- PORT (3008), CLIENT_PORT (3000)
+- ALLOWED_GUILD_IDS, NODE_ENV
 
-Bot `.env`: DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, DISCORD_BOT_TOKEN, ALLOWED_GUILD_IDS
+**Bot `bot/.env`:**
+- DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+- DISCORD_BOT_TOKEN, ALLOWED_GUILD_IDS, NODE_ENV
 
-Client `.env.local`: NEXT_PUBLIC_DISCORD_CLIENT_ID, NEXT_PUBLIC_API_URL, NEXT_PUBLIC_DEV_GUILD_ID, NEXT_PUBLIC_ENABLE_DEV_MODE
+**Client `client/.env.local`:**
+- NEXT_PUBLIC_DISCORD_CLIENT_ID, NEXT_PUBLIC_API_URL
+- NEXT_PUBLIC_ENABLE_DEV_MODE, NEXT_PUBLIC_DEV_GUILD_ID, NEXT_PUBLIC_DEV_USER_ID
+- NODE_ENV
+
+**Configuration Files (use env vars):**
+- `client/next.config.ts` - Uses NEXT_PUBLIC_DISCORD_CLIENT_ID, NEXT_PUBLIC_API_URL
+- `ecosystem.config.js` - Uses process.env.PORT, process.env.CLIENT_PORT
+
+See `docs/ENVIRONMENT_VARIABLES.md` for complete guide.
 
 
 Silent Execution (Default): Unless explicitly requested, do not create documents, run tests, compile, execute the target program, or produce summaries during an agent run.
