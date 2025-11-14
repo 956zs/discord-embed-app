@@ -248,15 +248,16 @@ exports.getTodayStats = async (req, res) => {
   try {
     const { guildId } = req.params;
 
-    // 今日最活躍頻道
+    // 今日最活躍頻道（使用 channel_stats 表獲取頻道名稱）
     const topChannelResult = await pool.query(
       `SELECT 
-        channel_name as name,
-        COUNT(*) as count
-      FROM messages
-      WHERE guild_id = $1
-        AND created_at >= CURRENT_DATE
-      GROUP BY channel_name
+        COALESCE(cs.channel_name, m.channel_id) as name,
+        COUNT(m.id) as count
+      FROM messages m
+      LEFT JOIN channel_stats cs ON m.channel_id = cs.channel_id AND m.guild_id = cs.guild_id
+      WHERE m.guild_id = $1
+        AND m.created_at >= CURRENT_DATE
+      GROUP BY m.channel_id, cs.channel_name
       ORDER BY count DESC
       LIMIT 1`,
       [guildId]
@@ -270,6 +271,7 @@ exports.getTodayStats = async (req, res) => {
       FROM messages
       WHERE guild_id = $1
         AND created_at >= CURRENT_DATE
+        AND username IS NOT NULL
       GROUP BY username
       ORDER BY count DESC
       LIMIT 1`,

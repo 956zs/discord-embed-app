@@ -65,3 +65,28 @@
 - `client/lib/i18n.ts` - 國際化文本
 - `server/controllers/statsController.js` - 統計控制器
 - `server/routes/stats.js` - API 路由
+
+## 資料庫修正
+由於 `messages` 表中沒有 `channel_name` 欄位，今日統計查詢使用 LEFT JOIN 從 `channel_stats` 表獲取頻道名稱：
+```sql
+SELECT 
+  COALESCE(cs.channel_name, m.channel_id) as name,
+  COUNT(m.id) as count
+FROM messages m
+LEFT JOIN channel_stats cs ON m.channel_id = cs.channel_id AND m.guild_id = cs.guild_id
+WHERE m.guild_id = $1 AND m.created_at >= CURRENT_DATE
+GROUP BY m.channel_id, cs.channel_name
+ORDER BY count DESC
+LIMIT 1
+```
+
+## 部署步驟
+1. 重啟服務器以應用更改：
+   ```bash
+   ./manage.sh restart
+   ```
+2. 清除瀏覽器緩存或強制刷新（Ctrl+Shift+R / Cmd+Shift+R）
+3. 測試新功能：
+   - 選擇「今日」時間範圍
+   - 查看今日前三統計卡片
+   - 在手機上測試圖表顯示
