@@ -71,7 +71,7 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
             <NavigationMenuItem>
               <NavigationMenuLink
                 asChild
-                className={navigationMenuTriggerStyle()}
+                className={`${navigationMenuTriggerStyle()} whitespace-nowrap`}
               >
                 <Link href="/admin">
                   <Settings className="mr-2 h-4 w-4" />
@@ -82,9 +82,11 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
           )}
 
           <NavigationMenuItem>
-            <NavigationMenuTrigger>{t.nav.stats}</NavigationMenuTrigger>
+            <NavigationMenuTrigger className="whitespace-nowrap">
+              {t.nav.stats}
+            </NavigationMenuTrigger>
             <NavigationMenuContent>
-              <ul className="grid gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+              <ul className="grid gap-3 p-4 w-[90vw] max-w-[400px] md:w-[500px] md:grid-cols-2 lg:w-[600px]">
                 {statsItems.map((item) => (
                   <ListItem
                     key={item.title}
@@ -100,18 +102,20 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
           </NavigationMenuItem>
 
           <NavigationMenuItem className="hidden md:block">
-            <NavigationMenuTrigger>{t.nav.quickJump}</NavigationMenuTrigger>
+            <NavigationMenuTrigger className="whitespace-nowrap">
+              {t.nav.quickJump}
+            </NavigationMenuTrigger>
             <NavigationMenuContent>
-              <ul className="grid w-[300px] gap-3 p-4">
+              <ul className="grid w-[90vw] max-w-[300px] md:w-[300px] gap-3 p-4">
                 <li>
                   <NavigationMenuLink asChild>
                     <Link
                       href="#server"
                       className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
                     >
-                      <div className="flex items-center gap-2 text-sm font-medium leading-none">
-                        <BarChart3 className="h-4 w-4" />
-                        {t.nav.server}
+                      <div className="flex items-center gap-2 text-sm font-medium leading-none whitespace-nowrap">
+                        <BarChart3 className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{t.nav.server}</span>
                       </div>
                     </Link>
                   </NavigationMenuLink>
@@ -122,9 +126,9 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
                       href="#messages"
                       className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
                     >
-                      <div className="flex items-center gap-2 text-sm font-medium leading-none">
-                        <TrendingUp className="h-4 w-4" />
-                        {t.nav.messages}
+                      <div className="flex items-center gap-2 text-sm font-medium leading-none whitespace-nowrap">
+                        <TrendingUp className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{t.nav.messages}</span>
                       </div>
                     </Link>
                   </NavigationMenuLink>
@@ -135,9 +139,9 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
                       href="#members"
                       className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
                     >
-                      <div className="flex items-center gap-2 text-sm font-medium leading-none">
-                        <Users className="h-4 w-4" />
-                        {t.nav.members}
+                      <div className="flex items-center gap-2 text-sm font-medium leading-none whitespace-nowrap">
+                        <Users className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate">{t.nav.members}</span>
                       </div>
                     </Link>
                   </NavigationMenuLink>
@@ -168,11 +172,11 @@ function ListItem({
           href={href}
           className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
         >
-          <div className="flex items-center gap-2 text-sm font-medium leading-none">
-            {Icon && <Icon className="h-4 w-4" />}
-            {title}
+          <div className="flex items-center gap-2 text-sm font-medium leading-none whitespace-nowrap">
+            {Icon && <Icon className="h-4 w-4 flex-shrink-0" />}
+            <span className="truncate">{title}</span>
           </div>
-          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
+          <p className="line-clamp-2 text-sm leading-snug text-muted-foreground mt-1">
             {children}
           </p>
         </Link>
