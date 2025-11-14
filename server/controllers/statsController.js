@@ -90,19 +90,54 @@ exports.getMemberActivity = async (req, res) => {
 exports.getChannelUsage = async (req, res) => {
   try {
     const { guildId } = req.params;
+    const { days } = req.query; // 可選的天數參數
 
-    const result = await pool.query(
-      `SELECT 
-        channel_id as id,
-        channel_name as name,
-        message_count,
-        0 as type
-      FROM channel_stats
-      WHERE guild_id = $1
-      ORDER BY message_count DESC
-      LIMIT 15`,
-      [guildId]
-    );
+    // 根據 days 參數決定時間過濾
+    let timeFilter = "";
+    if (days === "today") {
+      timeFilter = `AND m.created_at >= CURRENT_DATE`;
+    } else if (days === "yesterday") {
+      timeFilter = `AND m.created_at >= CURRENT_DATE - INTERVAL '1 day' AND m.created_at < CURRENT_DATE`;
+    } else if (days && days !== "all") {
+      const daysNum = parseInt(days);
+      if (!isNaN(daysNum)) {
+        timeFilter = `AND m.created_at >= NOW() - INTERVAL '${daysNum} days'`;
+      }
+    }
+
+    // 如果有時間過濾，從 messages 表實時統計；否則使用 channel_stats 表
+    let result;
+    if (timeFilter) {
+      result = await pool.query(
+        `SELECT 
+          m.channel_id as id,
+          COALESCE(cs.channel_name, m.channel_id) as name,
+          COUNT(m.id) as message_count,
+          0 as type
+        FROM messages m
+        LEFT JOIN channel_stats cs ON m.channel_id = cs.channel_id AND m.guild_id = cs.guild_id
+        WHERE m.guild_id = $1
+          ${timeFilter}
+        GROUP BY m.channel_id, cs.channel_name
+        ORDER BY message_count DESC
+        LIMIT 15`,
+        [guildId]
+      );
+    } else {
+      // 使用預先統計的數據（所有時間）
+      result = await pool.query(
+        `SELECT 
+          channel_id as id,
+          channel_name as name,
+          message_count,
+          0 as type
+        FROM channel_stats
+        WHERE guild_id = $1
+        ORDER BY message_count DESC
+        LIMIT 15`,
+        [guildId]
+      );
+    }
 
     const channels = result.rows.map((row) => ({
       id: row.id,

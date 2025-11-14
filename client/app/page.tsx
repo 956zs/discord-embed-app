@@ -208,7 +208,7 @@ export default function Home() {
         await Promise.all([
           axios.get(`/api/stats/server/${id}`),
           axios.get(`/api/stats/messages/${id}${daysParam}`),
-          axios.get(`/api/stats/channels/${id}`),
+          axios.get(`/api/stats/channels/${id}${daysParam}`),
           axios.get(`/api/stats/members/${id}${daysParam}`),
           axios.get(`/api/stats/emojis/${id}${daysParam}`),
           axios.get(`/api/stats/today/${id}`),
@@ -509,7 +509,36 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 {messageTrends.length > 0 ? (
-                  <MessageTrendsChart data={messageTrends} />
+                  // 單日數據顯示為統計卡片，多日數據顯示為圖表
+                  (timeRange === "today" || timeRange === "yesterday") &&
+                  messageTrends.length === 1 ? (
+                    <div className="grid gap-4 md:gap-6 sm:grid-cols-2">
+                      <div className="space-y-2 md:space-y-3 rounded-xl border-2 bg-gradient-to-br from-blue-500/10 to-blue-600/5 p-6 md:p-8">
+                        <p className="text-sm md:text-base font-semibold uppercase tracking-wide text-muted-foreground">
+                          {t.stats.totalMessages}
+                        </p>
+                        <p className="text-4xl md:text-5xl font-bold text-blue-600 dark:text-blue-400">
+                          {messageTrends[0].messages.toLocaleString()}
+                        </p>
+                        <p className="text-xs md:text-sm text-muted-foreground">
+                          {messageTrends[0].date}
+                        </p>
+                      </div>
+                      <div className="space-y-2 md:space-y-3 rounded-xl border-2 bg-gradient-to-br from-purple-500/10 to-purple-600/5 p-6 md:p-8">
+                        <p className="text-sm md:text-base font-semibold uppercase tracking-wide text-muted-foreground">
+                          {t.stats.activeUsers}
+                        </p>
+                        <p className="text-4xl md:text-5xl font-bold text-purple-600 dark:text-purple-400">
+                          {messageTrends[0].activeUsers.toLocaleString()}
+                        </p>
+                        <p className="text-xs md:text-sm text-muted-foreground">
+                          {t.stats.uniqueUsers}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <MessageTrendsChart data={messageTrends} />
+                  )
                 ) : (
                   <div className="flex h-[350px] items-center justify-center text-muted-foreground">
                     {t.home.noMessageTrends}
