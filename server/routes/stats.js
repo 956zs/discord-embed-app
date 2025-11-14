@@ -7,6 +7,7 @@ const {
   getMessageTrends,
   getEmojiStats,
   getKeywordCloud,
+  getTodayStats,
 } = require("../controllers/statsController");
 const { checkGuildWhitelist } = require("../middleware/guildWhitelist");
 
@@ -17,5 +18,6 @@ router.get("/channels/:guildId", checkGuildWhitelist, getChannelUsage);
 router.get("/messages/:guildId", checkGuildWhitelist, getMessageTrends);
 router.get("/emojis/:guildId", checkGuildWhitelist, getEmojiStats);
 router.get("/keywords/:guildId", checkGuildWhitelist, getKeywordCloud);
+router.get("/today/:guildId", checkGuildWhitelist, getTodayStats);
 
 module.exports = router;

@@ -39,9 +39,32 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<string>("all");
 
+  // 今日統計數據
+  const [todayStats, setTodayStats] = useState<{
+    topChannel: { name: string; count: number } | null;
+    topUser: { username: string; count: number } | null;
+    topEmoji: {
+      emoji: string;
+      name: string;
+      count: number;
+      isCustom: boolean;
+      url?: string;
+    } | null;
+  }>({
+    topChannel: null,
+    topUser: null,
+    topEmoji: null,
+  });
+
   // 獲取時間範圍的顯示文字
   const getTimeRangeText = () => {
     switch (timeRange) {
+      case "today":
+        return t.home.today;
+      case "yesterday":
+        return t.home.yesterday;
+      case "3":
+        return t.home.days3;
       case "7":
         return t.home.days7;
       case "30":
@@ -181,13 +204,15 @@ export default function Home() {
       const daysParam = range === "all" ? "" : `?days=${range}`;
 
       // 使用相對路徑，透過 Next.js rewrites 代理到後端
-      const [server, messages, channels, members, emojis] = await Promise.all([
-        axios.get(`/api/stats/server/${id}`),
-        axios.get(`/api/stats/messages/${id}${daysParam}`),
-        axios.get(`/api/stats/channels/${id}`),
-        axios.get(`/api/stats/members/${id}${daysParam}`),
-        axios.get(`/api/stats/emojis/${id}${daysParam}`),
-      ]);
+      const [server, messages, channels, members, emojis, today] =
+        await Promise.all([
+          axios.get(`/api/stats/server/${id}`),
+          axios.get(`/api/stats/messages/${id}${daysParam}`),
+          axios.get(`/api/stats/channels/${id}`),
+          axios.get(`/api/stats/members/${id}${daysParam}`),
+          axios.get(`/api/stats/emojis/${id}${daysParam}`),
+          axios.get(`/api/stats/today/${id}`),
+        ]);
 
       console.log("✅ 資料載入成功");
       setServerStats(server.data);
@@ -195,6 +220,7 @@ export default function Home() {
       setChannelUsage(channels.data);
       setMemberActivity(members.data);
       setEmojiStats(emojis.data);
+      setTodayStats(today.data);
     } catch (error: any) {
       console.error("❌ 載入資料失敗:", error);
       const errorMsg =
@@ -303,6 +329,9 @@ export default function Home() {
                   onChange={(e) => setTimeRange(e.target.value)}
                   className="flex-1 md:flex-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
+                  <option value="today">{t.home.today}</option>
+                  <option value="yesterday">{t.home.yesterday}</option>
+                  <option value="3">{t.home.days3}</option>
                   <option value="7">{t.home.days7}</option>
                   <option value="30">{t.home.days30}</option>
                   <option value="90">{t.home.days90}</option>
@@ -316,6 +345,106 @@ export default function Home() {
         </div>
 
         <div className="space-y-6 md:space-y-8">
+          {/* 今日前三統計卡片 */}
+          {(todayStats.topChannel ||
+            todayStats.topUser ||
+            todayStats.topEmoji) && (
+            <section>
+              <div className="mb-4">
+                <h2 className="text-lg md:text-xl font-bold">
+                  {t.home.todayTop3}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {t.home.todayTop3Desc}
+                </p>
+              </div>
+              <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {/* 最活躍頻道 */}
+                {todayStats.topChannel && (
+                  <Card className="border-2 shadow-lg bg-gradient-to-br from-blue-500/10 to-blue-600/5">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                        <Hash className="h-4 w-4 md:h-5 md:w-5 text-blue-500" />
+                        {t.home.topChannel}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <p className="text-xl md:text-2xl font-bold truncate">
+                          {todayStats.topChannel.name}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {todayStats.topChannel.count.toLocaleString()}{" "}
+                          {t.stats.messages}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* 最活躍用戶 */}
+                {todayStats.topUser && (
+                  <Card className="border-2 shadow-lg bg-gradient-to-br from-purple-500/10 to-purple-600/5">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                        <Users className="h-4 w-4 md:h-5 md:w-5 text-purple-500" />
+                        {t.home.topUser}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <p className="text-xl md:text-2xl font-bold truncate">
+                          {todayStats.topUser.username}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {todayStats.topUser.count.toLocaleString()}{" "}
+                          {t.stats.messages}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* 最常用表情 */}
+                {todayStats.topEmoji && (
+                  <Card className="border-2 shadow-lg bg-gradient-to-br from-amber-500/10 to-amber-600/5">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                        <Smile className="h-4 w-4 md:h-5 md:w-5 text-amber-500" />
+                        {t.home.topEmoji}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                          {todayStats.topEmoji.isCustom &&
+                          todayStats.topEmoji.url ? (
+                            <img
+                              src={todayStats.topEmoji.url}
+                              alt={todayStats.topEmoji.name}
+                              className="h-8 w-8 md:h-10 md:w-10 object-contain"
+                            />
+                          ) : (
+                            <span className="text-3xl md:text-4xl">
+                              {todayStats.topEmoji.emoji}
+                            </span>
+                          )}
+                          <p className="text-xl md:text-2xl font-bold truncate">
+                            {todayStats.topEmoji.name}
+                          </p>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {todayStats.topEmoji.count.toLocaleString()}{" "}
+                          {t.stats.times}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </section>
+          )}
+
           {/* 伺服器概覽 */}
           <section id="server">
             <Card className="border-2 shadow-lg">

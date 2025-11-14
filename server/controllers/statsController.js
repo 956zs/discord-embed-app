@@ -120,7 +120,13 @@ exports.getMessageTrends = async (req, res) => {
     let timeFilter = "";
     let displayDays = 30; // 用於限制顯示的天數
 
-    if (days && days !== "all") {
+    if (days === "today") {
+      timeFilter = `AND created_at >= CURRENT_DATE`;
+      displayDays = 1;
+    } else if (days === "yesterday") {
+      timeFilter = `AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`;
+      displayDays = 1;
+    } else if (days && days !== "all") {
       const daysNum = parseInt(days);
       timeFilter = `AND created_at >= NOW() - INTERVAL '${daysNum} days'`;
       displayDays = daysNum;
@@ -233,6 +239,90 @@ exports.getKeywordCloud = async (req, res) => {
     res.json(keywords);
   } catch (error) {
     console.error("❌ getKeywordCloud 錯誤:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// 獲取今日前三統計
+exports.getTodayStats = async (req, res) => {
+  try {
+    const { guildId } = req.params;
+
+    // 今日最活躍頻道
+    const topChannelResult = await pool.query(
+      `SELECT 
+        channel_name as name,
+        COUNT(*) as count
+      FROM messages
+      WHERE guild_id = $1
+        AND created_at >= CURRENT_DATE
+      GROUP BY channel_name
+      ORDER BY count DESC
+      LIMIT 1`,
+      [guildId]
+    );
+
+    // 今日最活躍用戶
+    const topUserResult = await pool.query(
+      `SELECT 
+        username,
+        COUNT(*) as count
+      FROM messages
+      WHERE guild_id = $1
+        AND created_at >= CURRENT_DATE
+      GROUP BY username
+      ORDER BY count DESC
+      LIMIT 1`,
+      [guildId]
+    );
+
+    // 今日最常用表情
+    const topEmojiResult = await pool.query(
+      `SELECT 
+        emoji_identifier as emoji,
+        emoji_name as name,
+        COUNT(*) as count,
+        is_custom,
+        emoji_url as url
+      FROM emoji_usage
+      WHERE guild_id = $1
+        AND used_at >= CURRENT_DATE
+      GROUP BY emoji_identifier, emoji_name, is_custom, emoji_url
+      ORDER BY count DESC
+      LIMIT 1`,
+      [guildId]
+    );
+
+    const stats = {
+      topChannel:
+        topChannelResult.rows.length > 0
+          ? {
+              name: topChannelResult.rows[0].name,
+              count: parseInt(topChannelResult.rows[0].count),
+            }
+          : null,
+      topUser:
+        topUserResult.rows.length > 0
+          ? {
+              username: topUserResult.rows[0].username,
+              count: parseInt(topUserResult.rows[0].count),
+            }
+          : null,
+      topEmoji:
+        topEmojiResult.rows.length > 0
+          ? {
+              emoji: topEmojiResult.rows[0].emoji,
+              name: topEmojiResult.rows[0].name,
+              count: parseInt(topEmojiResult.rows[0].count),
+              isCustom: topEmojiResult.rows[0].is_custom,
+              url: topEmojiResult.rows[0].url,
+            }
+          : null,
+    };
+
+    res.json(stats);
+  } catch (error) {
+    console.error("❌ getTodayStats 錯誤:", error);
     res.status(500).json({ error: error.message });
   }
 };
