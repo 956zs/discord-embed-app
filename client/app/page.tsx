@@ -274,8 +274,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-50 w-full border-b-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-16 items-center px-4 md:px-6 gap-2 md:gap-4">
+      {/* 添加頂部間距以避免被 Discord UI 遮擋 */}
+      <div className="h-12 md:h-0" />
+
+      <header className="sticky top-12 md:top-0 z-40 w-full border-b-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto flex h-14 md:h-16 items-center px-4 md:px-6 gap-2 md:gap-4">
           {/* 手機版菜單按鈕 */}
           <MobileNav isAdmin={isAdmin} />
 
@@ -294,7 +297,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="container mx-auto px-6 py-8">
+      <main className="container mx-auto px-4 md:px-6 py-6 md:py-8">
         {/* 開發模式調試面板 */}
         {process.env.NODE_ENV === "development" && (
           <div className="mb-6 p-4 rounded-lg bg-muted/50 border text-xs space-y-2">
