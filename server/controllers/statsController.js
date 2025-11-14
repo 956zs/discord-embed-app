@@ -44,10 +44,18 @@ exports.getMemberActivity = async (req, res) => {
     const { guildId } = req.params;
     const { days } = req.query; // 可選的天數參數
 
-    // 如果指定天數，則限制時間範圍；否則顯示所有歷史數據
-    const timeFilter = days
-      ? `AND created_at >= NOW() - INTERVAL '${parseInt(days)} days'`
-      : "";
+    // 根據 days 參數決定時間過濾
+    let timeFilter = "";
+    if (days === "today") {
+      timeFilter = `AND created_at >= CURRENT_DATE`;
+    } else if (days === "yesterday") {
+      timeFilter = `AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`;
+    } else if (days && days !== "all") {
+      const daysNum = parseInt(days);
+      if (!isNaN(daysNum)) {
+        timeFilter = `AND created_at >= NOW() - INTERVAL '${daysNum} days'`;
+      }
+    }
 
     const result = await pool.query(
       `SELECT 
@@ -169,10 +177,18 @@ exports.getEmojiStats = async (req, res) => {
     const { guildId } = req.params;
     const { days } = req.query; // 可選的天數參數
 
-    // 如果指定天數，則限制時間範圍；否則顯示所有歷史數據
-    const timeFilter = days
-      ? `AND used_at >= NOW() - INTERVAL '${parseInt(days)} days'`
-      : "";
+    // 根據 days 參數決定時間過濾
+    let timeFilter = "";
+    if (days === "today") {
+      timeFilter = `AND used_at >= CURRENT_DATE`;
+    } else if (days === "yesterday") {
+      timeFilter = `AND used_at >= CURRENT_DATE - INTERVAL '1 day' AND used_at < CURRENT_DATE`;
+    } else if (days && days !== "all") {
+      const daysNum = parseInt(days);
+      if (!isNaN(daysNum)) {
+        timeFilter = `AND used_at >= NOW() - INTERVAL '${daysNum} days'`;
+      }
+    }
 
     const result = await pool.query(
       `SELECT 
@@ -211,10 +227,18 @@ exports.getKeywordCloud = async (req, res) => {
     const { guildId } = req.params;
     const { days } = req.query; // 可選的天數參數
 
-    // 如果指定天數，則限制時間範圍；否則顯示所有歷史數據
-    const timeFilter = days
-      ? `AND created_at >= NOW() - INTERVAL '${parseInt(days)} days'`
-      : "";
+    // 根據 days 參數決定時間過濾
+    let timeFilter = "";
+    if (days === "today") {
+      timeFilter = `AND created_at >= CURRENT_DATE`;
+    } else if (days === "yesterday") {
+      timeFilter = `AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`;
+    } else if (days && days !== "all") {
+      const daysNum = parseInt(days);
+      if (!isNaN(daysNum)) {
+        timeFilter = `AND created_at >= NOW() - INTERVAL '${daysNum} days'`;
+      }
+    }
 
     // 從最近的訊息中提取關鍵字（簡化版本）
     const result = await pool.query(
