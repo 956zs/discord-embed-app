@@ -16,11 +16,13 @@ export function LanguageSwitcher() {
       variant="ghost"
       size="sm"
       onClick={toggleLanguage}
-      className="gap-2"
+      className="gap-1 md:gap-2 px-2 md:px-3"
       title={language === "zh-TW" ? "切換到簡體中文" : "切换到繁体中文"}
     >
-      <Languages className="h-4 w-4" />
-      <span className="text-sm">{language === "zh-TW" ? "繁" : "简"}</span>
+      <Languages className="h-4 w-4 flex-shrink-0" />
+      <span className="text-xs md:text-sm">
+        {language === "zh-TW" ? "繁" : "简"}
+      </span>
     </Button>
   );
 }

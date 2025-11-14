@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { TrendingUp, Hash, Users, Smile, BarChart3 } from "lucide-react";
 import { DashboardNav } from "@/components/dashboard-nav";
+import { MobileNav } from "@/components/mobile-nav";
 import { UserInfo } from "@/components/user-info";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -274,9 +275,19 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-50 w-full border-b-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container mx-auto flex h-16 items-center px-6 gap-4">
+        <div className="container mx-auto flex h-16 items-center px-4 md:px-6 gap-2 md:gap-4">
+          {/* 手機版菜單按鈕 */}
+          <MobileNav isAdmin={isAdmin} />
+
+          {/* 用戶信息 */}
           <UserInfo username={username} userId={userId} isAdmin={isAdmin} />
-          <DashboardNav isAdmin={isAdmin} />
+
+          {/* 桌面版導航 */}
+          <div className="hidden md:block">
+            <DashboardNav isAdmin={isAdmin} />
+          </div>
+
+          {/* 語言切換器 */}
           <div className="ml-auto">
             <LanguageSwitcher />
           </div>

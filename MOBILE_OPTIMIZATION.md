@@ -2,7 +2,14 @@
 
 ## 更新內容
 
-### 1. 訊息趨勢圖表優化（手機版）
+### 1. 手機版側邊欄導航
+- 使用 shadcn Sheet 組件創建側邊欄菜單
+- 手機上顯示漢堡菜單按鈕，點擊從左側滑出
+- 桌面版保留原有的 Navigation Menu
+- 優化頂部欄間距和按鈕大小
+- UserInfo 和 LanguageSwitcher 在手機上更緊湊
+
+### 2. 訊息趨勢圖表優化（手機版）
 **智能數據處理：**
 - 數據點超過 15 個時自動採樣到約 12 個點，避免過度擁擠
 - 確保包含首尾數據點，保持趨勢完整性
@@ -47,7 +54,15 @@
 - 更新 `getMessageTrends` 支援 `today` 和 `yesterday` 參數
 - 新增 `getTodayStats` 控制器函數
 
-### 5. 國際化更新
+### 5. 組件優化
+新增和優化的組件：
+- `client/components/mobile-nav.tsx` - 手機版側邊欄導航
+- `client/components/ui/sheet.tsx` - shadcn Sheet 組件
+- `client/components/ui/separator.tsx` - shadcn Separator 組件
+- `client/components/user-info.tsx` - 優化手機顯示
+- `client/components/language-switcher.tsx` - 優化手機顯示
+
+### 6. 國際化更新
 新增翻譯文本：
 - `home.today` - 今日
 - `home.yesterday` - 昨日

@@ -25,13 +25,16 @@ export function UserInfo({ username, userId, isAdmin }: UserInfoProps) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted/50 hover:bg-muted cursor-pointer transition-colors">
-            <User className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm font-medium">
+          <div className="flex items-center gap-1.5 md:gap-2 px-2 md:px-3 py-1.5 rounded-md bg-muted/50 hover:bg-muted cursor-pointer transition-colors">
+            <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-xs md:text-sm font-medium truncate max-w-[100px] md:max-w-none">
               Hi, {username || "User"}
             </span>
             {isAdmin && (
-              <Badge variant="default" className="text-xs">
+              <Badge
+                variant="default"
+                className="text-[10px] md:text-xs px-1 md:px-2 py-0 md:py-0.5"
+              >
                 管理員
               </Badge>
             )}
