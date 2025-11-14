@@ -71,7 +71,7 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
           <span className="sr-only">打開菜單</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-[280px] sm:w-[320px]">
+      <SheetContent side="left" className="w-[280px] sm:w-[320px] pt-16">
         <SheetHeader>
           <SheetTitle>{t.nav.stats}</SheetTitle>
           <SheetDescription>快速跳轉到統計項目</SheetDescription>
