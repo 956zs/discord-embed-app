@@ -274,24 +274,23 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      {/* 添加頂部間距以避免被 Discord UI 遮擋 */}
-      <div className="h-12 md:h-0" />
-
-      <header className="sticky top-12 md:top-0 z-40 w-full border-b-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-40 w-full border-b-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 mt-12 md:mt-0">
         <div className="container mx-auto flex h-14 md:h-16 items-center px-4 md:px-6 gap-2 md:gap-4">
           {/* 手機版菜單按鈕 */}
           <MobileNav isAdmin={isAdmin} />
 
           {/* 用戶信息 */}
-          <UserInfo username={username} userId={userId} isAdmin={isAdmin} />
+          <div className="flex-shrink-0">
+            <UserInfo username={username} userId={userId} isAdmin={isAdmin} />
+          </div>
 
           {/* 桌面版導航 */}
-          <div className="hidden md:block">
+          <div className="hidden md:flex md:flex-1 md:justify-center">
             <DashboardNav isAdmin={isAdmin} />
           </div>
 
           {/* 語言切換器 */}
-          <div className="ml-auto">
+          <div className="ml-auto flex-shrink-0">
             <LanguageSwitcher />
           </div>
         </div>

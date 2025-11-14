@@ -200,4 +200,11 @@
       padding-bottom: env(safe-area-inset-bottom);
     }
   }
+
+  /* 確保 Navigation Menu 的下拉內容不會被 Discord UI 遮擋 */
+  @media (max-width: 768px) {
+    [data-slot="navigation-menu-viewport"] {
+      margin-top: 0.5rem;
+    }
+  }
 }

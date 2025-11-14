@@ -5,9 +5,10 @@
 ### 1. 手機版側邊欄導航
 - 使用 shadcn Sheet 組件創建側邊欄菜單
 - 手機上顯示漢堡菜單按鈕，點擊從左側滑出
-- 桌面版保留原有的 Navigation Menu
+- 桌面版保留原有的 Navigation Menu，並居中對齊
 - 優化頂部欄間距和按鈕大小
 - UserInfo 和 LanguageSwitcher 在手機上更緊湊
+- 所有頁面（包括管理員頁面）在手機上都有 48px 頂部間距，避免被 Discord UI 遮擋
 
 ### 2. 訊息趨勢圖表優化（手機版）
 **智能數據處理：**

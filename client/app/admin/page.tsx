@@ -289,8 +289,8 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen">
-      <div className="container mx-auto p-6 space-y-6 max-w-7xl">
-        <div className="flex items-center justify-between">
+      <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-7xl mt-12 md:mt-0">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold">{t.admin.title}</h1>
             <p className="text-muted-foreground">{t.admin.description}</p>
