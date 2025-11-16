@@ -127,15 +127,21 @@ exports.getChannelUsage = async (req, res) => {
         [guildId]
       );
     } else {
-      // 使用預先統計的數據（所有時間）
+      // 使用預先統計的數據（所有時間）- 改為從 messages 表統計以包含討論串
       result = await pool.query(
-        `SELECT 
-          channel_id as id,
-          channel_name as name,
-          message_count,
+        `SELECT
+          COALESCE(m.thread_id, m.channel_id) as id,
+          CASE
+            WHEN m.is_thread THEN COALESCE(m.thread_name, cs_thread.channel_name, m.thread_id)
+            ELSE COALESCE(cs.channel_name, m.channel_id)
+          END as name,
+          COUNT(m.id) as message_count,
           0 as type
-        FROM channel_stats
-        WHERE guild_id = $1
+        FROM messages m
+        LEFT JOIN channel_stats cs ON m.channel_id = cs.channel_id AND m.guild_id = cs.guild_id
+        LEFT JOIN channel_stats cs_thread ON m.thread_id = cs_thread.channel_id AND m.guild_id = cs_thread.guild_id
+        WHERE m.guild_id = $1
+        GROUP BY COALESCE(m.thread_id, m.channel_id), m.is_thread, m.thread_id, m.thread_name, m.channel_id, cs.channel_name, cs_thread.channel_name
         ORDER BY message_count DESC
         LIMIT 15`,
         [guildId]
