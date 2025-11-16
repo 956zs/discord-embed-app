@@ -61,6 +61,11 @@ export function WelcomeConfig({ guildId }: { guildId: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  // 緩存鍵
+  const CACHE_KEY_CHANNELS = `discord_channels_${guildId}`;
+  const CACHE_KEY_ROLES = `discord_roles_${guildId}`;
+  const CACHE_DURATION = 30 * 60 * 1000; // 30 分鐘（頻道變化不頻繁）
+
   useEffect(() => {
     fetchConfig();
     fetchChannels();
@@ -83,26 +88,91 @@ export function WelcomeConfig({ guildId }: { guildId: string }) {
     }
   };
 
-  const fetchChannels = async () => {
+  const fetchChannels = async (showLoading: boolean = true) => {
     try {
+      // 先檢查緩存
+      const cached = localStorage.getItem(CACHE_KEY_CHANNELS);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          setChannels(data);
+          console.log(`✅ 從緩存載入 ${data.length} 個頻道`);
+          return;
+        }
+      }
+
+      if (showLoading) {
+        console.log("📡 正在獲取頻道列表（可能需要 10-20 秒）...");
+      }
+
       // 從 Discord API 獲取頻道列表
       const response = await fetch(`/api/fetch/${guildId}/channels`);
       const data = await response.json();
-      setChannels(data.filter((ch: Channel) => ch.type === 0)); // 僅文字頻道
+      const textChannels = data.filter((ch: Channel) => ch.type === 0);
+
+      // 儲存到緩存
+      localStorage.setItem(
+        CACHE_KEY_CHANNELS,
+        JSON.stringify({ data: textChannels, timestamp: Date.now() })
+      );
+
+      setChannels(textChannels);
+      console.log(`✅ 已載入並緩存 ${textChannels.length} 個頻道`);
     } catch (error) {
       console.error("Failed to fetch channels:", error);
+      toast({
+        title: "載入頻道失敗",
+        description: "無法獲取頻道列表",
+        variant: "destructive",
+      });
     }
   };
 
   const fetchRoles = async () => {
     try {
+      // 先檢查緩存
+      const cached = localStorage.getItem(CACHE_KEY_ROLES);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          setRoles(data);
+          return;
+        }
+      }
+
       // 從 Discord API 獲取身分組列表
       const response = await fetch(`/api/fetch/${guildId}/roles`);
       const data = await response.json();
-      setRoles(data.filter((role: Role) => role.name !== "@everyone"));
+      const filteredRoles = data.filter(
+        (role: Role) => role.name !== "@everyone"
+      );
+
+      // 儲存到緩存
+      localStorage.setItem(
+        CACHE_KEY_ROLES,
+        JSON.stringify({ data: filteredRoles, timestamp: Date.now() })
+      );
+
+      setRoles(filteredRoles);
     } catch (error) {
       console.error("Failed to fetch roles:", error);
+      toast({
+        title: "載入身分組失敗",
+        description: "無法獲取身分組列表",
+        variant: "destructive",
+      });
     }
+  };
+
+  // 手動刷新緩存
+  const refreshCache = async () => {
+    localStorage.removeItem(CACHE_KEY_CHANNELS);
+    localStorage.removeItem(CACHE_KEY_ROLES);
+    await Promise.all([fetchChannels(), fetchRoles()]);
+    toast({
+      title: "刷新完成",
+      description: "頻道和身分組列表已更新",
+    });
   };
 
   const handleSave = async () => {

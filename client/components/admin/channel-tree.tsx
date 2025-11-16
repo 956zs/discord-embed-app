@@ -58,6 +58,11 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
     new Set()
   );
   const [startingFetch, setStartingFetch] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // 緩存鍵
+  const CACHE_KEY_CHANNELS = `discord_channels_tree_${guildId}`;
+  const CACHE_DURATION = 30 * 60 * 1000; // 30 分鐘（頻道變化不頻繁）
 
   const toggleChannel = (channelId: string) => {
     const newExpanded = new Set(expandedChannels);
@@ -69,10 +74,24 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
     setExpandedChannels(newExpanded);
   };
 
-  const loadChannels = async () => {
+  const loadChannels = async (forceRefresh: boolean = false) => {
     try {
+      // 先檢查緩存（除非強制刷新）
+      if (!forceRefresh) {
+        const cached = localStorage.getItem(CACHE_KEY_CHANNELS);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          if (Date.now() - timestamp < CACHE_DURATION) {
+            setChannels(data);
+            setLoading(false);
+            console.log(`✅ 從緩存載入了 ${data.length} 個頻道（含討論串）`);
+            return;
+          }
+        }
+      }
+
       // 從後端 API 獲取頻道列表（bot 提供），包含討論串
-      console.log("📡 從 bot 獲取頻道列表（包含討論串）...");
+      console.log("📡 從 bot 獲取頻道列表（包含討論串，可能需要 10-20 秒）...");
       const response = await fetch(
         `/api/history/${guildId}/channels?includeThreads=true`
       );
@@ -82,12 +101,20 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
       }
 
       const channelList: Channel[] = await response.json();
+
+      // 儲存到緩存
+      localStorage.setItem(
+        CACHE_KEY_CHANNELS,
+        JSON.stringify({ data: channelList, timestamp: Date.now() })
+      );
+
       setChannels(channelList);
-      console.log(`✅ 載入了 ${channelList.length} 個頻道`);
+      console.log(`✅ 已載入並緩存 ${channelList.length} 個頻道（含討論串）`);
     } catch (error) {
       console.error("載入頻道失敗:", error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -106,10 +133,18 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
   };
 
   useEffect(() => {
-    loadChannels();
+    loadChannels(false); // 初次載入使用緩存
     loadFetchStats();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guildId]);
+
+  // 手動刷新頻道列表
+  const refreshChannels = async () => {
+    setRefreshing(true);
+    localStorage.removeItem(CACHE_KEY_CHANNELS);
+    await loadChannels(true);
+    await loadFetchStats();
+  };
 
   const startFetch = async (channelId: string, channelName: string) => {
     try {
@@ -190,8 +225,20 @@ export function ChannelTree({ guildId, userId }: ChannelTreeProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t.admin.channelList}</CardTitle>
-        <CardDescription>{t.admin.selectChannel}</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>{t.admin.channelList}</CardTitle>
+            <CardDescription>{t.admin.selectChannel}</CardDescription>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={refreshChannels}
+            disabled={refreshing}
+          >
+            {refreshing ? "刷新中..." : "🔄 刷新頻道"}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-2">

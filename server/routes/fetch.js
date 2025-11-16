@@ -90,4 +90,68 @@ router.get("/active", async (req, res) => {
   }
 });
 
+// 獲取伺服器頻道列表
+router.get("/:guildId/channels", checkGuildWhitelist, async (req, res) => {
+  try {
+    if (!historyFetcher) {
+      return res.status(503).json({ error: "提取服務未就緒" });
+    }
+
+    const { guildId } = req.params;
+    const guild = historyFetcher.client.guilds.cache.get(guildId);
+
+    if (!guild) {
+      return res.status(404).json({ error: "找不到伺服器" });
+    }
+
+    // 獲取所有頻道
+    const channels = Array.from(guild.channels.cache.values())
+      .filter((ch) => ch.type === 0) // 僅文字頻道
+      .map((ch) => ({
+        id: ch.id,
+        name: ch.name,
+        type: ch.type,
+        position: ch.position,
+      }))
+      .sort((a, b) => a.position - b.position);
+
+    res.json(channels);
+  } catch (error) {
+    console.error("❌ 獲取頻道列表失敗:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 獲取伺服器身分組列表
+router.get("/:guildId/roles", checkGuildWhitelist, async (req, res) => {
+  try {
+    if (!historyFetcher) {
+      return res.status(503).json({ error: "提取服務未就緒" });
+    }
+
+    const { guildId } = req.params;
+    const guild = historyFetcher.client.guilds.cache.get(guildId);
+
+    if (!guild) {
+      return res.status(404).json({ error: "找不到伺服器" });
+    }
+
+    // 獲取所有身分組
+    const roles = Array.from(guild.roles.cache.values())
+      .filter((role) => role.name !== "@everyone")
+      .map((role) => ({
+        id: role.id,
+        name: role.name,
+        color: role.color,
+        position: role.position,
+      }))
+      .sort((a, b) => b.position - a.position);
+
+    res.json(roles);
+  } catch (error) {
+    console.error("❌ 獲取身分組列表失敗:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
