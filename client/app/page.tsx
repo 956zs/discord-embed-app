@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { TrendingUp, Hash, Users, Smile, BarChart3 } from "lucide-react";
+import { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { MobileNav } from "@/components/mobile-nav";
 import { UserInfo } from "@/components/user-info";
@@ -15,6 +17,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { MessageTrendsChart } from "@/components/charts/message-trends-chart";
 import { ChannelUsageChart } from "@/components/charts/channel-usage-chart";
 import type {
@@ -39,6 +49,8 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [useCustomRange, setUseCustomRange] = useState(false);
 
   // 今日統計數據
   const [todayStats, setTodayStats] = useState<{
@@ -59,6 +71,16 @@ export default function Home() {
 
   // 獲取時間範圍的顯示文字
   const getTimeRangeText = () => {
+    if (useCustomRange && dateRange?.from) {
+      if (dateRange.to) {
+        return `${format(dateRange.from, "yyyy/MM/dd")} - ${format(
+          dateRange.to,
+          "yyyy/MM/dd"
+        )}`;
+      }
+      return format(dateRange.from, "yyyy/MM/dd");
+    }
+
     switch (timeRange) {
       case "today":
         return t.home.today;
@@ -169,12 +191,12 @@ export default function Home() {
     initApp();
   }, []);
 
-  // 當時間範圍改變時重新加載數據
+  // 當時間範圍或日期範圍改變時重新加載數據
   useEffect(() => {
     if (guildId) {
       fetchAllData(guildId, timeRange);
     }
-  }, [timeRange]);
+  }, [timeRange, dateRange, useCustomRange]);
 
   const checkAdminStatus = async (gid: string, uid: string) => {
     try {
@@ -202,16 +224,27 @@ export default function Home() {
       console.log("🔄 開始載入資料，Guild ID:", id, "時間範圍:", range);
 
       // 根據時間範圍設置參數
-      const daysParam = range === "all" ? "" : `?days=${range}`;
+      let queryParams = "";
+
+      if (useCustomRange && dateRange?.from) {
+        const params = new URLSearchParams();
+        params.append("startDate", format(dateRange.from, "yyyy-MM-dd"));
+        if (dateRange.to) {
+          params.append("endDate", format(dateRange.to, "yyyy-MM-dd"));
+        }
+        queryParams = `?${params.toString()}`;
+      } else {
+        queryParams = range === "all" ? "" : `?days=${range}`;
+      }
 
       // 使用相對路徑，透過 Next.js rewrites 代理到後端
       const [server, messages, channels, members, emojis, today] =
         await Promise.all([
           axios.get(`/api/stats/server/${id}`),
-          axios.get(`/api/stats/messages/${id}${daysParam}`),
-          axios.get(`/api/stats/channels/${id}${daysParam}`),
-          axios.get(`/api/stats/members/${id}${daysParam}`),
-          axios.get(`/api/stats/emojis/${id}${daysParam}`),
+          axios.get(`/api/stats/messages/${id}${queryParams}`),
+          axios.get(`/api/stats/channels/${id}${queryParams}`),
+          axios.get(`/api/stats/members/${id}${queryParams}`),
+          axios.get(`/api/stats/emojis/${id}${queryParams}`),
           axios.get(`/api/stats/today/${id}`),
         ]);
 
@@ -333,25 +366,49 @@ export default function Home() {
 
             {/* 時間範圍選擇器 */}
             {guildId && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  {t.home.timeRange}:
-                </span>
-                <select
-                  value={timeRange}
-                  onChange={(e) => setTimeRange(e.target.value)}
-                  className="flex-1 md:flex-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="today">{t.home.today}</option>
-                  <option value="yesterday">{t.home.yesterday}</option>
-                  <option value="3">{t.home.days3}</option>
-                  <option value="7">{t.home.days7}</option>
-                  <option value="30">{t.home.days30}</option>
-                  <option value="90">{t.home.days90}</option>
-                  <option value="180">{t.home.days180}</option>
-                  <option value="365">{t.home.days365}</option>
-                  <option value="all">{t.home.allTime}</option>
-                </select>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground whitespace-nowrap">
+                    {t.home.timeRange}:
+                  </span>
+                  <Select
+                    value={useCustomRange ? "custom" : timeRange}
+                    onValueChange={(value) => {
+                      if (value === "custom") {
+                        setUseCustomRange(true);
+                      } else {
+                        setUseCustomRange(false);
+                        setTimeRange(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">{t.home.today}</SelectItem>
+                      <SelectItem value="yesterday">
+                        {t.home.yesterday}
+                      </SelectItem>
+                      <SelectItem value="3">{t.home.days3}</SelectItem>
+                      <SelectItem value="7">{t.home.days7}</SelectItem>
+                      <SelectItem value="30">{t.home.days30}</SelectItem>
+                      <SelectItem value="90">{t.home.days90}</SelectItem>
+                      <SelectItem value="180">{t.home.days180}</SelectItem>
+                      <SelectItem value="365">{t.home.days365}</SelectItem>
+                      <SelectItem value="all">{t.home.allTime}</SelectItem>
+                      <SelectItem value="custom">自訂範圍</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {useCustomRange && (
+                  <DateRangePicker
+                    date={dateRange}
+                    onDateChange={(range) => {
+                      setDateRange(range);
+                    }}
+                  />
+                )}
               </div>
             )}
           </div>

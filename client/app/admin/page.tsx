@@ -16,6 +16,8 @@ import { ChannelTree } from "@/components/admin/channel-tree";
 import { FetchHistory } from "@/components/admin/fetch-history";
 import { FetchProgress } from "@/components/admin/fetch-progress";
 import { BatchFetch } from "@/components/admin/batch-fetch";
+import { WelcomeConfig } from "@/components/admin/welcome-config";
+import { MemberStats } from "@/components/admin/member-stats";
 import type { FetchSummary } from "@/types";
 
 export default function AdminPage() {
@@ -26,9 +28,9 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<FetchSummary | null>(null);
-  const [activeTab, setActiveTab] = useState<"channels" | "history" | "batch">(
-    "batch"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "batch" | "channels" | "history" | "welcome" | "members"
+  >("batch");
   const [channelsForBatch, setChannelsForBatch] = useState<any[]>([]);
 
   useEffect(() => {
@@ -390,24 +392,41 @@ export default function AdminPage() {
         <FetchProgress guildId={guildId} />
 
         {/* 標籤切換 */}
-        <div className="flex gap-2 border-b">
+        <div className="flex gap-2 border-b overflow-x-auto pb-2">
           <Button
             variant={activeTab === "batch" ? "default" : "ghost"}
             onClick={() => setActiveTab("batch")}
+            className="whitespace-nowrap"
           >
             {t.admin.batchFetch}
           </Button>
           <Button
             variant={activeTab === "channels" ? "default" : "ghost"}
             onClick={() => setActiveTab("channels")}
+            className="whitespace-nowrap"
           >
             {t.admin.channelList}
           </Button>
           <Button
             variant={activeTab === "history" ? "default" : "ghost"}
             onClick={() => setActiveTab("history")}
+            className="whitespace-nowrap"
           >
             {t.admin.fetchHistory}
+          </Button>
+          <Button
+            variant={activeTab === "welcome" ? "default" : "ghost"}
+            onClick={() => setActiveTab("welcome")}
+            className="whitespace-nowrap"
+          >
+            歡迎訊息
+          </Button>
+          <Button
+            variant={activeTab === "members" ? "default" : "ghost"}
+            onClick={() => setActiveTab("members")}
+            className="whitespace-nowrap"
+          >
+            成員統計
           </Button>
         </div>
 
@@ -426,6 +445,10 @@ export default function AdminPage() {
         )}
 
         {activeTab === "history" && <FetchHistory guildId={guildId} />}
+
+        {activeTab === "welcome" && <WelcomeConfig guildId={guildId} />}
+
+        {activeTab === "members" && <MemberStats guildId={guildId} />}
       </div>
     </div>
   );

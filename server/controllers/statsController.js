@@ -42,11 +42,21 @@ exports.getServerStats = async (req, res) => {
 exports.getMemberActivity = async (req, res) => {
   try {
     const { guildId } = req.params;
-    const { days } = req.query; // 可選的天數參數
+    const { days, startDate, endDate } = req.query;
 
-    // 根據 days 參數決定時間過濾
+    // 根據參數決定時間過濾
     let timeFilter = "";
-    if (days === "today") {
+    let queryParams = [guildId];
+
+    if (startDate) {
+      timeFilter = `AND DATE(created_at) >= $2`;
+      queryParams.push(startDate);
+
+      if (endDate) {
+        timeFilter += ` AND DATE(created_at) <= $3`;
+        queryParams.push(endDate);
+      }
+    } else if (days === "today") {
       timeFilter = `AND created_at >= CURRENT_DATE`;
     } else if (days === "yesterday") {
       timeFilter = `AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`;
@@ -58,7 +68,7 @@ exports.getMemberActivity = async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT 
+      `SELECT
         user_id as id,
         username,
         COUNT(*) as message_count,
@@ -69,7 +79,7 @@ exports.getMemberActivity = async (req, res) => {
       GROUP BY user_id, username
       ORDER BY message_count DESC
       LIMIT 20`,
-      [guildId]
+      queryParams
     );
 
     const activity = result.rows.map((row) => ({
@@ -90,11 +100,21 @@ exports.getMemberActivity = async (req, res) => {
 exports.getChannelUsage = async (req, res) => {
   try {
     const { guildId } = req.params;
-    const { days } = req.query; // 可選的天數參數
+    const { days, startDate, endDate } = req.query;
 
-    // 根據 days 參數決定時間過濾
+    // 根據參數決定時間過濾
     let timeFilter = "";
-    if (days === "today") {
+    let queryParams = [guildId];
+
+    if (startDate) {
+      timeFilter = `AND DATE(m.created_at) >= $2`;
+      queryParams.push(startDate);
+
+      if (endDate) {
+        timeFilter += ` AND DATE(m.created_at) <= $${queryParams.length + 1}`;
+        queryParams.push(endDate);
+      }
+    } else if (days === "today") {
       timeFilter = `AND m.created_at >= CURRENT_DATE`;
     } else if (days === "yesterday") {
       timeFilter = `AND m.created_at >= CURRENT_DATE - INTERVAL '1 day' AND m.created_at < CURRENT_DATE`;
@@ -107,7 +127,7 @@ exports.getChannelUsage = async (req, res) => {
 
     // 如果有時間過濾，從 messages 表實時統計；否則使用 channel_stats 表
     let result;
-    if (timeFilter) {
+    if (timeFilter || startDate) {
       result = await pool.query(
         `SELECT
           COALESCE(m.thread_id, m.channel_id) as id,
@@ -124,7 +144,7 @@ exports.getChannelUsage = async (req, res) => {
         GROUP BY COALESCE(m.thread_id, m.channel_id), m.is_thread, m.thread_id, m.thread_name, m.channel_id, cs.channel_name
         ORDER BY message_count DESC
         LIMIT 15`,
-        [guildId]
+        queryParams
       );
     } else {
       // 使用預先統計的數據（所有時間）- 改為從 messages 表統計以包含討論串
@@ -166,31 +186,35 @@ exports.getChannelUsage = async (req, res) => {
 exports.getMessageTrends = async (req, res) => {
   try {
     const { guildId } = req.params;
-    const { days } = req.query;
+    const { days, startDate, endDate } = req.query;
 
-    // 根據 days 參數決定時間過濾
+    // 根據參數決定時間過濾
     let timeFilter = "";
-    let displayDays = 30; // 用於限制顯示的天數
+    let queryParams = [guildId];
 
-    if (days === "today") {
+    if (startDate) {
+      timeFilter = `AND DATE(created_at) >= $2`;
+      queryParams.push(startDate);
+
+      if (endDate) {
+        timeFilter += ` AND DATE(created_at) <= $3`;
+        queryParams.push(endDate);
+      }
+    } else if (days === "today") {
       timeFilter = `AND created_at >= CURRENT_DATE`;
-      displayDays = 1;
     } else if (days === "yesterday") {
       timeFilter = `AND created_at >= CURRENT_DATE - INTERVAL '1 day' AND created_at < CURRENT_DATE`;
-      displayDays = 1;
     } else if (days && days !== "all") {
       const daysNum = parseInt(days);
       timeFilter = `AND created_at >= NOW() - INTERVAL '${daysNum} days'`;
-      displayDays = daysNum;
     } else {
       // "all" 或未指定：顯示最近 365 天（避免數據過多）
       timeFilter = `AND created_at >= NOW() - INTERVAL '365 days'`;
-      displayDays = 365;
     }
 
     // 直接從 messages 表統計，不依賴 daily_stats
     const result = await pool.query(
-      `SELECT 
+      `SELECT
         TO_CHAR(DATE(created_at), 'YYYY-MM-DD') as date,
         COUNT(*) as messages,
         COUNT(DISTINCT user_id) as active_users
@@ -199,7 +223,7 @@ exports.getMessageTrends = async (req, res) => {
         ${timeFilter}
       GROUP BY DATE(created_at)
       ORDER BY DATE(created_at) ASC`,
-      [guildId]
+      queryParams
     );
 
     const trends = result.rows.map((row) => ({
@@ -219,11 +243,21 @@ exports.getMessageTrends = async (req, res) => {
 exports.getEmojiStats = async (req, res) => {
   try {
     const { guildId } = req.params;
-    const { days } = req.query; // 可選的天數參數
+    const { days, startDate, endDate } = req.query;
 
-    // 根據 days 參數決定時間過濾
+    // 根據參數決定時間過濾
     let timeFilter = "";
-    if (days === "today") {
+    let queryParams = [guildId];
+
+    if (startDate) {
+      timeFilter = `AND DATE(used_at) >= $2`;
+      queryParams.push(startDate);
+
+      if (endDate) {
+        timeFilter += ` AND DATE(used_at) <= $3`;
+        queryParams.push(endDate);
+      }
+    } else if (days === "today") {
       timeFilter = `AND used_at >= CURRENT_DATE`;
     } else if (days === "yesterday") {
       timeFilter = `AND used_at >= CURRENT_DATE - INTERVAL '1 day' AND used_at < CURRENT_DATE`;
@@ -235,7 +269,7 @@ exports.getEmojiStats = async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT 
+      `SELECT
         emoji_identifier as emoji,
         emoji_name as name,
         COUNT(*) as count,
@@ -247,7 +281,7 @@ exports.getEmojiStats = async (req, res) => {
       GROUP BY emoji_identifier, emoji_name, is_custom, emoji_url
       ORDER BY count DESC
       LIMIT 20`,
-      [guildId]
+      queryParams
     );
 
     const emojis = result.rows.map((row) => ({
