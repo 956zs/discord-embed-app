@@ -2,6 +2,10 @@ require("dotenv").config();
 const { Client, GatewayIntentBits } = require("discord.js");
 const pool = require("./database/db");
 const { saveMessage, saveEmojiUsage } = require("./handlers/messageHandler");
+const {
+  handleMemberAdd,
+  handleMemberRemove,
+} = require("./handlers/memberHandler");
 const { startDailyStatsJob } = require("./jobs/statsAggregator");
 const { setupCommandHandlers } = require("./commands/handleCommands");
 const HistoryFetcher = require("./handlers/historyFetcher");
@@ -130,6 +134,36 @@ client.on("messageCreate", async (message) => {
     }
   } catch (error) {
     console.error("❌ 處理訊息失敗:", error.message);
+  }
+});
+
+// 成員加入事件
+client.on("guildMemberAdd", async (member) => {
+  // 白名單檢查
+  if (!isGuildAllowed(member.guild.id)) {
+    return;
+  }
+
+  try {
+    await handleMemberAdd(pool, member);
+    console.log(`👋 新成員加入: ${member.user.tag} 在 ${member.guild.name}`);
+  } catch (error) {
+    console.error("❌ 處理成員加入失敗:", error.message);
+  }
+});
+
+// 成員離開事件
+client.on("guildMemberRemove", async (member) => {
+  // 白名單檢查
+  if (!isGuildAllowed(member.guild.id)) {
+    return;
+  }
+
+  try {
+    await handleMemberRemove(pool, member);
+    console.log(`👋 成員離開: ${member.user.tag} 從 ${member.guild.name}`);
+  } catch (error) {
+    console.error("❌ 處理成員離開失敗:", error.message);
   }
 });
 

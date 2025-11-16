@@ -10,6 +10,7 @@ const statsRoutes = require("./routes/stats");
 const historyRoutes = require("./routes/history");
 const fetchRoutes = require("./routes/fetch");
 const authRoutes = require("./routes/auth");
+const welcomeRoutes = require("./routes/welcome");
 const { getAllowedGuilds } = require("./utils/guildManager");
 
 const app = express();
@@ -40,6 +41,7 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/history", historyRoutes);
 app.use("/api/fetch", fetchRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/welcome", welcomeRoutes);
 
 app.get("/health", (req, res) => {
   try {
