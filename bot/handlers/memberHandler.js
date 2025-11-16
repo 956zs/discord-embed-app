@@ -122,7 +122,17 @@ async function sendWelcomeMessage(member, config) {
     if (config.embed_enabled) {
       // 使用 Embed 格式
       const embed = createWelcomeEmbed(member, config);
-      await channel.send({ embeds: [embed] });
+      const messageOptions = { embeds: [embed] };
+
+      // 如果有 message_content，同時發送文字訊息
+      if (config.message_content) {
+        messageOptions.content = replaceVariables(
+          config.message_content,
+          member
+        );
+      }
+
+      await channel.send(messageOptions);
     } else {
       // 使用純文字格式
       const message = replaceVariables(
@@ -154,8 +164,26 @@ function createWelcomeEmbed(member, config) {
     )
     .setTimestamp();
 
-  if (config.embed_thumbnail) {
+  // 優先使用自訂縮圖 URL，否則使用用戶頭像（如果 embed_thumbnail 為 true）
+  if (config.embed_thumbnail_url) {
+    const thumbnailUrl = replaceVariables(config.embed_thumbnail_url, member);
+    if (isValidUrl(thumbnailUrl)) {
+      embed.setThumbnail(thumbnailUrl);
+    } else {
+      console.warn(`⚠️  無效的縮圖 URL: ${thumbnailUrl}`);
+    }
+  } else if (config.embed_thumbnail) {
     embed.setThumbnail(member.user.displayAvatarURL({ dynamic: true }));
+  }
+
+  // 設定主圖片（如果有提供）
+  if (config.embed_image_url) {
+    const imageUrl = replaceVariables(config.embed_image_url, member);
+    if (isValidUrl(imageUrl)) {
+      embed.setImage(imageUrl);
+    } else {
+      console.warn(`⚠️  無效的圖片 URL: ${imageUrl}`);
+    }
   }
 
   if (config.embed_footer) {
@@ -211,7 +239,23 @@ function replaceVariables(template, member) {
     .replace(/{server}/g, member.guild.name)
     .replace(/{memberCount}/g, member.guild.memberCount.toString())
     .replace(/{userId}/g, member.user.id)
-    .replace(/{guildId}/g, member.guild.id);
+    .replace(/{guildId}/g, member.guild.id)
+    .replace(
+      /{userAvatar}/g,
+      member.user.displayAvatarURL({ dynamic: true, size: 512 })
+    );
+}
+
+/**
+ * 驗證 URL 格式
+ */
+function isValidUrl(string) {
+  try {
+    const url = new URL(string);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch (_) {
+    return false;
+  }
 }
 
 /**

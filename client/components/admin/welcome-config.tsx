@@ -35,6 +35,9 @@ interface WelcomeConfig {
   embed_description: string;
   embed_footer: string | null;
   embed_thumbnail: boolean;
+  embed_image_url: string | null;
+  embed_thumbnail_url: string | null;
+  message_content: string | null;
   dm_enabled: boolean;
   dm_message: string | null;
   autorole_enabled: boolean;
@@ -60,6 +63,8 @@ export function WelcomeConfig({ guildId }: { guildId: string }) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [channelSearchOpen, setChannelSearchOpen] = useState(false);
+  const [channelFilter, setChannelFilter] = useState("");
 
   // 緩存鍵
   const CACHE_KEY_CHANNELS = `discord_channels_${guildId}`;
@@ -209,6 +214,11 @@ export function WelcomeConfig({ guildId }: { guildId: string }) {
     setConfig((prev) => (prev ? { ...prev, ...updates } : null));
   };
 
+  // 過濾頻道
+  const filteredChannels = channels.filter((channel) =>
+    channel.name.toLowerCase().includes(channelFilter.toLowerCase())
+  );
+
   if (loading) {
     return <div>載入中...</div>;
   }
@@ -243,21 +253,49 @@ export function WelcomeConfig({ guildId }: { guildId: string }) {
 
           <div className="space-y-2">
             <Label>歡迎訊息頻道</Label>
-            <Select
-              value={config.channel_id || ""}
-              onValueChange={(value) => updateConfig({ channel_id: value })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="選擇頻道" />
-              </SelectTrigger>
-              <SelectContent>
-                {channels.map((channel) => (
-                  <SelectItem key={channel.id} value={channel.id}>
-                    #{channel.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Input
+                placeholder="🔍 搜尋頻道..."
+                value={channelFilter}
+                onChange={(e) => setChannelFilter(e.target.value)}
+                className="h-9"
+              />
+              <Select
+                value={config.channel_id || ""}
+                onValueChange={(value) => updateConfig({ channel_id: value })}
+                open={channelSearchOpen}
+                onOpenChange={setChannelSearchOpen}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="選擇頻道">
+                    {config.channel_id
+                      ? `#${
+                          channels.find((ch) => ch.id === config.channel_id)
+                            ?.name || config.channel_id
+                        }`
+                      : "選擇頻道"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {filteredChannels.length === 0 ? (
+                    <div className="py-6 text-center text-sm text-muted-foreground">
+                      找不到符合的頻道
+                    </div>
+                  ) : (
+                    filteredChannels.map((channel) => (
+                      <SelectItem key={channel.id} value={channel.id}>
+                        #{channel.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {channelFilter && (
+                <p className="text-xs text-muted-foreground">
+                  顯示 {filteredChannels.length} / {channels.length} 個頻道
+                </p>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -267,7 +305,8 @@ export function WelcomeConfig({ guildId }: { guildId: string }) {
         <CardHeader>
           <CardTitle>訊息內容</CardTitle>
           <CardDescription>
-            可用變數: {"{user}"} {"{username}"} {"{server}"} {"{memberCount}"}
+            可用變數: {"{user}"} {"{username}"} {"{server}"} {"{memberCount}"}{" "}
+            {"{userAvatar}"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -328,14 +367,62 @@ export function WelcomeConfig({ guildId }: { guildId: string }) {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label>Embed 主圖片 URL（選填）</Label>
+                <Input
+                  value={config.embed_image_url || ""}
+                  onChange={(e) =>
+                    updateConfig({ embed_image_url: e.target.value })
+                  }
+                  placeholder="https://example.com/image.png 或使用 {userAvatar}"
+                />
+                <p className="text-xs text-muted-foreground">
+                  支援變數替換。留空則不顯示主圖片。
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Embed 縮圖 URL（選填）</Label>
+                <Input
+                  value={config.embed_thumbnail_url || ""}
+                  onChange={(e) =>
+                    updateConfig({ embed_thumbnail_url: e.target.value })
+                  }
+                  placeholder="https://example.com/thumb.png 或使用 {userAvatar}"
+                />
+                <p className="text-xs text-muted-foreground">
+                  支援變數替換。若未設定且啟用下方開關，則使用用戶頭像。
+                </p>
+              </div>
+
               <div className="flex items-center justify-between">
-                <Label>顯示用戶頭像</Label>
+                <div className="space-y-0.5">
+                  <Label>自動使用用戶頭像作為縮圖</Label>
+                  <p className="text-xs text-muted-foreground">
+                    僅當縮圖 URL 未設定時生效
+                  </p>
+                </div>
                 <Switch
                   checked={config.embed_thumbnail}
                   onCheckedChange={(checked) =>
                     updateConfig({ embed_thumbnail: checked })
                   }
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>附帶一般訊息（選填）</Label>
+                <Textarea
+                  value={config.message_content || ""}
+                  onChange={(e) =>
+                    updateConfig({ message_content: e.target.value })
+                  }
+                  placeholder="除了 Embed 外，還可以發送一般訊息..."
+                  rows={2}
+                />
+                <p className="text-xs text-muted-foreground">
+                  使用 Embed 時，可額外發送這段一般訊息。支援變數替換。
+                </p>
               </div>
             </>
           ) : (

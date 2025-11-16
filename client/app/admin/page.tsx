@@ -18,6 +18,7 @@ import { FetchProgress } from "@/components/admin/fetch-progress";
 import { BatchFetch } from "@/components/admin/batch-fetch";
 import { WelcomeConfig } from "@/components/admin/welcome-config";
 import { MemberStats } from "@/components/admin/member-stats";
+import { preloadAdminData, clearExpiredCache } from "@/lib/preload";
 import type { FetchSummary } from "@/types";
 
 export default function AdminPage() {
@@ -34,6 +35,9 @@ export default function AdminPage() {
   const [channelsForBatch, setChannelsForBatch] = useState<any[]>([]);
 
   useEffect(() => {
+    // 清除過期緩存
+    clearExpiredCache();
+
     const initAdmin = async () => {
       try {
         const isDev = process.env.NODE_ENV === "development";
@@ -84,6 +88,11 @@ export default function AdminPage() {
           checkAdminStatus(gid, uid);
           loadSummary(gid);
           loadChannelsForBatch(gid);
+
+          // 背景預載入管理員數據
+          preloadAdminData(gid).catch((error) => {
+            console.warn("預載入失敗（不影響功能）:", error);
+          });
         } else {
           console.warn("⚠️ 管理員頁面缺少 guild_id 或 user_id");
           setLoading(false);

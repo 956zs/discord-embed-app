@@ -24,6 +24,9 @@ exports.getWelcomeConfig = async (req, res) => {
           "歡迎 {user} 加入 {server}！\n你是第 {memberCount} 位成員！",
         embed_footer: null,
         embed_thumbnail: true,
+        embed_image_url: null,
+        embed_thumbnail_url: null,
+        message_content: null,
         dm_enabled: false,
         dm_message: null,
         autorole_enabled: false,
@@ -52,6 +55,9 @@ exports.updateWelcomeConfig = async (req, res) => {
       embed_description,
       embed_footer,
       embed_thumbnail,
+      embed_image_url,
+      embed_thumbnail_url,
+      message_content,
       dm_enabled,
       dm_message,
       autorole_enabled,
@@ -62,9 +68,10 @@ exports.updateWelcomeConfig = async (req, res) => {
       INSERT INTO welcome_config (
         guild_id, enabled, channel_id, message_template,
         embed_enabled, embed_color, embed_title, embed_description,
-        embed_footer, embed_thumbnail, dm_enabled, dm_message,
+        embed_footer, embed_thumbnail, embed_image_url, embed_thumbnail_url,
+        message_content, dm_enabled, dm_message,
         autorole_enabled, autorole_ids, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, NOW())
       ON CONFLICT (guild_id)
       DO UPDATE SET
         enabled = $2,
@@ -76,10 +83,13 @@ exports.updateWelcomeConfig = async (req, res) => {
         embed_description = $8,
         embed_footer = $9,
         embed_thumbnail = $10,
-        dm_enabled = $11,
-        dm_message = $12,
-        autorole_enabled = $13,
-        autorole_ids = $14,
+        embed_image_url = $11,
+        embed_thumbnail_url = $12,
+        message_content = $13,
+        dm_enabled = $14,
+        dm_message = $15,
+        autorole_enabled = $16,
+        autorole_ids = $17,
         updated_at = NOW()
       RETURNING *
     `;
@@ -95,6 +105,9 @@ exports.updateWelcomeConfig = async (req, res) => {
       embed_description,
       embed_footer,
       embed_thumbnail ?? true,
+      embed_image_url,
+      embed_thumbnail_url,
+      message_content,
       dm_enabled ?? false,
       dm_message,
       autorole_enabled ?? false,
