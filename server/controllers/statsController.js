@@ -121,7 +121,7 @@ exports.getChannelUsage = async (req, res) => {
         LEFT JOIN channel_stats cs ON m.channel_id = cs.channel_id AND m.guild_id = cs.guild_id
         WHERE m.guild_id = $1
           ${timeFilter}
-        GROUP BY COALESCE(m.thread_id, m.channel_id), m.is_thread, m.thread_name, cs.channel_name
+        GROUP BY COALESCE(m.thread_id, m.channel_id), m.is_thread, m.thread_id, m.thread_name, m.channel_id, cs.channel_name
         ORDER BY message_count DESC
         LIMIT 15`,
         [guildId]
@@ -322,7 +322,7 @@ exports.getTodayStats = async (req, res) => {
       LEFT JOIN channel_stats cs ON m.channel_id = cs.channel_id AND m.guild_id = cs.guild_id
       WHERE m.guild_id = $1
         AND m.created_at >= CURRENT_DATE
-      GROUP BY COALESCE(m.thread_id, m.channel_id), m.is_thread, m.thread_name, cs.channel_name
+      GROUP BY COALESCE(m.thread_id, m.channel_id), m.is_thread, m.thread_id, m.thread_name, m.channel_id, cs.channel_name
       ORDER BY count DESC
       LIMIT 1`,
       [guildId]
