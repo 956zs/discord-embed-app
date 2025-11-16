@@ -21,6 +21,7 @@ async function saveMessage(pool, message) {
       ? message.channel.isThread()
       : false;
   const threadId = isThread ? message.channel.id : null;
+  const threadName = isThread ? message.channel.name : null;
   const parentChannelId = isThread ? message.channel.parentId : null;
   const channelId = isThread ? message.channel.parentId : message.channel.id;
 
@@ -33,12 +34,12 @@ async function saveMessage(pool, message) {
 
   const query = `
     INSERT INTO messages (
-      message_id, guild_id, channel_id, user_id, username, 
-      message_length, has_emoji, has_attachments, attachment_count, 
-      attachment_urls, is_thread, thread_id, parent_channel_id, created_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-    ON CONFLICT (message_id) 
-    WHERE message_id IS NOT NULL 
+      message_id, guild_id, channel_id, user_id, username,
+      message_length, has_emoji, has_attachments, attachment_count,
+      attachment_urls, is_thread, thread_id, thread_name, parent_channel_id, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    ON CONFLICT (message_id)
+    WHERE message_id IS NOT NULL
     DO NOTHING
   `;
 
@@ -57,6 +58,7 @@ async function saveMessage(pool, message) {
     attachmentUrls.length > 0 ? attachmentUrls : null,
     isThread,
     threadId,
+    threadName,
     parentChannelId,
     message.createdAt,
   ];

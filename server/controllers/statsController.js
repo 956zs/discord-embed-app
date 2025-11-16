@@ -109,16 +109,19 @@ exports.getChannelUsage = async (req, res) => {
     let result;
     if (timeFilter) {
       result = await pool.query(
-        `SELECT 
-          m.channel_id as id,
-          COALESCE(cs.channel_name, m.channel_id) as name,
+        `SELECT
+          COALESCE(m.thread_id, m.channel_id) as id,
+          CASE
+            WHEN m.is_thread THEN COALESCE(m.thread_name, m.thread_id)
+            ELSE COALESCE(cs.channel_name, m.channel_id)
+          END as name,
           COUNT(m.id) as message_count,
           0 as type
         FROM messages m
         LEFT JOIN channel_stats cs ON m.channel_id = cs.channel_id AND m.guild_id = cs.guild_id
         WHERE m.guild_id = $1
           ${timeFilter}
-        GROUP BY m.channel_id, cs.channel_name
+        GROUP BY COALESCE(m.thread_id, m.channel_id), m.is_thread, m.thread_name, cs.channel_name
         ORDER BY message_count DESC
         LIMIT 15`,
         [guildId]
@@ -307,16 +310,19 @@ exports.getTodayStats = async (req, res) => {
   try {
     const { guildId } = req.params;
 
-    // 今日最活躍頻道（使用 channel_stats 表獲取頻道名稱）
+    // 今日最活躍頻道（包含討論串，使用 thread_name）
     const topChannelResult = await pool.query(
-      `SELECT 
-        COALESCE(cs.channel_name, m.channel_id) as name,
+      `SELECT
+        CASE
+          WHEN m.is_thread THEN COALESCE(m.thread_name, m.thread_id)
+          ELSE COALESCE(cs.channel_name, m.channel_id)
+        END as name,
         COUNT(m.id) as count
       FROM messages m
       LEFT JOIN channel_stats cs ON m.channel_id = cs.channel_id AND m.guild_id = cs.guild_id
       WHERE m.guild_id = $1
         AND m.created_at >= CURRENT_DATE
-      GROUP BY m.channel_id, cs.channel_name
+      GROUP BY COALESCE(m.thread_id, m.channel_id), m.is_thread, m.thread_name, cs.channel_name
       ORDER BY count DESC
       LIMIT 1`,
       [guildId]
