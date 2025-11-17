@@ -2,8 +2,16 @@
 
 ## 文件說明
 
-### schema.sql（推薦使用）
+### schema.sql（唯一完整架構）
 **完整的資料庫架構文件**，包含所有表、索引、視圖和函數。
+
+包含功能：
+- ✅ 核心統計功能（訊息、表情、頻道統計）
+- ✅ 歷史訊息提取功能
+- ✅ 歡迎訊息系統
+- ✅ 成員統計功能
+- ✅ 討論串支援
+- ✅ 附件支援
 
 適用於：
 - ✅ 新專案初始化
@@ -13,27 +21,6 @@
 ```bash
 # 使用方式
 psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f bot/database/schema.sql
-```
-
-### create_tables.sql（舊版，保留用於參考）
-原始的基礎表結構，**不包含** `message_id` 欄位和歷史提取功能。
-
-### history_tables.sql（已整合到 schema.sql）
-歷史提取功能的表結構，包含：
-- `history_fetch_tasks` - 提取任務記錄
-- `history_fetch_ranges` - 提取範圍記錄
-- `admin_users` - 管理員權限
-
-### add_message_id.sql（升級腳本）
-為現有的 `messages` 表添加 `message_id` 欄位。
-
-適用於：
-- ✅ 從舊版升級到新版
-- ✅ 已有數據的資料庫
-
-```bash
-# 使用方式
-psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f bot/database/add_message_id.sql
 ```
 
 ## 資料庫表結構
@@ -50,6 +37,13 @@ psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f bot/database/add_message
 - `username` - 用戶名稱
 - `message_length` - 訊息長度
 - `has_emoji` - 是否包含表情
+- `is_thread` - 是否為討論串訊息
+- `thread_id` - 討論串 ID
+- `thread_name` - 討論串名稱
+- `parent_channel_id` - 父頻道 ID
+- `has_attachments` - 是否包含附件
+- `attachment_count` - 附件數量
+- `attachment_urls` - 附件 URL 陣列
 - `created_at` - 創建時間
 
 #### emoji_usage
@@ -126,6 +120,58 @@ psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f bot/database/add_message
 - `granted_by` - 授權者 ID
 - `granted_at` - 授權時間
 
+### 歡迎訊息與成員統計表
+
+#### welcome_config
+歡迎訊息配置表
+- `id` - 自增主鍵
+- `guild_id` - 伺服器 ID（唯一）
+- `enabled` - 是否啟用
+- `channel_id` - 歡迎訊息頻道 ID
+- `message_template` - 訊息模板
+- `embed_enabled` - 是否使用 Embed
+- `embed_color` - Embed 顏色
+- `embed_title` - Embed 標題
+- `embed_description` - Embed 描述
+- `embed_footer` - Embed 頁腳
+- `embed_thumbnail` - 是否顯示用戶頭像
+- `embed_image_url` - Embed 主圖片 URL（支援變數）
+- `embed_thumbnail_url` - Embed 縮圖 URL（支援變數，優先於 embed_thumbnail）
+- `message_content` - Embed 附帶的一般訊息內容
+- `dm_enabled` - 是否發送私訊
+- `dm_message` - 私訊內容
+- `autorole_enabled` - 是否自動給予身分組
+- `autorole_ids` - 自動給予的身分組 ID 列表
+- `created_at` - 創建時間
+- `updated_at` - 更新時間
+
+**支援變數：** `{user}`, `{username}`, `{server}`, `{memberCount}`, `{userAvatar}`
+
+#### member_events
+成員變化記錄表
+- `id` - 自增主鍵
+- `guild_id` - 伺服器 ID
+- `user_id` - 用戶 ID
+- `username` - 用戶名稱
+- `discriminator` - 識別碼
+- `event_type` - 事件類型（join/leave）
+- `member_count` - 事件時的成員總數
+- `account_created_at` - 帳號創建時間
+- `join_position` - 加入順序
+- `created_at` - 事件時間
+
+#### daily_member_stats
+每日成員統計表
+- `id` - 自增主鍵
+- `guild_id` - 伺服器 ID
+- `stat_date` - 統計日期
+- `member_count_start` - 當天開始時的成員數
+- `member_count_end` - 當天結束時的成員數
+- `joins_count` - 當天加入人數
+- `leaves_count` - 當天離開人數
+- `net_change` - 淨變化
+- `created_at` - 創建時間
+
 ## 視圖
 
 ### v_recent_activity
@@ -134,10 +180,16 @@ psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f bot/database/add_message
 ### v_user_leaderboard
 用戶排行榜（最近 30 天）
 
+### v_member_trends
+成員變化趨勢（最近 30 天）
+
 ## 函數
 
 ### check_range_overlap()
 檢查提取範圍是否重疊
+
+### update_daily_member_stats()
+更新每日成員統計
 
 ## 快速開始
 
@@ -151,15 +203,7 @@ createdb discord_stats
 psql -U postgres -d discord_stats -f bot/database/schema.sql
 ```
 
-### 2. 從舊版升級
-
-```bash
-# 如果你已經有舊版的資料庫，只需要執行升級腳本
-psql -U postgres -d discord_stats -f bot/database/add_message_id.sql
-psql -U postgres -d discord_stats -f bot/database/history_tables.sql
-```
-
-### 3. 使用環境變數
+### 2. 使用環境變數
 
 ```bash
 # 從 .env 載入配置
@@ -174,7 +218,8 @@ psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f bot/database/schema.sql
 ### 查看表結構
 ```sql
 \d messages
-\d history_fetch_tasks
+\d welcome_config
+\d member_events
 ```
 
 ### 查看索引
@@ -191,7 +236,8 @@ psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f bot/database/schema.sql
 ```sql
 -- 清空所有表（謹慎使用！）
 TRUNCATE messages, emoji_usage, daily_stats, channel_stats, 
-         history_fetch_tasks, history_fetch_ranges, admin_users 
+         history_fetch_tasks, history_fetch_ranges, admin_users,
+         welcome_config, member_events, daily_member_stats
 CASCADE;
 ```
 
@@ -207,25 +253,16 @@ psql -U postgres discord_stats < backup.sql
 
 ## 注意事項
 
-1. **message_id 欄位**：新版本使用 `message_id` 來避免重複訊息，舊版本沒有此欄位
+1. **message_id 欄位**：使用 Discord 訊息 ID 來避免重複訊息
 2. **唯一索引**：`message_id` 有唯一索引，確保不會插入重複的訊息
 3. **ON CONFLICT**：插入訊息時使用 `ON CONFLICT DO NOTHING` 來處理重複
 4. **外鍵約束**：`history_fetch_ranges.task_id` 參考 `history_fetch_tasks.id`
-5. **JSONB 欄位**：`daily_stats` 使用 JSONB 儲存複雜的統計數據
+5. **JSONB 欄位**：使用 JSONB 儲存複雜的統計數據
+6. **討論串支援**：`is_thread`, `thread_id`, `thread_name`, `parent_channel_id` 欄位
+7. **附件支援**：`has_attachments`, `attachment_count`, `attachment_urls` 欄位
+8. **歡迎訊息變數**：支援 `{user}`, `{username}`, `{server}`, `{memberCount}`, `{userAvatar}`
 
 ## 故障排除
-
-### 錯誤：column "message_id" does not exist
-執行升級腳本：
-```bash
-psql -U postgres -d discord_stats -f bot/database/add_message_id.sql
-```
-
-### 錯誤：relation "history_fetch_tasks" does not exist
-執行歷史表創建腳本：
-```bash
-psql -U postgres -d discord_stats -f bot/database/history_tables.sql
-```
 
 ### 重建整個資料庫
 ```bash
@@ -233,3 +270,9 @@ dropdb discord_stats
 createdb discord_stats
 psql -U postgres -d discord_stats -f bot/database/schema.sql
 ```
+
+### 檢查表是否存在
+```sql
+SELECT table_name FROM information_schema.tables 
+WHERE table_schema = 'public' 
+ORDER BY table_name;
