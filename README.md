@@ -20,9 +20,12 @@
 
 ### 🎨 用戶體驗
 - **現代化 UI**：使用 shadcn/ui 和 Tailwind CSS v4
-- **響應式設計**：完美適配桌面和手機
+- **響應式設計**：完美適配桌面和手機，針對手機優化
+- **手機側邊欄**：使用 Sheet 組件的流暢側邊欄導航
 - **簡繁體切換**：支援繁體中文和簡體中文
 - **深色主題**：護眼的深色配色方案
+- **智能圖表**：手機上自動簡化數據點，優化可讀性
+- **安全區域**：完美適配 Discord Embedded App 的頂部 UI
 - **錯誤處理**：友好的錯誤提示和後備方案
 
 ## 技術架構
@@ -166,6 +169,7 @@ pm2 start ecosystem.config.js
 - [專案清理摘要](PROJECT_CLEANUP_SUMMARY.md) - 最新的專案結構改進說明
 
 ### 📖 功能文檔
+- [手機優化指南](MOBILE_OPTIMIZATION.md) - **手機界面優化詳細說明**（v2.3.0 新增）
 - [歷史提取指南](HISTORY_FETCH_GUIDE.md) - 歷史訊息提取功能使用說明
 - [討論串支援](docs/THREAD_SUPPORT.md) - Discord 討論串功能說明
 - [資料庫架構](bot/database/README.md) - 資料庫表結構說明
@@ -301,6 +305,33 @@ WHERE guild_id = 'your_guild_id' AND user_id = 'user_id';
 
 ## 🌟 最新更新
 
+### v2.3.0 (2025-01) - 手機界面優化
+
+**手機體驗大幅提升：**
+- ✅ **側邊欄導航**：使用 shadcn Sheet 組件，從左側滑出的流暢菜單
+- ✅ **圖表優化**：
+  - 智能數據採樣（超過 15 個點自動簡化到 12 個）
+  - 優化的邊距和字體大小
+  - 簡化的日期格式（月/日）
+  - 減少 Y 軸刻度，更清爽
+  - 淡化網格線，突出數據
+- ✅ **時間範圍擴展**：新增「今日」、「昨日」、「最近 3 天」選項
+- ✅ **今日前三統計**：顯示今日最活躍的頻道、用戶和表情
+- ✅ **單日數據優化**：今日/昨日數據顯示為統計卡片而非折線圖
+- ✅ **安全區域支持**：所有頁面適配 Discord Embedded App 頂部 UI
+- ✅ **響應式組件**：UserInfo、LanguageSwitcher 在手機上更緊湊
+- ✅ **桌面版對齊**：導航欄元素居中對齊，視覺更美觀
+
+**技術改進：**
+- 🔧 使用 `useIsMobile` hook 檢測設備類型
+- 🔧 動態調整圖表參數（邊距、字體、刻度）
+- 🔧 頻道使用統計支持時間範圍過濾
+- 🔧 後端 API 支持 `today`、`yesterday` 參數
+- 🔧 全局樣式支持 Discord 安全區域
+
+**新增文檔：**
+- 📖 `MOBILE_OPTIMIZATION.md` - 手機優化詳細說明
+
 ### v2.2.0 (2025-01) - 環境變數重構
 
 **重大改進：**
@@ -355,6 +386,8 @@ WHERE guild_id = 'your_guild_id' AND user_id = 'user_id';
 **技術棧：**
 - Next.js 16 + React 19
 - Tailwind CSS v4
+- shadcn/ui (Sheet, Separator, Button 等組件)
+- Recharts 圖表庫
 - Discord.js v14
 - PostgreSQL 14+
 - PM2 進程管理
