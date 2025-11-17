@@ -186,11 +186,13 @@ GET /api/welcome/:guildId/events?type=join&limit=50
 |------|------|------|
 | `{user}` | 用戶提及（@用戶）| @小明 |
 | `{username}` | 用戶名稱 | 小明 |
+| `{displayname}` | 顯示名稱（伺服器暱稱或用戶名）| 小明的暱稱 |
 | `{tag}` | 完整用戶標籤 | 小明#1234 |
 | `{server}` | 伺服器名稱 | 我的社群 |
 | `{memberCount}` | 當前成員數 | 150 |
 | `{userId}` | 用戶 ID | 123456789 |
 | `{guildId}` | 伺服器 ID | 987654321 |
+| `{userAvatar}` | 用戶頭像 URL | https://cdn.discordapp.com/... |
 
 ## 管理員面板使用
 

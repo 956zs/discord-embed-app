@@ -305,8 +305,8 @@ export function WelcomeConfig({ guildId }: { guildId: string }) {
         <CardHeader>
           <CardTitle>訊息內容</CardTitle>
           <CardDescription>
-            可用變數: {"{user}"} {"{username}"} {"{server}"} {"{memberCount}"}{" "}
-            {"{userAvatar}"}
+            可用變數: {"{user}"} {"{username}"} {"{displayname}"} {"{server}"}{" "}
+            {"{memberCount}"} {"{userAvatar}"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

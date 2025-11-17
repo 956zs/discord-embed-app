@@ -235,6 +235,7 @@ function replaceVariables(template, member) {
   return template
     .replace(/{user}/g, `<@${member.user.id}>`)
     .replace(/{username}/g, member.user.username)
+    .replace(/{displayname}/g, member.displayName || member.user.username)
     .replace(/{tag}/g, member.user.tag)
     .replace(/{server}/g, member.guild.name)
     .replace(/{memberCount}/g, member.guild.memberCount.toString())
