@@ -9,6 +9,7 @@ import {
   Hash,
   TrendingUp,
   Settings,
+  Activity,
 } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -68,17 +69,30 @@ export function DashboardNav({ isAdmin = false }: DashboardNavProps) {
       <NavigationMenu viewport={isMobile}>
         <NavigationMenuList className="flex-wrap">
           {isAdmin && (
-            <NavigationMenuItem>
-              <NavigationMenuLink
-                asChild
-                className={`${navigationMenuTriggerStyle()} whitespace-nowrap`}
-              >
-                <Link href="/admin">
-                  <Settings className="mr-2 h-4 w-4" />
-                  {t.nav.admin}
-                </Link>
-              </NavigationMenuLink>
-            </NavigationMenuItem>
+            <>
+              <NavigationMenuItem>
+                <NavigationMenuLink
+                  asChild
+                  className={`${navigationMenuTriggerStyle()} whitespace-nowrap`}
+                >
+                  <Link href="/admin">
+                    <Settings className="mr-2 h-4 w-4" />
+                    {t.nav.admin}
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+              <NavigationMenuItem>
+                <NavigationMenuLink
+                  asChild
+                  className={`${navigationMenuTriggerStyle()} whitespace-nowrap`}
+                >
+                  <Link href="/admin/monitoring">
+                    <Activity className="mr-2 h-4 w-4" />
+                    {t.nav.monitoring}
+                  </Link>
+                </NavigationMenuLink>
+              </NavigationMenuItem>
+            </>
           )}
 
           <NavigationMenuItem>

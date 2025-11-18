@@ -10,3 +10,4 @@ client/node_modules/
 # Backup files created by update.sh and manage.sh
 *.backup.*
 version.backup.*.txt
+.**
