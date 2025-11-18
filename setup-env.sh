@@ -152,11 +152,13 @@ while true; do
 done
 
 echo ""
-log_warning "Configuration includes 4 steps:"
-echo "  Step 1/4 - Discord Configuration (Bot Token, Client ID, Client Secret)"
-echo "  Step 2/4 - PostgreSQL Database Configuration"
-echo "  Step 3/4 - Server Configuration (Ports, Whitelist)"
-echo "  Step 4/4 - Frontend Configuration (Dev Mode, API URL)"
+log_warning "Configuration includes 6 steps:"
+echo "  Step 1/6 - Discord Configuration (Bot Token, Client ID, Client Secret)"
+echo "  Step 2/6 - PostgreSQL Database Configuration"
+echo "  Step 3/6 - Server Configuration (Ports, Whitelist)"
+echo "  Step 4/6 - Frontend Configuration (Dev Mode, API URL)"
+echo "  Step 5/6 - Monitoring Configuration (Optional)"
+echo "  Step 6/6 - Generate Configuration Files"
 echo ""
 log_info "Please prepare the following information:"
 echo "  - Discord Bot Token"
@@ -171,7 +173,7 @@ read -p "Ready? Press Enter to start..."
 # ============================================================================
 # 1. Discord Configuration
 # ============================================================================
-log_section "Step 1/4: Discord Configuration"
+log_section "Step 1/6: Discord Configuration"
 
 log_info "Visit Discord Developer Portal to get the following:"
 echo "  https://discord.com/developers/applications"
@@ -209,12 +211,12 @@ validate_required "$DISCORD_CLIENT_SECRET" "Client Secret" || exit 1
 log_success "Client Secret set"
 
 echo ""
-log_success "Discord configuration complete (1/4)"
+log_success "Discord configuration complete (1/6)"
 
 # ============================================================================
 # 2. Database Configuration
 # ============================================================================
-log_section "Step 2/4: PostgreSQL Database Configuration"
+log_section "Step 2/6: PostgreSQL Database Configuration"
 
 log_info "Configure PostgreSQL database connection"
 echo "  If you haven't created the database yet, you can do it later:"
@@ -261,12 +263,12 @@ if ! test_db_connection "$DB_HOST" "$DB_PORT" "$DB_USER" "$DB_PASSWORD" "$DB_NAM
     read -p "Press Enter to continue..."
 fi
 
-log_success "Database configuration complete (2/4)"
+log_success "Database configuration complete (2/6)"
 
 # ============================================================================
 # 3. Server Configuration
 # ============================================================================
-log_section "Step 3/4: Server Configuration"
+log_section "Step 3/6: Server Configuration"
 
 echo "----------------------------------------------------------------------"
 log_info "1/3 - API Server Port"
@@ -330,12 +332,12 @@ while true; do
 done
 
 echo ""
-log_success "Server configuration complete (3/4)"
+log_success "Server configuration complete (3/6)"
 
 # ============================================================================
 # 4. Frontend Configuration
 # ============================================================================
-log_section "Step 4/4: Frontend Configuration"
+log_section "Step 4/6: Frontend Configuration"
 
 echo "----------------------------------------------------------------------"
 log_info "1/2 - Development Mode Configuration"
@@ -382,9 +384,102 @@ echo ""
 log_success "Frontend configuration complete (4/4)"
 
 # ============================================================================
-# 5. Generate configuration files
+# 5. Monitoring Configuration (Optional)
 # ============================================================================
-log_section "Step 5: Generate Configuration Files"
+log_section "Step 5/6: Monitoring Configuration (Optional)"
+
+log_info "Performance monitoring system (optional feature)"
+echo "  Monitor system performance, API response times, and database queries"
+echo "  Includes alert system and webhook notifications"
+echo ""
+
+read -p "Enable monitoring system? (y/n): " ENABLE_MONITORING_INPUT
+case $ENABLE_MONITORING_INPUT in
+    [Yy]*)
+        ENABLE_MONITORING="true"
+        log_success "Monitoring enabled"
+        
+        echo ""
+        log_info "Monitoring Configuration:"
+        
+        # Admin token
+        echo "----------------------------------------------------------------------"
+        log_info "1/3 - Admin Token"
+        echo "  Secure token for accessing monitoring endpoints"
+        echo "  Generate a random token or use your own"
+        echo ""
+        read -p "Generate random admin token? (y/n): " GEN_TOKEN
+        case $GEN_TOKEN in
+            [Yy]*)
+                ADMIN_TOKEN=$(openssl rand -hex 32 2>/dev/null || head -c 32 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 32)
+                log_success "Generated admin token: $ADMIN_TOKEN"
+                ;;
+            *)
+                ADMIN_TOKEN=$(read_input "Enter admin token" "" "true")
+                validate_required "$ADMIN_TOKEN" "Admin token" || exit 1
+                ;;
+        esac
+        
+        echo ""
+        echo "----------------------------------------------------------------------"
+        log_info "2/3 - Webhook Notifications (Optional)"
+        echo "  Send ERROR level alerts to Discord via webhook"
+        echo "  Get webhook URL from: Server Settings > Integrations > Webhooks"
+        echo ""
+        read -p "Enable webhook notifications? (y/n): " ENABLE_WEBHOOK_INPUT
+        case $ENABLE_WEBHOOK_INPUT in
+            [Yy]*)
+                WEBHOOK_ENABLED="true"
+                echo ""
+                log_info "Enter Discord Webhook URLs"
+                echo "  Multiple URLs separated by commas"
+                echo "  Example: https://discord.com/api/webhooks/xxx/yyy"
+                WEBHOOK_URLS=$(read_input "Webhook URLs" "")
+                if [ -n "$WEBHOOK_URLS" ]; then
+                    log_success "Webhook notifications enabled"
+                else
+                    log_warning "No webhook URLs provided, webhook disabled"
+                    WEBHOOK_ENABLED="false"
+                fi
+                ;;
+            *)
+                WEBHOOK_ENABLED="false"
+                WEBHOOK_URLS=""
+                log_info "Webhook notifications disabled"
+                ;;
+        esac
+        
+        echo ""
+        echo "----------------------------------------------------------------------"
+        log_info "3/3 - Alert Thresholds"
+        echo "  Configure when to trigger alerts (percentage)"
+        echo ""
+        ALERT_CPU_WARN=$(read_input "CPU Warning threshold %" "80")
+        ALERT_CPU_ERROR=$(read_input "CPU Error threshold %" "90")
+        ALERT_MEMORY_WARN=$(read_input "Memory Warning threshold %" "80")
+        ALERT_MEMORY_ERROR=$(read_input "Memory Error threshold %" "90")
+        log_success "Alert thresholds configured"
+        ;;
+    *)
+        ENABLE_MONITORING="false"
+        ADMIN_TOKEN=""
+        WEBHOOK_ENABLED="false"
+        WEBHOOK_URLS=""
+        ALERT_CPU_WARN="80"
+        ALERT_CPU_ERROR="90"
+        ALERT_MEMORY_WARN="80"
+        ALERT_MEMORY_ERROR="90"
+        log_info "Monitoring disabled"
+        ;;
+esac
+
+echo ""
+log_success "Monitoring configuration complete (5/6)"
+
+# ============================================================================
+# 6. Generate configuration files
+# ============================================================================
+log_section "Step 6/6: Generate Configuration Files"
 
 log_info "Generating configuration files..."
 
@@ -411,6 +506,38 @@ ALLOWED_GUILD_IDS=GUILD_IDS_PLACEHOLDER
 
 # Environment Mode
 NODE_ENV=NODE_ENV_PLACEHOLDER
+
+# ============================================================================
+# Monitoring Configuration (Optional)
+# ============================================================================
+
+# Enable performance monitoring system
+ENABLE_MONITORING=ENABLE_MONITORING_PLACEHOLDER
+
+# Metrics collection interval (milliseconds)
+METRICS_INTERVAL=30000
+
+# Metrics retention period (hours)
+METRICS_RETENTION_HOURS=24
+
+# Alert thresholds
+ALERT_CPU_WARN=ALERT_CPU_WARN_PLACEHOLDER
+ALERT_CPU_ERROR=ALERT_CPU_ERROR_PLACEHOLDER
+ALERT_MEMORY_WARN=ALERT_MEMORY_WARN_PLACEHOLDER
+ALERT_MEMORY_ERROR=ALERT_MEMORY_ERROR_PLACEHOLDER
+
+# Admin token for accessing monitoring endpoints
+ADMIN_TOKEN=ADMIN_TOKEN_PLACEHOLDER
+
+# ============================================================================
+# Webhook Notification Configuration (Optional)
+# ============================================================================
+
+# Enable webhook notifications for ERROR level alerts
+WEBHOOK_ENABLED=WEBHOOK_ENABLED_PLACEHOLDER
+
+# Discord Webhook URLs (comma-separated for multiple webhooks)
+WEBHOOK_URLS=WEBHOOK_URLS_PLACEHOLDER
 ENVEOF
 
 # Replace placeholders
@@ -423,6 +550,14 @@ sed -i "s|PORT_PLACEHOLDER|$PORT|g" .env
 sed -i "s|CLIENT_PORT_PLACEHOLDER|$CLIENT_PORT|g" .env
 sed -i "s|GUILD_IDS_PLACEHOLDER|$ALLOWED_GUILD_IDS|g" .env
 sed -i "s|NODE_ENV_PLACEHOLDER|$ENV_MODE|g" .env
+sed -i "s|ENABLE_MONITORING_PLACEHOLDER|$ENABLE_MONITORING|g" .env
+sed -i "s|ALERT_CPU_WARN_PLACEHOLDER|$ALERT_CPU_WARN|g" .env
+sed -i "s|ALERT_CPU_ERROR_PLACEHOLDER|$ALERT_CPU_ERROR|g" .env
+sed -i "s|ALERT_MEMORY_WARN_PLACEHOLDER|$ALERT_MEMORY_WARN|g" .env
+sed -i "s|ALERT_MEMORY_ERROR_PLACEHOLDER|$ALERT_MEMORY_ERROR|g" .env
+sed -i "s|ADMIN_TOKEN_PLACEHOLDER|$ADMIN_TOKEN|g" .env
+sed -i "s|WEBHOOK_ENABLED_PLACEHOLDER|$WEBHOOK_ENABLED|g" .env
+sed -i "s|WEBHOOK_URLS_PLACEHOLDER|$WEBHOOK_URLS|g" .env
 
 log_success "Created .env"
 
@@ -532,6 +667,17 @@ if [ "$NEXT_PUBLIC_ENABLE_DEV_MODE" = "true" ]; then
     echo "  Test User: $NEXT_PUBLIC_DEV_USER_ID"
 else
     echo "  Dev Mode: Disabled"
+fi
+if [ "$ENABLE_MONITORING" = "true" ]; then
+    echo "  Monitoring: Enabled"
+    echo "  Admin Token: ${ADMIN_TOKEN:0:8}..."
+    if [ "$WEBHOOK_ENABLED" = "true" ]; then
+        echo "  Webhook Notifications: Enabled"
+    else
+        echo "  Webhook Notifications: Disabled"
+    fi
+else
+    echo "  Monitoring: Disabled"
 fi
 echo ""
 
