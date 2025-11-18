@@ -60,6 +60,12 @@ class MetricsCollector {
 
     // 告警管理器引用（可選）
     this.alertManager = null;
+
+    // 資料庫持久化配置
+    this.persistenceEnabled = options.persistenceEnabled || false;
+    this.persistenceInterval = options.persistenceInterval || 300000; // 5 分鐘
+    this.persistenceTimer = null;
+    this.lastPersistenceTime = Date.now();
   }
 
   /**
@@ -183,6 +189,14 @@ class MetricsCollector {
       this.collectSystemMetrics();
       this.cleanupOldMetrics();
     }, this.interval);
+
+    // 啟動資料庫持久化（如果啟用）
+    if (this.persistenceEnabled && this.dbPool) {
+      console.log("✅ 啟動資料庫持久化（每 5 分鐘）");
+      this.persistenceTimer = setInterval(() => {
+        this.persistMetricsToDatabase();
+      }, this.persistenceInterval);
+    }
   }
 
   /**
@@ -199,6 +213,11 @@ class MetricsCollector {
     if (this.collectionTimer) {
       clearInterval(this.collectionTimer);
       this.collectionTimer = null;
+    }
+
+    if (this.persistenceTimer) {
+      clearInterval(this.persistenceTimer);
+      this.persistenceTimer = null;
     }
   }
 
@@ -563,7 +582,318 @@ class MetricsCollector {
       },
       counters: { ...this.counters },
       uptime: Math.floor((Date.now() - this.startTime) / 1000),
+      persistence: {
+        enabled: this.persistenceEnabled,
+        lastPersistence: this.lastPersistenceTime,
+      },
     };
+  }
+
+  /**
+   * 將記憶體中的指標批次寫入資料庫
+   * 每 5 分鐘執行一次
+   */
+  async persistMetricsToDatabase() {
+    if (!this.dbPool) {
+      console.warn("⚠️  資料庫連接池未設定，無法持久化指標");
+      return;
+    }
+
+    try {
+      const startTime = Date.now();
+      const cutoffTime = this.lastPersistenceTime;
+      let totalInserted = 0;
+
+      // 獲取自上次持久化以來的新指標
+      const newSystemMetrics = this.metrics.system.filter(
+        (m) => m.timestamp > cutoffTime
+      );
+      const newAppMetrics = this.metrics.application.filter(
+        (m) => m.timestamp > cutoffTime
+      );
+      const newDbMetrics = this.metrics.database.filter(
+        (m) => m.timestamp > cutoffTime
+      );
+
+      // 批次插入系統指標
+      if (newSystemMetrics.length > 0) {
+        const systemInserts = [];
+        for (const metric of newSystemMetrics) {
+          systemInserts.push(
+            this.insertMetric(
+              "system",
+              "cpu_usage",
+              metric.cpu,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "system",
+              "memory_used",
+              metric.memory.used,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "system",
+              "memory_percentage",
+              metric.memory.percentage,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "system",
+              "event_loop_delay",
+              metric.eventLoopDelay,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "system",
+              "uptime",
+              metric.uptime,
+              metric.timestamp
+            )
+          );
+        }
+        await Promise.all(systemInserts);
+        totalInserted += systemInserts.length;
+      }
+
+      // 批次插入應用程式指標
+      if (newAppMetrics.length > 0) {
+        const appInserts = [];
+        for (const metric of newAppMetrics) {
+          appInserts.push(
+            this.insertMetric(
+              "application",
+              "api_requests_total",
+              metric.apiRequests.total,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "application",
+              "api_requests_per_minute",
+              metric.apiRequests.perMinute,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "application",
+              "api_response_time_avg",
+              metric.apiRequests.avgResponseTime,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "application",
+              "discord_events_total",
+              metric.discordEvents.total,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "application",
+              "discord_messages_processed",
+              metric.discordEvents.messagesProcessed,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "application",
+              "api_errors_total",
+              metric.errors.api,
+              metric.timestamp
+            )
+          );
+        }
+        await Promise.all(appInserts);
+        totalInserted += appInserts.length;
+      }
+
+      // 批次插入資料庫指標
+      if (newDbMetrics.length > 0) {
+        const dbInserts = [];
+        for (const metric of newDbMetrics) {
+          dbInserts.push(
+            this.insertMetric(
+              "database",
+              "db_queries_total",
+              metric.queries.total,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "database",
+              "db_query_time_avg",
+              metric.queries.avgTime,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "database",
+              "db_connections_active",
+              metric.connections.active,
+              metric.timestamp
+            ),
+            this.insertMetric(
+              "database",
+              "db_connections_idle",
+              metric.connections.idle,
+              metric.timestamp
+            )
+          );
+        }
+        await Promise.all(dbInserts);
+        totalInserted += dbInserts.length;
+      }
+
+      // 更新最後持久化時間
+      this.lastPersistenceTime = Date.now();
+
+      const duration = Date.now() - startTime;
+      console.log(`✅ 指標持久化完成: ${totalInserted} 筆記錄 (${duration}ms)`);
+
+      // 清理舊數據（保留 7 天）
+      await this.cleanupOldDatabaseMetrics();
+    } catch (error) {
+      console.error("❌ 指標持久化失敗:", error.message);
+    }
+  }
+
+  /**
+   * 插入單一指標到資料庫
+   */
+  async insertMetric(metricType, metricName, metricValue, timestamp) {
+    if (!this.dbPool) {
+      return;
+    }
+
+    try {
+      await this.dbPool.query(
+        `INSERT INTO performance_metrics (timestamp, metric_type, metric_name, metric_value)
+         VALUES (to_timestamp($1 / 1000.0), $2, $3, $4)`,
+        [timestamp, metricType, metricName, metricValue]
+      );
+    } catch (error) {
+      // 靜默失敗，避免影響主要功能
+      console.error(
+        `❌ 插入指標失敗 (${metricType}.${metricName}):`,
+        error.message
+      );
+    }
+  }
+
+  /**
+   * 清理舊的資料庫指標（保留 7 天）
+   */
+  async cleanupOldDatabaseMetrics() {
+    if (!this.dbPool) {
+      return;
+    }
+
+    try {
+      const result = await this.dbPool.query(
+        `DELETE FROM performance_metrics 
+         WHERE created_at < NOW() - INTERVAL '7 days'`
+      );
+
+      if (result.rowCount > 0) {
+        console.log(`🗑️  清理舊指標: ${result.rowCount} 筆記錄`);
+      }
+    } catch (error) {
+      console.error("❌ 清理舊指標失敗:", error.message);
+    }
+  }
+
+  /**
+   * 從資料庫載入歷史指標
+   */
+  async loadHistoricalMetricsFromDatabase(startTime, endTime) {
+    if (!this.dbPool) {
+      console.warn("⚠️  資料庫連接池未設定");
+      return null;
+    }
+
+    try {
+      const result = await this.dbPool.query(
+        `SELECT 
+          EXTRACT(EPOCH FROM timestamp) * 1000 AS timestamp,
+          metric_type,
+          metric_name,
+          metric_value
+         FROM performance_metrics
+         WHERE timestamp >= to_timestamp($1 / 1000.0)
+           AND timestamp <= to_timestamp($2 / 1000.0)
+         ORDER BY timestamp ASC`,
+        [startTime, endTime]
+      );
+
+      // 將結果組織成結構化格式
+      const metrics = {
+        system: [],
+        application: [],
+        database: [],
+      };
+
+      // 按時間戳分組
+      const byTimestamp = {};
+      for (const row of result.rows) {
+        const ts = parseInt(row.timestamp);
+        if (!byTimestamp[ts]) {
+          byTimestamp[ts] = { timestamp: ts };
+        }
+        byTimestamp[ts][row.metric_name] = parseFloat(row.metric_value);
+      }
+
+      // 轉換為陣列格式
+      for (const ts in byTimestamp) {
+        const data = byTimestamp[ts];
+
+        // 系統指標
+        if (data.cpu_usage !== undefined) {
+          metrics.system.push({
+            timestamp: data.timestamp,
+            cpu: data.cpu_usage,
+            memory: {
+              used: data.memory_used || 0,
+              percentage: data.memory_percentage || 0,
+            },
+            eventLoopDelay: data.event_loop_delay || 0,
+            uptime: data.uptime || 0,
+          });
+        }
+
+        // 應用程式指標
+        if (data.api_requests_total !== undefined) {
+          metrics.application.push({
+            timestamp: data.timestamp,
+            apiRequests: {
+              total: data.api_requests_total || 0,
+              perMinute: data.api_requests_per_minute || 0,
+              avgResponseTime: data.api_response_time_avg || 0,
+            },
+            discordEvents: {
+              total: data.discord_events_total || 0,
+              messagesProcessed: data.discord_messages_processed || 0,
+            },
+            errors: {
+              api: data.api_errors_total || 0,
+            },
+          });
+        }
+
+        // 資料庫指標
+        if (data.db_queries_total !== undefined) {
+          metrics.database.push({
+            timestamp: data.timestamp,
+            queries: {
+              total: data.db_queries_total || 0,
+              avgTime: data.db_query_time_avg || 0,
+            },
+            connections: {
+              active: data.db_connections_active || 0,
+              idle: data.db_connections_idle || 0,
+            },
+          });
+        }
+      }
+
+      return metrics;
+    } catch (error) {
+      console.error("❌ 從資料庫載入指標失敗:", error.message);
+      return null;
+    }
   }
 }
 
