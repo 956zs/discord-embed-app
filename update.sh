@@ -330,6 +330,57 @@ else
 fi
 
 # ============================================================================
+# 4.5. 進程模式選擇
+# ============================================================================
+log_section "步驟 4.5: 進程模式配置"
+
+# 檢查當前模式
+CURRENT_MODE=${PROCESS_MODE:-dual}
+log_info "當前進程模式: $CURRENT_MODE"
+
+if [ "$AUTO_MODE" = false ]; then
+    echo ""
+    echo "選擇進程模式:"
+    echo "  1) 雙進程模式（推薦，預設）- 更好的故障隔離和監控"
+    echo "  2) 單進程模式 - 節省約 50-100MB 記憶體"
+    echo "  3) 保持當前模式 ($CURRENT_MODE)"
+    echo ""
+    read -p "請選擇 [1-3] (預設: 3): " mode_choice
+    
+    case $mode_choice in
+        1)
+            NEW_MODE="dual"
+            ;;
+        2)
+            NEW_MODE="single"
+            ;;
+        *)
+            NEW_MODE=$CURRENT_MODE
+            ;;
+    esac
+else
+    NEW_MODE=$CURRENT_MODE
+fi
+
+# 更新 .env
+if [ "$NEW_MODE" != "$CURRENT_MODE" ]; then
+    log_info "更新進程模式為: $NEW_MODE"
+    if [ -f ".env" ]; then
+        if grep -q "^PROCESS_MODE=" .env; then
+            sed -i "s/^PROCESS_MODE=.*/PROCESS_MODE=$NEW_MODE/" .env
+        else
+            echo "PROCESS_MODE=$NEW_MODE" >> .env
+        fi
+    else
+        echo "PROCESS_MODE=$NEW_MODE" > .env
+    fi
+    export PROCESS_MODE=$NEW_MODE
+    log_success "進程模式已更新為: $NEW_MODE"
+else
+    log_info "保持進程模式: $CURRENT_MODE"
+fi
+
+# ============================================================================
 # 5. 重新構建前端
 # ============================================================================
 log_section "步驟 5: 重新構建前端"
@@ -362,31 +413,35 @@ pm2 status
 
 echo ""
 if confirm "是否重啟服務？" "y"; then
-    log_info "重啟 Discord 應用服務（零停機）..."
+    log_info "重啟 Discord 應用服務（模式: $PROCESS_MODE）..."
     
-    # 只重啟這個專案的服務，不影響其他 PM2 進程
-    # 使用 reload 實現零停機更新
-    # --update-env 確保重新加載環境變數
-    
-    # 重啟 server（包含 bot）
-    log_info "重啟 discord-server..."
-    if pm2 reload discord-server --update-env; then
-        log_success "discord-server reload 完成"
+    # 根據進程模式重啟
+    if [ "$PROCESS_MODE" = "single" ]; then
+        # 單進程模式
+        log_info "重啟 discord-app（單進程模式）..."
+        
+        # 先停止所有服務
+        pm2 delete all 2>/dev/null || true
+        sleep 2
+        
+        # 啟動單進程模式
+        pm2 start ecosystem.single.config.js
+        log_success "discord-app 已啟動（單進程模式）"
     else
-        log_warning "discord-server reload 失敗，嘗試 restart..."
-        pm2 restart discord-server --update-env
-        log_success "discord-server restart 完成"
+        # 雙進程模式
+        log_info "重啟服務（雙進程模式）..."
+        
+        # 先停止所有服務
+        pm2 delete all 2>/dev/null || true
+        sleep 2
+        
+        # 啟動雙進程模式
+        pm2 start ecosystem.dual.config.js
+        log_success "服務已啟動（雙進程模式）"
     fi
     
-    # 重啟 client
-    log_info "重啟 discord-client..."
-    if pm2 reload discord-client --update-env; then
-        log_success "discord-client reload 完成"
-    else
-        log_warning "discord-client reload 失敗，嘗試 restart..."
-        pm2 restart discord-client --update-env
-        log_success "discord-client restart 完成"
-    fi
+    # 保存 PM2 配置
+    pm2 save
     
     # 等待服務穩定
     log_info "等待服務穩定..."
@@ -394,8 +449,11 @@ if confirm "是否重啟服務？" "y"; then
 else
     log_warning "跳過服務重啟"
     log_warning "請手動執行:"
-    echo "  pm2 reload discord-server --update-env"
-    echo "  pm2 reload discord-client --update-env"
+    if [ "$PROCESS_MODE" = "single" ]; then
+        echo "  pm2 start ecosystem.single.config.js"
+    else
+        echo "  pm2 start ecosystem.dual.config.js"
+    fi
 fi
 
 # ============================================================================

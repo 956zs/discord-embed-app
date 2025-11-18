@@ -38,15 +38,36 @@ log_error() {
 }
 
 # 載入環境變數
+if [ -f ".env" ]; then
+    export $(cat .env | grep -v '^#' | xargs)
+fi
 if [ -f "bot/.env" ]; then
     export $(cat bot/.env | grep -v '^#' | xargs)
 fi
 
+# 檢測進程模式
+PROCESS_MODE=${PROCESS_MODE:-dual}
+
+# 啟動函數
+start_dual() {
+    log_info "啟動雙進程模式..."
+    pm2 start ecosystem.dual.config.js
+}
+
+start_single() {
+    log_info "啟動單進程模式..."
+    pm2 start ecosystem.single.config.js
+}
+
 # 命令處理
 case "$1" in
     start)
-        log_info "啟動所有服務..."
-        pm2 start ecosystem.config.js
+        log_info "啟動所有服務 (模式: $PROCESS_MODE)..."
+        if [ "$PROCESS_MODE" = "single" ]; then
+            start_single
+        else
+            start_dual
+        fi
         log_success "服務已啟動"
         pm2 status
         ;;
@@ -68,9 +89,13 @@ case "$1" in
     
     restart-prod)
         log_info "重啟生產環境（完全重新載入配置）..."
-        pm2 delete discord-server discord-client 2>/dev/null || log_info "沒有運行中的服務"
+        pm2 delete all 2>/dev/null || log_info "沒有運行中的服務"
         sleep 2
-        pm2 start ecosystem.config.js
+        if [ "$PROCESS_MODE" = "single" ]; then
+            start_single
+        else
+            start_dual
+        fi
         pm2 save
         log_success "生產環境已重啟"
         sleep 3
@@ -208,25 +233,74 @@ case "$1" in
         fi
         ;;
     
+    switch-mode)
+        NEW_MODE=$2
+        if [ "$NEW_MODE" != "dual" ] && [ "$NEW_MODE" != "single" ]; then
+            log_error "無效的模式: $NEW_MODE"
+            echo "使用方式: ./manage.sh switch-mode [dual|single]"
+            echo ""
+            echo "模式說明:"
+            echo "  dual   - 雙進程模式（推薦）- 更好的故障隔離和監控"
+            echo "  single - 單進程模式 - 節省約 50-100MB 記憶體"
+            exit 1
+        fi
+        
+        log_info "切換到 $NEW_MODE 模式..."
+        
+        # 更新 .env
+        if [ -f ".env" ]; then
+            if grep -q "^PROCESS_MODE=" .env; then
+                sed -i "s/^PROCESS_MODE=.*/PROCESS_MODE=$NEW_MODE/" .env
+            else
+                echo "PROCESS_MODE=$NEW_MODE" >> .env
+            fi
+        else
+            echo "PROCESS_MODE=$NEW_MODE" > .env
+        fi
+        
+        # 停止現有服務
+        log_info "停止現有服務..."
+        pm2 delete all 2>/dev/null || true
+        sleep 2
+        
+        # 重新載入環境變數
+        export PROCESS_MODE=$NEW_MODE
+        
+        # 啟動新模式
+        if [ "$NEW_MODE" = "single" ]; then
+            start_single
+        else
+            start_dual
+        fi
+        
+        pm2 save
+        log_success "已切換到 $NEW_MODE 模式"
+        echo ""
+        pm2 status
+        ;;
+    
     *)
         echo "Discord 統計應用 - 管理腳本"
         echo ""
         echo "使用方式: ./manage.sh [command]"
         echo ""
         echo "可用命令:"
-        echo "  start         - 啟動所有服務"
-        echo "  stop          - 停止所有服務"
-        echo "  restart       - 重啟所有服務"
-        echo "  restart-prod  - 重啟生產環境（重新載入配置）"
-        echo "  status        - 查看服務狀態"
-        echo "  logs          - 查看所有日誌"
-        echo "  logs-api      - 查看 API 日誌"
-        echo "  logs-bot      - 查看 Bot 日誌"
-        echo "  logs-client   - 查看 Client 日誌"
-        echo "  backup        - 備份資料庫"
-        echo "  restore <file>- 還原資料庫"
-        echo "  health        - 健康檢查"
-        echo "  clean         - 清理日誌和舊備份"
+        echo "  start              - 啟動所有服務"
+        echo "  stop               - 停止所有服務"
+        echo "  restart            - 重啟所有服務"
+        echo "  restart-prod       - 重啟生產環境（重新載入配置）"
+        echo "  status             - 查看服務狀態"
+        echo "  logs               - 查看所有日誌"
+        echo "  logs-api           - 查看 API 日誌"
+        echo "  logs-bot           - 查看 Bot 日誌"
+        echo "  logs-client        - 查看 Client 日誌"
+        echo "  backup             - 備份資料庫"
+        echo "  restore <file>     - 還原資料庫"
+        echo "  health             - 健康檢查"
+        echo "  clean              - 清理日誌和舊備份"
+        echo "  switch-mode <mode> - 切換進程模式 (dual/single)"
+        echo ""
+        echo "當前進程模式: $PROCESS_MODE"
         echo ""
         exit 1
         ;;

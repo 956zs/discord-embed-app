@@ -216,6 +216,50 @@ else
 fi
 
 # ============================================================================
+# 4.5. 進程模式選擇
+# ============================================================================
+log_section "步驟 4.5: 進程模式選擇"
+
+echo ""
+echo "選擇進程模式:"
+echo "  1) 雙進程模式（推薦）- 更好的故障隔離和監控"
+echo "     • discord-server (API + Bot)"
+echo "     • discord-client (Next.js)"
+echo "     • 記憶體使用: ~350-550MB"
+echo "     • 適合生產環境"
+echo ""
+echo "  2) 單進程模式 - 節省約 50-100MB 記憶體"
+echo "     • discord-app (API + Bot + Next.js)"
+echo "     • 記憶體使用: ~300-450MB"
+echo "     • 適合資源受限環境"
+echo ""
+read -p "請選擇 [1-2] (預設: 1): " process_mode
+
+case $process_mode in
+    2)
+        PROCESS_MODE="single"
+        log_success "選擇單進程模式"
+        ;;
+    *)
+        PROCESS_MODE="dual"
+        log_success "選擇雙進程模式"
+        ;;
+esac
+
+# 寫入 .env
+if [ -f ".env" ]; then
+    if grep -q "^PROCESS_MODE=" .env; then
+        sed -i "s/^PROCESS_MODE=.*/PROCESS_MODE=$PROCESS_MODE/" .env
+    else
+        echo "PROCESS_MODE=$PROCESS_MODE" >> .env
+    fi
+else
+    echo "PROCESS_MODE=$PROCESS_MODE" > .env
+fi
+
+log_success "進程模式已設定為: $PROCESS_MODE"
+
+# ============================================================================
 # 5. 構建前端
 # ============================================================================
 log_section "步驟 5: 構建前端"
@@ -238,16 +282,23 @@ pm2 delete all 2>/dev/null || true
 # ============================================================================
 log_section "步驟 7: 啟動服務"
 
-log_info "使用 PM2 啟動所有服務..."
+log_info "使用 PM2 啟動所有服務（模式: $PROCESS_MODE）..."
 
-# 檢查 ecosystem.config.js 是否存在
-if [ ! -f "ecosystem.config.js" ]; then
-    log_error "找不到 ecosystem.config.js"
+# 根據進程模式選擇配置文件
+if [ "$PROCESS_MODE" = "single" ]; then
+    CONFIG_FILE="ecosystem.single.config.js"
+else
+    CONFIG_FILE="ecosystem.dual.config.js"
+fi
+
+# 檢查配置文件是否存在
+if [ ! -f "$CONFIG_FILE" ]; then
+    log_error "找不到 $CONFIG_FILE"
     exit 1
 fi
 
 # 啟動服務
-pm2 start ecosystem.config.js
+pm2 start $CONFIG_FILE
 log_success "服務啟動完成"
 
 # 保存 PM2 配置
