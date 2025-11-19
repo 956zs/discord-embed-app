@@ -42,25 +42,36 @@ log_section() {
     echo -e "${CYAN}======================================================================${NC}"
 }
 
+# Escape special characters for sed
+escape_sed() {
+    echo "$1" | sed 's/[&/\]/\\&/g'
+}
+
 # Read user input
 read_input() {
     local prompt="$1"
     local default="$2"
     local secret="$3"
-    
-    if [ -n "$default" ]; then
-        echo -ne "${BLUE}$prompt${NC} ${YELLOW}[default: $default]${NC}: "
-    else
-        echo -ne "${BLUE}$prompt${NC}: "
-    fi
+    local value=""
     
     if [ "$secret" = "true" ]; then
-        read -s value
+        # For secret input, use read -s -p
+        if [ -n "$default" ]; then
+            read -s -p "$(echo -e "${BLUE}$prompt${NC} ${YELLOW}[default: $default]${NC}: ")" value
+        else
+            read -s -p "$(echo -e "${BLUE}$prompt${NC}: ")" value
+        fi
         echo ""
     else
-        read value
+        # For normal input, use read -p
+        if [ -n "$default" ]; then
+            read -p "$(echo -e "${BLUE}$prompt${NC} ${YELLOW}[default: $default]${NC}: ")" value
+        else
+            read -p "$(echo -e "${BLUE}$prompt${NC}: ")" value
+        fi
     fi
     
+    # Use default if value is empty
     if [ -z "$value" ] && [ -n "$default" ]; then
         value="$default"
     fi
@@ -454,10 +465,18 @@ case $ENABLE_MONITORING_INPUT in
         echo "----------------------------------------------------------------------"
         log_info "3/3 - Alert Thresholds"
         echo "  Configure when to trigger alerts (percentage)"
+        echo "  Press Enter to use default values (recommended)"
         echo ""
+        echo "  CPU Warning: Alert when CPU usage exceeds this percentage"
         ALERT_CPU_WARN=$(read_input "CPU Warning threshold %" "80")
+        echo ""
+        echo "  CPU Error: Critical alert when CPU usage exceeds this percentage"
         ALERT_CPU_ERROR=$(read_input "CPU Error threshold %" "90")
+        echo ""
+        echo "  Memory Warning: Alert when memory usage exceeds this percentage"
         ALERT_MEMORY_WARN=$(read_input "Memory Warning threshold %" "80")
+        echo ""
+        echo "  Memory Error: Critical alert when memory usage exceeds this percentage"
         ALERT_MEMORY_ERROR=$(read_input "Memory Error threshold %" "90")
         log_success "Alert thresholds configured"
         ;;
@@ -541,45 +560,63 @@ WEBHOOK_ENABLED=WEBHOOK_ENABLED_PLACEHOLDER
 WEBHOOK_URLS=WEBHOOK_URLS_PLACEHOLDER
 ENVEOF
 
+# Safely replace placeholders
+ENV_MODE_ESC=$(escape_sed "$ENV_MODE")
+TIMESTAMP_ESC=$(escape_sed "$(date)")
+CLIENT_ID_ESC=$(escape_sed "$DISCORD_CLIENT_ID")
+CLIENT_SECRET_ESC=$(escape_sed "$DISCORD_CLIENT_SECRET")
+BOT_TOKEN_ESC=$(escape_sed "$DISCORD_BOT_TOKEN")
+PORT_ESC=$(escape_sed "$PORT")
+CLIENT_PORT_ESC=$(escape_sed "$CLIENT_PORT")
+GUILD_IDS_ESC=$(escape_sed "$ALLOWED_GUILD_IDS")
+ENABLE_MONITORING_ESC=$(escape_sed "$ENABLE_MONITORING")
+ALERT_CPU_WARN_ESC=$(escape_sed "$ALERT_CPU_WARN")
+ALERT_CPU_ERROR_ESC=$(escape_sed "$ALERT_CPU_ERROR")
+ALERT_MEMORY_WARN_ESC=$(escape_sed "$ALERT_MEMORY_WARN")
+ALERT_MEMORY_ERROR_ESC=$(escape_sed "$ALERT_MEMORY_ERROR")
+ADMIN_TOKEN_ESC=$(escape_sed "$ADMIN_TOKEN")
+WEBHOOK_ENABLED_ESC=$(escape_sed "$WEBHOOK_ENABLED")
+WEBHOOK_URLS_ESC=$(escape_sed "$WEBHOOK_URLS")
+
 # Replace placeholders (cross-platform compatible)
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS
-    sed -i '' "s|ENV_MODE_PLACEHOLDER|$ENV_MODE|g" .env
-    sed -i '' "s|TIMESTAMP_PLACEHOLDER|$(date)|g" .env
-    sed -i '' "s|CLIENT_ID_PLACEHOLDER|$DISCORD_CLIENT_ID|g" .env
-    sed -i '' "s|CLIENT_SECRET_PLACEHOLDER|$DISCORD_CLIENT_SECRET|g" .env
-    sed -i '' "s|BOT_TOKEN_PLACEHOLDER|$DISCORD_BOT_TOKEN|g" .env
-    sed -i '' "s|PORT_PLACEHOLDER|$PORT|g" .env
-    sed -i '' "s|CLIENT_PORT_PLACEHOLDER|$CLIENT_PORT|g" .env
-    sed -i '' "s|GUILD_IDS_PLACEHOLDER|$ALLOWED_GUILD_IDS|g" .env
-    sed -i '' "s|NODE_ENV_PLACEHOLDER|$ENV_MODE|g" .env
-    sed -i '' "s|ENABLE_MONITORING_PLACEHOLDER|$ENABLE_MONITORING|g" .env
-    sed -i '' "s|ALERT_CPU_WARN_PLACEHOLDER|$ALERT_CPU_WARN|g" .env
-    sed -i '' "s|ALERT_CPU_ERROR_PLACEHOLDER|$ALERT_CPU_ERROR|g" .env
-    sed -i '' "s|ALERT_MEMORY_WARN_PLACEHOLDER|$ALERT_MEMORY_WARN|g" .env
-    sed -i '' "s|ALERT_MEMORY_ERROR_PLACEHOLDER|$ALERT_MEMORY_ERROR|g" .env
-    sed -i '' "s|ADMIN_TOKEN_PLACEHOLDER|$ADMIN_TOKEN|g" .env
-    sed -i '' "s|WEBHOOK_ENABLED_PLACEHOLDER|$WEBHOOK_ENABLED|g" .env
-    sed -i '' "s|WEBHOOK_URLS_PLACEHOLDER|$WEBHOOK_URLS|g" .env
+    sed -i '' "s|ENV_MODE_PLACEHOLDER|$ENV_MODE_ESC|g" .env
+    sed -i '' "s|TIMESTAMP_PLACEHOLDER|$TIMESTAMP_ESC|g" .env
+    sed -i '' "s|CLIENT_ID_PLACEHOLDER|$CLIENT_ID_ESC|g" .env
+    sed -i '' "s|CLIENT_SECRET_PLACEHOLDER|$CLIENT_SECRET_ESC|g" .env
+    sed -i '' "s|BOT_TOKEN_PLACEHOLDER|$BOT_TOKEN_ESC|g" .env
+    sed -i '' "s|PORT_PLACEHOLDER|$PORT_ESC|g" .env
+    sed -i '' "s|CLIENT_PORT_PLACEHOLDER|$CLIENT_PORT_ESC|g" .env
+    sed -i '' "s|GUILD_IDS_PLACEHOLDER|$GUILD_IDS_ESC|g" .env
+    sed -i '' "s|NODE_ENV_PLACEHOLDER|$ENV_MODE_ESC|g" .env
+    sed -i '' "s|ENABLE_MONITORING_PLACEHOLDER|$ENABLE_MONITORING_ESC|g" .env
+    sed -i '' "s|ALERT_CPU_WARN_PLACEHOLDER|$ALERT_CPU_WARN_ESC|g" .env
+    sed -i '' "s|ALERT_CPU_ERROR_PLACEHOLDER|$ALERT_CPU_ERROR_ESC|g" .env
+    sed -i '' "s|ALERT_MEMORY_WARN_PLACEHOLDER|$ALERT_MEMORY_WARN_ESC|g" .env
+    sed -i '' "s|ALERT_MEMORY_ERROR_PLACEHOLDER|$ALERT_MEMORY_ERROR_ESC|g" .env
+    sed -i '' "s|ADMIN_TOKEN_PLACEHOLDER|$ADMIN_TOKEN_ESC|g" .env
+    sed -i '' "s|WEBHOOK_ENABLED_PLACEHOLDER|$WEBHOOK_ENABLED_ESC|g" .env
+    sed -i '' "s|WEBHOOK_URLS_PLACEHOLDER|$WEBHOOK_URLS_ESC|g" .env
 else
     # Linux
-    sed -i "s|ENV_MODE_PLACEHOLDER|$ENV_MODE|g" .env
-    sed -i "s|TIMESTAMP_PLACEHOLDER|$(date)|g" .env
-    sed -i "s|CLIENT_ID_PLACEHOLDER|$DISCORD_CLIENT_ID|g" .env
-    sed -i "s|CLIENT_SECRET_PLACEHOLDER|$DISCORD_CLIENT_SECRET|g" .env
-    sed -i "s|BOT_TOKEN_PLACEHOLDER|$DISCORD_BOT_TOKEN|g" .env
-    sed -i "s|PORT_PLACEHOLDER|$PORT|g" .env
-    sed -i "s|CLIENT_PORT_PLACEHOLDER|$CLIENT_PORT|g" .env
-    sed -i "s|GUILD_IDS_PLACEHOLDER|$ALLOWED_GUILD_IDS|g" .env
-    sed -i "s|NODE_ENV_PLACEHOLDER|$ENV_MODE|g" .env
-    sed -i "s|ENABLE_MONITORING_PLACEHOLDER|$ENABLE_MONITORING|g" .env
-    sed -i "s|ALERT_CPU_WARN_PLACEHOLDER|$ALERT_CPU_WARN|g" .env
-    sed -i "s|ALERT_CPU_ERROR_PLACEHOLDER|$ALERT_CPU_ERROR|g" .env
-    sed -i "s|ALERT_MEMORY_WARN_PLACEHOLDER|$ALERT_MEMORY_WARN|g" .env
-    sed -i "s|ALERT_MEMORY_ERROR_PLACEHOLDER|$ALERT_MEMORY_ERROR|g" .env
-    sed -i "s|ADMIN_TOKEN_PLACEHOLDER|$ADMIN_TOKEN|g" .env
-    sed -i "s|WEBHOOK_ENABLED_PLACEHOLDER|$WEBHOOK_ENABLED|g" .env
-    sed -i "s|WEBHOOK_URLS_PLACEHOLDER|$WEBHOOK_URLS|g" .env
+    sed -i "s|ENV_MODE_PLACEHOLDER|$ENV_MODE_ESC|g" .env
+    sed -i "s|TIMESTAMP_PLACEHOLDER|$TIMESTAMP_ESC|g" .env
+    sed -i "s|CLIENT_ID_PLACEHOLDER|$CLIENT_ID_ESC|g" .env
+    sed -i "s|CLIENT_SECRET_PLACEHOLDER|$CLIENT_SECRET_ESC|g" .env
+    sed -i "s|BOT_TOKEN_PLACEHOLDER|$BOT_TOKEN_ESC|g" .env
+    sed -i "s|PORT_PLACEHOLDER|$PORT_ESC|g" .env
+    sed -i "s|CLIENT_PORT_PLACEHOLDER|$CLIENT_PORT_ESC|g" .env
+    sed -i "s|GUILD_IDS_PLACEHOLDER|$GUILD_IDS_ESC|g" .env
+    sed -i "s|NODE_ENV_PLACEHOLDER|$ENV_MODE_ESC|g" .env
+    sed -i "s|ENABLE_MONITORING_PLACEHOLDER|$ENABLE_MONITORING_ESC|g" .env
+    sed -i "s|ALERT_CPU_WARN_PLACEHOLDER|$ALERT_CPU_WARN_ESC|g" .env
+    sed -i "s|ALERT_CPU_ERROR_PLACEHOLDER|$ALERT_CPU_ERROR_ESC|g" .env
+    sed -i "s|ALERT_MEMORY_WARN_PLACEHOLDER|$ALERT_MEMORY_WARN_ESC|g" .env
+    sed -i "s|ALERT_MEMORY_ERROR_PLACEHOLDER|$ALERT_MEMORY_ERROR_ESC|g" .env
+    sed -i "s|ADMIN_TOKEN_PLACEHOLDER|$ADMIN_TOKEN_ESC|g" .env
+    sed -i "s|WEBHOOK_ENABLED_PLACEHOLDER|$WEBHOOK_ENABLED_ESC|g" .env
+    sed -i "s|WEBHOOK_URLS_PLACEHOLDER|$WEBHOOK_URLS_ESC|g" .env
 fi
 
 log_success "Created .env"
@@ -622,35 +659,43 @@ else
     EMBEDDED_APP_URL="$NEXT_PUBLIC_API_URL"
 fi
 
+# Escape special characters for bot/.env
+EMBEDDED_APP_URL_ESC=$(escape_sed "$EMBEDDED_APP_URL")
+DB_HOST_ESC=$(escape_sed "$DB_HOST")
+DB_PORT_ESC=$(escape_sed "$DB_PORT")
+DB_NAME_ESC=$(escape_sed "$DB_NAME")
+DB_USER_ESC=$(escape_sed "$DB_USER")
+DB_PASSWORD_ESC=$(escape_sed "$DB_PASSWORD")
+
 # Replace placeholders (cross-platform compatible)
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS
-    sed -i '' "s|ENV_MODE_PLACEHOLDER|$ENV_MODE|g" bot/.env
-    sed -i '' "s|TIMESTAMP_PLACEHOLDER|$(date)|g" bot/.env
-    sed -i '' "s|CLIENT_ID_PLACEHOLDER|$DISCORD_CLIENT_ID|g" bot/.env
-    sed -i '' "s|BOT_TOKEN_PLACEHOLDER|$DISCORD_BOT_TOKEN|g" bot/.env
-    sed -i '' "s|GUILD_IDS_PLACEHOLDER|$ALLOWED_GUILD_IDS|g" bot/.env
-    sed -i '' "s|EMBEDDED_APP_URL_PLACEHOLDER|$EMBEDDED_APP_URL|g" bot/.env
-    sed -i '' "s|DB_HOST_PLACEHOLDER|$DB_HOST|g" bot/.env
-    sed -i '' "s|DB_PORT_PLACEHOLDER|$DB_PORT|g" bot/.env
-    sed -i '' "s|DB_NAME_PLACEHOLDER|$DB_NAME|g" bot/.env
-    sed -i '' "s|DB_USER_PLACEHOLDER|$DB_USER|g" bot/.env
-    sed -i '' "s|DB_PASSWORD_PLACEHOLDER|$DB_PASSWORD|g" bot/.env
-    sed -i '' "s|NODE_ENV_PLACEHOLDER|$ENV_MODE|g" bot/.env
+    sed -i '' "s|ENV_MODE_PLACEHOLDER|$ENV_MODE_ESC|g" bot/.env
+    sed -i '' "s|TIMESTAMP_PLACEHOLDER|$TIMESTAMP_ESC|g" bot/.env
+    sed -i '' "s|CLIENT_ID_PLACEHOLDER|$CLIENT_ID_ESC|g" bot/.env
+    sed -i '' "s|BOT_TOKEN_PLACEHOLDER|$BOT_TOKEN_ESC|g" bot/.env
+    sed -i '' "s|GUILD_IDS_PLACEHOLDER|$GUILD_IDS_ESC|g" bot/.env
+    sed -i '' "s|EMBEDDED_APP_URL_PLACEHOLDER|$EMBEDDED_APP_URL_ESC|g" bot/.env
+    sed -i '' "s|DB_HOST_PLACEHOLDER|$DB_HOST_ESC|g" bot/.env
+    sed -i '' "s|DB_PORT_PLACEHOLDER|$DB_PORT_ESC|g" bot/.env
+    sed -i '' "s|DB_NAME_PLACEHOLDER|$DB_NAME_ESC|g" bot/.env
+    sed -i '' "s|DB_USER_PLACEHOLDER|$DB_USER_ESC|g" bot/.env
+    sed -i '' "s|DB_PASSWORD_PLACEHOLDER|$DB_PASSWORD_ESC|g" bot/.env
+    sed -i '' "s|NODE_ENV_PLACEHOLDER|$ENV_MODE_ESC|g" bot/.env
 else
     # Linux
-    sed -i "s|ENV_MODE_PLACEHOLDER|$ENV_MODE|g" bot/.env
-    sed -i "s|TIMESTAMP_PLACEHOLDER|$(date)|g" bot/.env
-    sed -i "s|CLIENT_ID_PLACEHOLDER|$DISCORD_CLIENT_ID|g" bot/.env
-    sed -i "s|BOT_TOKEN_PLACEHOLDER|$DISCORD_BOT_TOKEN|g" bot/.env
-    sed -i "s|GUILD_IDS_PLACEHOLDER|$ALLOWED_GUILD_IDS|g" bot/.env
-    sed -i "s|EMBEDDED_APP_URL_PLACEHOLDER|$EMBEDDED_APP_URL|g" bot/.env
-    sed -i "s|DB_HOST_PLACEHOLDER|$DB_HOST|g" bot/.env
-    sed -i "s|DB_PORT_PLACEHOLDER|$DB_PORT|g" bot/.env
-    sed -i "s|DB_NAME_PLACEHOLDER|$DB_NAME|g" bot/.env
-    sed -i "s|DB_USER_PLACEHOLDER|$DB_USER|g" bot/.env
-    sed -i "s|DB_PASSWORD_PLACEHOLDER|$DB_PASSWORD|g" bot/.env
-    sed -i "s|NODE_ENV_PLACEHOLDER|$ENV_MODE|g" bot/.env
+    sed -i "s|ENV_MODE_PLACEHOLDER|$ENV_MODE_ESC|g" bot/.env
+    sed -i "s|TIMESTAMP_PLACEHOLDER|$TIMESTAMP_ESC|g" bot/.env
+    sed -i "s|CLIENT_ID_PLACEHOLDER|$CLIENT_ID_ESC|g" bot/.env
+    sed -i "s|BOT_TOKEN_PLACEHOLDER|$BOT_TOKEN_ESC|g" bot/.env
+    sed -i "s|GUILD_IDS_PLACEHOLDER|$GUILD_IDS_ESC|g" bot/.env
+    sed -i "s|EMBEDDED_APP_URL_PLACEHOLDER|$EMBEDDED_APP_URL_ESC|g" bot/.env
+    sed -i "s|DB_HOST_PLACEHOLDER|$DB_HOST_ESC|g" bot/.env
+    sed -i "s|DB_PORT_PLACEHOLDER|$DB_PORT_ESC|g" bot/.env
+    sed -i "s|DB_NAME_PLACEHOLDER|$DB_NAME_ESC|g" bot/.env
+    sed -i "s|DB_USER_PLACEHOLDER|$DB_USER_ESC|g" bot/.env
+    sed -i "s|DB_PASSWORD_PLACEHOLDER|$DB_PASSWORD_ESC|g" bot/.env
+    sed -i "s|NODE_ENV_PLACEHOLDER|$ENV_MODE_ESC|g" bot/.env
 fi
 
 log_success "Created bot/.env"
@@ -686,27 +731,33 @@ else
     BACKEND_URL="$NEXT_PUBLIC_API_URL"
 fi
 
+# Escape special characters for client/.env.local
+BACKEND_URL_ESC=$(escape_sed "$BACKEND_URL")
+DEV_MODE_ESC=$(escape_sed "$NEXT_PUBLIC_ENABLE_DEV_MODE")
+DEV_GUILD_ESC=$(escape_sed "$NEXT_PUBLIC_DEV_GUILD_ID")
+DEV_USER_ESC=$(escape_sed "$NEXT_PUBLIC_DEV_USER_ID")
+
 # Replace placeholders (cross-platform compatible)
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS
-    sed -i '' "s|ENV_MODE_PLACEHOLDER|$ENV_MODE|g" client/.env.local
-    sed -i '' "s|TIMESTAMP_PLACEHOLDER|$(date)|g" client/.env.local
-    sed -i '' "s|CLIENT_ID_PLACEHOLDER|$DISCORD_CLIENT_ID|g" client/.env.local
-    sed -i '' "s|BACKEND_URL_PLACEHOLDER|$BACKEND_URL|g" client/.env.local
-    sed -i '' "s|DEV_MODE_PLACEHOLDER|$NEXT_PUBLIC_ENABLE_DEV_MODE|g" client/.env.local
-    sed -i '' "s|DEV_GUILD_PLACEHOLDER|$NEXT_PUBLIC_DEV_GUILD_ID|g" client/.env.local
-    sed -i '' "s|DEV_USER_PLACEHOLDER|$NEXT_PUBLIC_DEV_USER_ID|g" client/.env.local
-    sed -i '' "s|NODE_ENV_PLACEHOLDER|$ENV_MODE|g" client/.env.local
+    sed -i '' "s|ENV_MODE_PLACEHOLDER|$ENV_MODE_ESC|g" client/.env.local
+    sed -i '' "s|TIMESTAMP_PLACEHOLDER|$TIMESTAMP_ESC|g" client/.env.local
+    sed -i '' "s|CLIENT_ID_PLACEHOLDER|$CLIENT_ID_ESC|g" client/.env.local
+    sed -i '' "s|BACKEND_URL_PLACEHOLDER|$BACKEND_URL_ESC|g" client/.env.local
+    sed -i '' "s|DEV_MODE_PLACEHOLDER|$DEV_MODE_ESC|g" client/.env.local
+    sed -i '' "s|DEV_GUILD_PLACEHOLDER|$DEV_GUILD_ESC|g" client/.env.local
+    sed -i '' "s|DEV_USER_PLACEHOLDER|$DEV_USER_ESC|g" client/.env.local
+    sed -i '' "s|NODE_ENV_PLACEHOLDER|$ENV_MODE_ESC|g" client/.env.local
 else
     # Linux
-    sed -i "s|ENV_MODE_PLACEHOLDER|$ENV_MODE|g" client/.env.local
-    sed -i "s|TIMESTAMP_PLACEHOLDER|$(date)|g" client/.env.local
-    sed -i "s|CLIENT_ID_PLACEHOLDER|$DISCORD_CLIENT_ID|g" client/.env.local
-    sed -i "s|BACKEND_URL_PLACEHOLDER|$BACKEND_URL|g" client/.env.local
-    sed -i "s|DEV_MODE_PLACEHOLDER|$NEXT_PUBLIC_ENABLE_DEV_MODE|g" client/.env.local
-    sed -i "s|DEV_GUILD_PLACEHOLDER|$NEXT_PUBLIC_DEV_GUILD_ID|g" client/.env.local
-    sed -i "s|DEV_USER_PLACEHOLDER|$NEXT_PUBLIC_DEV_USER_ID|g" client/.env.local
-    sed -i "s|NODE_ENV_PLACEHOLDER|$ENV_MODE|g" client/.env.local
+    sed -i "s|ENV_MODE_PLACEHOLDER|$ENV_MODE_ESC|g" client/.env.local
+    sed -i "s|TIMESTAMP_PLACEHOLDER|$TIMESTAMP_ESC|g" client/.env.local
+    sed -i "s|CLIENT_ID_PLACEHOLDER|$CLIENT_ID_ESC|g" client/.env.local
+    sed -i "s|BACKEND_URL_PLACEHOLDER|$BACKEND_URL_ESC|g" client/.env.local
+    sed -i "s|DEV_MODE_PLACEHOLDER|$DEV_MODE_ESC|g" client/.env.local
+    sed -i "s|DEV_GUILD_PLACEHOLDER|$DEV_GUILD_ESC|g" client/.env.local
+    sed -i "s|DEV_USER_PLACEHOLDER|$DEV_USER_ESC|g" client/.env.local
+    sed -i "s|NODE_ENV_PLACEHOLDER|$ENV_MODE_ESC|g" client/.env.local
 fi
 
 log_success "Created client/.env.local"
