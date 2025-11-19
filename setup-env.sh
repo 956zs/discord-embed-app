@@ -42,9 +42,20 @@ log_section() {
     echo -e "${CYAN}======================================================================${NC}"
 }
 
-# Escape special characters for sed
-escape_sed() {
-    echo "$1" | sed 's/[&/\]/\\&/g'
+# Safely replace placeholder in file
+# Usage: safe_replace "file" "placeholder" "value"
+safe_replace() {
+    local file="$1"
+    local placeholder="$2"
+    local value="$3"
+    
+    # Use perl for safe replacement (handles all special characters)
+    if command -v perl >/dev/null 2>&1; then
+        perl -i -pe "s|\Q$placeholder\E|\Q$value\E|g" "$file"
+    else
+        # Fallback: use awk (safer than sed for this use case)
+        awk -v placeholder="$placeholder" -v value="$value" '{gsub(placeholder, value); print}' "$file" > "$file.tmp" && mv "$file.tmp" "$file"
+    fi
 }
 
 # Read user input
@@ -119,8 +130,8 @@ echo -e "${CYAN}"
 cat << "EOF"
 ╔═══════════════════════════════════════════════════════════════╗
 ║                                                               ║
-║   Discord Server Stats & Visualization Embedded App          ║
-║   Environment Configuration Tool                             ║
+║   Discord Server Stats & Visualization Embedded App           ║
+║   Environment Configuration Tool                              ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 EOF
