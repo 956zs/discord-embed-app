@@ -159,27 +159,80 @@ pm2 start ecosystem.config.js
 - Server + Bot: http://localhost:3008
 - Client: http://localhost:3000
 
-## 📚 文檔
+## 📚 文檔索引
 
-### 🚀 核心文檔（必讀）
-- [完整部署指南](COMPLETE_DEPLOYMENT_GUIDE.md) - **從零到生產環境的完整指南**（⭐ 強烈推薦）
-- [快速部署摘要](DEPLOYMENT_SUMMARY.md) - **3 分鐘快速部署**（新手友好）
-- [快速參考](QUICK_REFERENCE.md) - **常用命令和配置速查表**（推薦收藏）
+### 🚀 快速開始（新手必讀）
+| 文檔 | 說明 | 適用對象 |
+|------|------|----------|
+| [快速部署摘要](DEPLOYMENT_SUMMARY.md) | **3 分鐘快速部署** | ⭐ 新手首選 |
+| [完整部署指南](COMPLETE_DEPLOYMENT_GUIDE.md) | **從零到生產環境的完整指南** | 詳細步驟 |
+| [快速參考](QUICK_REFERENCE.md) | **常用命令和配置速查表** | 日常使用 |
 
-### 📖 使用指南
-- [配置指南](docs/guides/CONFIGURATION.md) - 環境變數和配置說明
-- [開發指南](docs/guides/DEVELOPMENT.md) - 開發環境設置和常用命令
-- [故障排除](docs/guides/TROUBLESHOOTING.md) - 常見問題解決方案
+### 📖 配置與開發
+| 文檔 | 說明 |
+|------|------|
+| [環境變數指南](docs/ENVIRONMENT_VARIABLES.md) | 完整的環境變數配置說明 |
+| [環境變數審查](ENV_VARS_AUDIT.md) | 環境變數命名一致性檢查報告 |
+| [配置指南](docs/CONFIGURATION.md) | 系統配置和設定說明 |
+| [開發指南](docs/DEVELOPMENT.md) | 開發環境設置和工作流程 |
 
-### 🔧 專題文檔
-- [PM2 安全操作](docs/PM2_SAFETY.md) - **進程管理安全規範**（多應用環境必讀）
-- [監控系統](docs/MONITORING.md) - **效能監控系統完整指南**（v2.4.0 新增）
-- [環境變數](docs/ENVIRONMENT_VARIABLES.md) - **詳細的環境變數配置說明**
-- [討論串支援](docs/THREAD_SUPPORT.md) - Discord 討論串功能說明
-- [資料庫架構](bot/database/README.md) - 資料庫表結構說明
+### 🔧 運維與管理
+| 文檔 | 說明 | 重要性 |
+|------|------|----------|
+| [PM2 安全操作](docs/PM2_SAFETY.md) | 進程管理安全規範 | ⭐ 多應用環境必讀 |
+| [監控系統](docs/MONITORING.md) | 效能監控系統完整指南 | v2.4.0 新增 |
+| [故障排除](docs/guides/TROUBLESHOOTING.md) | 常見問題解決方案 | 遇到問題時查看 |
 
-### 📦 歷史文檔
-- [文檔存檔](docs/archive/) - 已整合或過時的歷史文檔
+### 🎯 功能專題
+| 文檔 | 說明 |
+|------|------|
+| [討論串支援](docs/THREAD_SUPPORT.md) | Discord 討論串和論壇頻道功能 |
+| [快取優化](docs/features/CACHE_OPTIMIZATION.md) | 資料快取策略和優化 |
+| [資料庫架構](bot/database/README.md) | PostgreSQL 表結構和關係 |
+
+### 📦 技術文檔
+| 文檔 | 說明 |
+|------|------|
+| [監控 API 使用](server/monitoring/API_USAGE.md) | 監控系統 API 端點說明 |
+| [Webhook 實作](server/monitoring/WEBHOOK_IMPLEMENTATION.md) | Discord Webhook 通知實作 |
+| [監控模組](server/monitoring/README.md) | 監控系統技術架構 |
+
+### 📋 專案管理
+| 文檔 | 說明 |
+|------|------|
+| [專案組織完成](PROJECT_ORGANIZATION_COMPLETE.md) | 專案結構重組總結 |
+| [文檔重組](docs/DOCUMENTATION_REORGANIZATION.md) | 文檔結構調整說明 |
+| [腳本重組](docs/SCRIPTS_REORGANIZATION.md) | 管理腳本整理說明 |
+
+### 🗂️ 歷史文檔
+| 位置 | 說明 |
+|------|------|
+| [docs/archive/](docs/archive/) | 已整合或過時的歷史文檔 |
+| [scripts/archive/](scripts/archive/) | 舊版管理腳本存檔 |
+| [tests/pm2-safety/](tests/pm2-safety/) | PM2 安全測試腳本 |
+
+### 📝 使用指南索引
+
+**首次部署：**
+1. 閱讀 [快速部署摘要](DEPLOYMENT_SUMMARY.md)
+2. 執行 `./setup-env.sh` 配置環境
+3. 執行 `./deploy.sh` 完成部署
+4. 參考 [快速參考](QUICK_REFERENCE.md) 了解常用命令
+
+**日常維護：**
+- 查看 [快速參考](QUICK_REFERENCE.md) 了解管理命令
+- 遇到問題查看 [故障排除](docs/guides/TROUBLESHOOTING.md)
+- 使用 `./manage.sh` 進行日常管理
+
+**進階配置：**
+- 閱讀 [環境變數指南](docs/ENVIRONMENT_VARIABLES.md) 了解所有配置選項
+- 閱讀 [監控系統](docs/MONITORING.md) 啟用效能監控
+- 閱讀 [PM2 安全操作](docs/PM2_SAFETY.md) 了解安全規範
+
+**開發貢獻：**
+- 閱讀 [開發指南](docs/DEVELOPMENT.md) 設置開發環境
+- 查看 [資料庫架構](bot/database/README.md) 了解資料結構
+- 參考專案結構章節了解代碼組織
 
 ## 專案結構
 
