@@ -1,5 +1,26 @@
 require("dotenv").config();
 
+/**
+ * PM2 Ecosystem Configuration - Single Process Mode
+ *
+ * Process Names:
+ * - discord-app: Integrated API server + Discord bot + Next.js frontend (port 3000)
+ *
+ * Safety Note:
+ * All management scripts (deploy.sh, manage.sh, update.sh) use this specific
+ * process name and will NEVER use global commands like "pm2 delete all".
+ * This ensures other PM2 processes on the system are not affected.
+ *
+ * Usage:
+ * - pm2 start ecosystem.single.config.js
+ * - pm2 restart discord-app
+ * - pm2 logs discord-app
+ *
+ * Mode Switching:
+ * Use ./manage.sh switch-mode to switch between single and dual process modes.
+ * The script will safely clean up processes from the old mode before starting the new mode.
+ */
+
 module.exports = {
   apps: [
     // Single Process: Server + Bot + Client

@@ -337,8 +337,139 @@ app.use(cors({
 ### Q: 可以動態添加伺服器嗎？
 **A:** 目前需要編輯 `.env` 文件並重啟服務。未來可以實現動態管理功能。
 
+## PM2 安全操作
+
+本專案的所有管理腳本都遵循嚴格的 PM2 安全操作規範，確保不會影響系統中的其他 PM2 進程。
+
+### 進程命名規範
+
+Discord 應用使用專屬的進程名稱：
+
+**雙進程模式**：
+- `discord-server` - API 服務器 + Bot
+- `discord-client` - Next.js 前端
+
+**單進程模式**：
+- `discord-app` - API + Bot + Next.js 整合
+
+### 安全原則
+
+所有管理腳本（`deploy.sh`、`update.sh`、`manage.sh`）都遵循以下原則：
+
+1. **明確性** - 所有 PM2 命令必須明確指定進程名稱
+2. **隔離性** - 絕不使用影響所有進程的全域命令
+3. **容錯性** - 優雅處理進程不存在的情況
+4. **可追蹤性** - 記錄所有 PM2 操作
+
+### 禁止的命令
+
+以下命令**永遠不會**在管理腳本中使用：
+
+```bash
+# ❌ 危險命令（會影響所有進程）
+pm2 delete all
+pm2 restart all
+pm2 stop all
+pm2 reload all
+```
+
+### 安全的命令
+
+管理腳本只使用明確指定進程名稱的命令：
+
+```bash
+# ✅ 安全命令（只影響 Discord 應用）
+pm2 stop discord-server
+pm2 delete discord-client
+pm2 restart discord-app
+pm2 logs discord-server
+```
+
+### 多應用環境
+
+如果你的伺服器運行多個 PM2 應用，本專案的管理腳本保證不會干擾其他應用：
+
+```bash
+# 查看所有進程
+pm2 list
+
+# 執行 Discord 應用管理命令
+./manage.sh stop          # 只停止 discord-server 和 discord-client
+./manage.sh restart       # 只重啟 Discord 應用進程
+./deploy.sh               # 只清理和部署 Discord 應用
+
+# 其他應用完全不受影響
+```
+
+### 安全操作函數
+
+所有腳本使用統一的安全操作函數（`scripts/pm2-utils.sh`）：
+
+```bash
+# 安全停止
+safe_pm2_stop "discord-server discord-client"
+
+# 安全刪除
+safe_pm2_delete "discord-server discord-client"
+
+# 安全重啟
+safe_pm2_restart "discord-server discord-client"
+
+# 清理所有 Discord 進程（模式切換時使用）
+cleanup_discord_processes
+```
+
+### 錯誤處理
+
+當操作不存在的進程時，腳本會優雅處理：
+
+```bash
+# 進程不存在時
+pm2 delete discord-server 2>/dev/null || log_info "discord-server 不存在"
+
+# 繼續執行，不會中斷腳本
+```
+
+### 操作日誌
+
+所有 PM2 操作都會記錄詳細日誌：
+
+```
+🔄 停止 Discord 應用進程: discord-server discord-client
+✅ 已停止: discord-server
+✅ 已停止: discord-client
+```
+
+### 驗證安全性
+
+你可以通過以下方式驗證管理腳本的安全性：
+
+```bash
+# 1. 創建測試進程
+pm2 start "sleep 3600" --name test-app
+
+# 2. 執行 Discord 應用管理命令
+./manage.sh restart
+
+# 3. 驗證測試進程未受影響
+pm2 list
+# test-app 應該仍在運行
+
+# 4. 清理測試進程
+pm2 delete test-app
+```
+
+### 最佳實踐
+
+1. **定期檢查** - 使用 `pm2 list` 查看所有進程狀態
+2. **備份配置** - 在執行管理命令前備份重要數據
+3. **查看日誌** - 使用 `./manage.sh logs` 查看操作日誌
+4. **測試環境** - 在測試環境先驗證管理命令
+5. **文檔參考** - 查看 [PM2 安全操作文檔](docs/PM2_SAFETY.md) 了解更多細節
+
 ## 下一步
 
 - 閱讀 `DEVELOPMENT.md` 了解開發指南
 - 閱讀 `TROUBLESHOOTING.md` 了解故障排除
+- 閱讀 `docs/PM2_SAFETY.md` 了解 PM2 安全操作詳情
 - 查看 API 文檔了解所有端點

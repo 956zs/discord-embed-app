@@ -7,35 +7,20 @@
 # 
 # 可用命令:
 #   start    - 啟動所有服務
-#   stop     - 停止所有服務
-#   restart  - 重啟所有服務
+#   stop     - 停止 Discord 應用服務（不影響其他進程）
+#   restart  - 重啟 Discord 應用服務（不影響其他進程）
 #   status   - 查看服務狀態
 #   logs     - 查看所有日誌
-#   logs-api - 查看 API 日誌
-#   logs-bot - 查看 Bot 日誌
+#   logs-server - 查看 Server 日誌（包含 Bot，根據模式選擇進程）
 #   logs-client - 查看 Client 日誌
 #   backup   - 備份資料庫
 #   restore  - 還原資料庫
+#   switch-mode - 切換進程模式（不影響其他進程）
 # ============================================================================
 
-# 顏色定義
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
-}
-
-log_success() {
-    echo -e "${GREEN}✅ $1${NC}"
-}
-
-log_error() {
-    echo -e "${RED}❌ $1${NC}"
-}
+# 引入 PM2 安全操作函數
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/scripts/pm2-utils.sh"
 
 # 載入環境變數
 if [ -f ".env" ]; then
@@ -51,7 +36,7 @@ PROCESS_MODE=${PROCESS_MODE:-dual}
 # 啟動函數
 start_dual() {
     log_info "啟動雙進程模式..."
-    pm2 start ecosystem.dual.config.js
+    pm2 start ecosystem.config.js
 }
 
 start_single() {
@@ -73,23 +58,34 @@ case "$1" in
         ;;
     
     stop)
-        log_info "停止 Discord 應用服務..."
-        pm2 stop discord-server discord-client
-        log_success "服務已停止"
+        log_info "停止 Discord 應用服務（不影響其他進程）..."
+        # 根據當前模式停止相應進程
+        CURRENT_PROCESSES=$(get_processes_for_mode "$PROCESS_MODE")
+        safe_pm2_stop "$CURRENT_PROCESSES"
+        
+        # 同時檢查並停止其他模式的進程
+        OTHER_MODE=$([ "$PROCESS_MODE" = "dual" ] && echo "single" || echo "dual")
+        OTHER_PROCESSES=$(get_processes_for_mode "$OTHER_MODE")
+        safe_pm2_stop "$OTHER_PROCESSES"
+        
+        log_success "Discord 應用服務已停止"
         pm2 status
         ;;
     
     restart)
-        log_info "重啟 Discord 應用服務（重新載入環境變數）..."
-        pm2 restart discord-server discord-client --update-env
-        log_success "服務已重啟"
+        log_info "重啟 Discord 應用服務（不影響其他進程）..."
+        # 根據當前模式重啟相應進程
+        CURRENT_PROCESSES=$(get_processes_for_mode "$PROCESS_MODE")
+        safe_pm2_restart "$CURRENT_PROCESSES"
+        log_success "Discord 應用服務已重啟"
         sleep 2
         pm2 status
         ;;
     
     restart-prod)
-        log_info "重啟生產環境（完全重新載入配置）..."
-        pm2 delete all 2>/dev/null || log_info "沒有運行中的服務"
+        log_info "重啟生產環境（完全重新載入配置，不影響其他進程）..."
+        # 使用安全函數清理所有 Discord 進程
+        cleanup_discord_processes
         sleep 2
         if [ "$PROCESS_MODE" = "single" ]; then
             start_single
@@ -110,12 +106,13 @@ case "$1" in
         pm2 logs
         ;;
     
-    logs-api)
-        pm2 logs discord-api
-        ;;
-    
-    logs-bot)
-        pm2 logs discord-bot
+    logs-server)
+        # 根據模式選擇正確的進程
+        if [ "$PROCESS_MODE" = "single" ]; then
+            pm2 logs discord-app
+        else
+            pm2 logs discord-server
+        fi
         ;;
     
     logs-client)
@@ -245,7 +242,7 @@ case "$1" in
             exit 1
         fi
         
-        log_info "切換到 $NEW_MODE 模式..."
+        log_info "切換到 $NEW_MODE 模式（不影響其他進程）..."
         
         # 更新 .env
         if [ -f ".env" ]; then
@@ -258,9 +255,9 @@ case "$1" in
             echo "PROCESS_MODE=$NEW_MODE" > .env
         fi
         
-        # 停止現有服務
-        log_info "停止現有服務..."
-        pm2 delete all 2>/dev/null || true
+        # 使用安全函數清理所有 Discord 進程
+        log_info "停止現有 Discord 服務..."
+        cleanup_discord_processes
         sleep 2
         
         # 重新載入環境變數
@@ -286,21 +283,24 @@ case "$1" in
         echo ""
         echo "可用命令:"
         echo "  start              - 啟動所有服務"
-        echo "  stop               - 停止所有服務"
-        echo "  restart            - 重啟所有服務"
-        echo "  restart-prod       - 重啟生產環境（重新載入配置）"
+        echo "  stop               - 停止 Discord 應用服務（不影響其他進程）"
+        echo "  restart            - 重啟 Discord 應用服務（不影響其他進程）"
+        echo "  restart-prod       - 重啟生產環境（重新載入配置，不影響其他進程）"
         echo "  status             - 查看服務狀態"
         echo "  logs               - 查看所有日誌"
-        echo "  logs-api           - 查看 API 日誌"
-        echo "  logs-bot           - 查看 Bot 日誌"
+        echo "  logs-server        - 查看 Server 日誌（包含 Bot）"
         echo "  logs-client        - 查看 Client 日誌"
         echo "  backup             - 備份資料庫"
         echo "  restore <file>     - 還原資料庫"
         echo "  health             - 健康檢查"
         echo "  clean              - 清理日誌和舊備份"
-        echo "  switch-mode <mode> - 切換進程模式 (dual/single)"
+        echo "  switch-mode <mode> - 切換進程模式 (dual/single，不影響其他進程)"
         echo ""
         echo "當前進程模式: $PROCESS_MODE"
+        echo ""
+        echo "進程管理安全:"
+        echo "  ✅ 所有命令只操作 Discord 應用進程"
+        echo "  ✅ 不會影響系統中的其他 PM2 進程"
         echo ""
         exit 1
         ;;

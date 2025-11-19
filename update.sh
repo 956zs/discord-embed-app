@@ -24,34 +24,9 @@
 
 set -e
 
-# 顏色定義
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-log_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
-}
-
-log_success() {
-    echo -e "${GREEN}✅ $1${NC}"
-}
-
-log_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
-}
-
-log_error() {
-    echo -e "${RED}❌ $1${NC}"
-}
-
-log_section() {
-    echo ""
-    echo -e "${BLUE}$1${NC}"
-    echo "============================================================================"
-}
+# 引入 PM2 安全操作函數
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/scripts/pm2-utils.sh"
 
 # 解析命令行參數
 SKIP_BACKUP=false
@@ -421,27 +396,18 @@ echo ""
 if confirm "是否重啟服務？" "y"; then
     log_info "重啟 Discord 應用服務（模式: $PROCESS_MODE）..."
     
-    # 根據進程模式重啟
+    # 清理所有 Discord 進程（使用安全函數）
+    cleanup_discord_processes
+    
+    # 根據進程模式啟動服務
     if [ "$PROCESS_MODE" = "single" ]; then
         # 單進程模式
-        log_info "重啟 discord-app（單進程模式）..."
-        
-        # 先停止所有服務
-        pm2 delete all 2>/dev/null || true
-        sleep 2
-        
-        # 啟動單進程模式
+        log_info "啟動 discord-app（單進程模式）..."
         pm2 start ecosystem.single.config.js
         log_success "discord-app 已啟動（單進程模式）"
     else
         # 雙進程模式
-        log_info "重啟服務（雙進程模式）..."
-        
-        # 先停止所有服務
-        pm2 delete all 2>/dev/null || true
-        sleep 2
-        
-        # 啟動雙進程模式
+        log_info "啟動服務（雙進程模式）..."
         pm2 start ecosystem.config.js
         log_success "服務已啟動（雙進程模式）"
     fi
@@ -530,7 +496,7 @@ echo "📝 常用命令:"
 echo "  查看日誌: pm2 logs"
 echo "  查看錯誤: pm2 logs --err"
 echo "  健康檢查: ./manage.sh health"
-echo "  重啟服務: pm2 restart all"
+echo "  重啟服務: ./manage.sh restart"
 echo "  切換模式: ./manage.sh switch-mode [dual|single]"
 echo ""
 echo "📊 監控系統:"

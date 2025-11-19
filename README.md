@@ -161,31 +161,25 @@ pm2 start ecosystem.config.js
 
 ## 📚 文檔
 
-### 🚀 快速開始
+### 🚀 核心文檔（必讀）
+- [完整部署指南](COMPLETE_DEPLOYMENT_GUIDE.md) - **從零到生產環境的完整指南**（⭐ 強烈推薦）
+- [快速部署摘要](DEPLOYMENT_SUMMARY.md) - **3 分鐘快速部署**（新手友好）
 - [快速參考](QUICK_REFERENCE.md) - **常用命令和配置速查表**（推薦收藏）
-- [部署指南](DEPLOYMENT_GUIDE.md) - 完整的部署和管理指南
-- [環境變數指南](docs/ENVIRONMENT_VARIABLES.md) - **詳細的環境變數配置說明**（推薦閱讀）
-- [配置指南](CONFIGURATION.md) - 環境變數和配置說明
-- [開發指南](DEVELOPMENT.md) - 開發環境設置和常用命令
-- [專案清理摘要](PROJECT_CLEANUP_SUMMARY.md) - 最新的專案結構改進說明
 
-### 📖 功能文檔
-- [手機優化指南](MOBILE_OPTIMIZATION.md) - **手機界面優化詳細說明**（v2.3.0 新增）
-- [監控系統文檔](docs/MONITORING.md) - **效能監控系統完整指南**（v2.4.0 新增）
-- [歷史提取指南](HISTORY_FETCH_GUIDE.md) - 歷史訊息提取功能使用說明
+### 📖 使用指南
+- [配置指南](docs/guides/CONFIGURATION.md) - 環境變數和配置說明
+- [開發指南](docs/guides/DEVELOPMENT.md) - 開發環境設置和常用命令
+- [故障排除](docs/guides/TROUBLESHOOTING.md) - 常見問題解決方案
+
+### 🔧 專題文檔
+- [PM2 安全操作](docs/PM2_SAFETY.md) - **進程管理安全規範**（多應用環境必讀）
+- [監控系統](docs/MONITORING.md) - **效能監控系統完整指南**（v2.4.0 新增）
+- [環境變數](docs/ENVIRONMENT_VARIABLES.md) - **詳細的環境變數配置說明**
 - [討論串支援](docs/THREAD_SUPPORT.md) - Discord 討論串功能說明
 - [資料庫架構](bot/database/README.md) - 資料庫表結構說明
-- [生產環境架構](PRODUCTION_ARCHITECTURE.md) - 生產環境部署架構說明
 
-### 🔧 問題修復
-- [Emoji 修復](EMOJI_FIX.md) - Emoji 圖片顯示問題修復
-- [導航修復](NAVIGATION_FIX.md) - 頁面導航問題修復
-- [頻道獲取修復](CHANNEL_FETCH_FIX.md) - 生產環境頻道獲取問題修復
-- [故障排除](TROUBLESHOOTING.md) - 常見問題解決方案
-
-### 📝 其他文檔
-- [UI 升級](UI_UPGRADE.md) - shadcn/ui 升級記錄
-- [主題自訂](THEME_CUSTOMIZATION.md) - 主題配色自訂指南
+### 📦 歷史文檔
+- [文檔存檔](docs/archive/) - 已整合或過時的歷史文檔
 
 ## 專案結構
 
@@ -238,6 +232,65 @@ discord-embed-app/
 ./manage.sh switch-mode dual   # 切換到雙進程模式（推薦）
 ./manage.sh switch-mode single # 切換到單進程模式（節省資源）
 ```
+
+## 🔒 進程管理安全
+
+本專案的管理腳本設計為只操作 Discord 應用的進程，**絕不影響**系統中的其他 PM2 進程。
+
+### 進程命名規範
+
+Discord 應用使用以下專屬進程名稱：
+
+**雙進程模式（Dual Mode）**：
+- `discord-server` - API 服務器 + Bot
+- `discord-client` - Next.js 前端
+
+**單進程模式（Single Mode）**：
+- `discord-app` - API + Bot + Next.js 整合
+
+### 安全保證
+
+所有管理腳本（`deploy.sh`、`update.sh`、`manage.sh`）都遵循以下安全原則：
+
+- ✅ **絕不使用** `pm2 delete all`
+- ✅ **絕不使用** `pm2 restart all`
+- ✅ **絕不使用** `pm2 stop all`
+- ✅ **明確指定**進程名稱進行所有操作
+- ✅ **優雅處理**進程不存在的情況
+- ✅ **完整記錄**所有 PM2 操作日誌
+
+### 多應用環境支援
+
+如果你的伺服器上運行多個 PM2 應用，本專案的管理腳本**保證不會干擾**其他應用：
+
+```bash
+# 範例：你的伺服器上同時運行
+pm2 list
+# ┌─────┬──────────────────┬─────────┐
+# │ id  │ name             │ status  │
+# ├─────┼──────────────────┼─────────┤
+# │ 0   │ discord-server   │ online  │  ← Discord 應用
+# │ 1   │ discord-client   │ online  │  ← Discord 應用
+# │ 2   │ my-other-app     │ online  │  ← 其他應用（不受影響）
+# │ 3   │ another-service  │ online  │  ← 其他應用（不受影響）
+# └─────┴──────────────────┴─────────┘
+
+# 執行 Discord 應用的管理命令
+./manage.sh restart
+# ✅ 只重啟 discord-server 和 discord-client
+# ✅ my-other-app 和 another-service 完全不受影響
+```
+
+### 安全操作函數
+
+所有腳本使用統一的安全操作函數（位於 `scripts/pm2-utils.sh`）：
+
+- `safe_pm2_stop` - 安全停止指定進程
+- `safe_pm2_delete` - 安全刪除指定進程
+- `safe_pm2_restart` - 安全重啟指定進程
+- `cleanup_discord_processes` - 清理所有 Discord 進程（用於模式切換）
+
+詳細說明請參考 [PM2 安全操作文檔](docs/PM2_SAFETY.md)。
 
 ### NPM 腳本
 

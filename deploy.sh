@@ -10,10 +10,20 @@
 # 2. 安裝所有 npm 套件
 # 3. 設置資料庫
 # 4. 構建前端
-# 5. 使用 PM2 啟動所有服務
+# 5. 停止現有 Discord 應用進程（不影響其他 PM2 進程）
+# 6. 使用 PM2 啟動所有服務
+# 
+# 安全保證：
+# - 只操作 Discord 應用的進程（discord-server, discord-client, discord-app）
+# - 不使用 pm2 delete all 等全域命令
+# - 不會影響系統中的其他 PM2 進程
 # ============================================================================
 
 set -e  # 遇到錯誤立即退出
+
+# 引入 PM2 安全操作函數
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/scripts/pm2-utils.sh"
 
 # 顏色定義
 RED='\033[0;31m'
@@ -269,13 +279,13 @@ cd client && npm run build && cd ..
 log_success "前端構建完成"
 
 # ============================================================================
-# 6. 停止現有服務
+# 6. 停止現有 Discord 應用服務
 # ============================================================================
-log_section "步驟 6: 停止現有服務"
+log_section "步驟 6: 停止現有 Discord 應用服務"
 
-log_info "停止現有的 PM2 服務..."
-pm2 delete discord-stats-ecosystem 2>/dev/null || log_warning "沒有運行中的服務"
-pm2 delete all 2>/dev/null || true
+log_info "清理現有的 Discord 應用進程（不影響其他 PM2 進程）..."
+cleanup_discord_processes
+log_success "Discord 應用進程已清理"
 
 # ============================================================================
 # 7. 啟動服務
@@ -364,11 +374,14 @@ echo ""
 echo "📝 常用命令:"
 echo "  - 查看狀態: pm2 status"
 echo "  - 查看日誌: pm2 logs"
-echo "  - 重啟服務: pm2 restart all"
-echo "  - 停止服務: pm2 stop all"
-echo "  - 查看 API 日誌: pm2 logs discord-api"
-echo "  - 查看 Bot 日誌: pm2 logs discord-bot"
-echo "  - 查看 Client 日誌: pm2 logs discord-client"
+echo "  - 管理服務: ./manage.sh [start|stop|restart|status]"
+echo "  - 查看 Server 日誌: pm2 logs discord-server (雙進程) 或 pm2 logs discord-app (單進程)"
+echo "  - 查看 Client 日誌: pm2 logs discord-client (僅雙進程模式)"
+echo ""
+echo "⚠️  安全提醒:"
+echo "   • 本腳本只操作 Discord 應用進程（discord-server, discord-client, discord-app）"
+echo "   • 不會影響系統中的其他 PM2 進程"
+echo "   • 請使用 ./manage.sh 管理服務，避免使用 pm2 全域命令（如 pm2 stop all, pm2 delete all）"
 echo ""
 echo "🔧 下一步:"
 echo "  1. 確認所有服務運行正常: pm2 status"
