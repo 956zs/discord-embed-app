@@ -187,13 +187,16 @@ const singleProcessMode = process.env.SINGLE_PROCESS_MODE === "true";
 if (singleProcessMode) {
   console.log("🔄 單進程模式：整合 Next.js...");
 
-  const next = require("next");
   const path = require("path");
-
   const clientDir = process.env.CLIENT_DIR || "../client";
+  const clientPath = path.resolve(__dirname, clientDir);
+
+  // Dynamically require 'next' from the client directory
+  const next = require(path.join(clientPath, "node_modules", "next"));
+
   const nextApp = next({
     dev: false,
-    dir: path.resolve(__dirname, clientDir),
+    dir: clientPath,
   });
   const handle = nextApp.getRequestHandler();
 

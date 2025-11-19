@@ -17,6 +17,7 @@
 - **討論串支援**：完整支援 Discord 討論串（threads）和論壇頻道
 - **進度追蹤**：即時查看提取任務進度和歷史記錄
 - **權限管理**：基於資料庫的管理員權限系統
+- **效能監控**：即時系統效能指標、告警系統、Webhook 通知
 
 ### 🎨 用戶體驗
 - **現代化 UI**：使用 shadcn/ui 和 Tailwind CSS v4
@@ -170,6 +171,7 @@ pm2 start ecosystem.config.js
 
 ### 📖 功能文檔
 - [手機優化指南](MOBILE_OPTIMIZATION.md) - **手機界面優化詳細說明**（v2.3.0 新增）
+- [監控系統文檔](docs/MONITORING.md) - **效能監控系統完整指南**（v2.4.0 新增）
 - [歷史提取指南](HISTORY_FETCH_GUIDE.md) - 歷史訊息提取功能使用說明
 - [討論串支援](docs/THREAD_SUPPORT.md) - Discord 討論串功能說明
 - [資料庫架構](bot/database/README.md) - 資料庫表結構說明
@@ -231,6 +233,10 @@ discord-embed-app/
 ./manage.sh restore <file> # 還原資料庫
 ./manage.sh health       # 健康檢查
 ./manage.sh clean        # 清理日誌和舊備份
+
+# 進程模式切換
+./manage.sh switch-mode dual   # 切換到雙進程模式（推薦）
+./manage.sh switch-mode single # 切換到單進程模式（節省資源）
 ```
 
 ### NPM 腳本
@@ -263,7 +269,7 @@ pm2 save                 # 保存當前進程列表
 
 ## 🔐 管理員功能
 
-訪問 `/admin` 頁面使用歷史訊息提取功能：
+訪問 `/admin` 頁面使用管理員功能：
 
 ### 功能列表
 
@@ -283,6 +289,43 @@ pm2 save                 # 保存當前進程列表
    - 即時進度追蹤
    - 詳細的統計信息
    - 錯誤日誌查看
+
+4. **效能監控**（訪問 `/admin/monitoring`）
+   - 即時系統效能指標（CPU、記憶體、事件循環延遲）
+   - 應用程式指標（API 請求、Discord 事件、資料庫查詢）
+   - 健康檢查狀態（資料庫、Bot、系統資源）
+   - 告警列表和歷史記錄
+   - 進程資訊和運行狀態
+   - 自動更新（30 秒間隔）
+
+### 監控系統
+
+系統提供全面的效能監控功能：
+
+**核心功能：**
+- ✅ 即時效能指標收集（每 30 秒）
+- ✅ 自動告警系統（CPU、記憶體、響應時間等）
+- ✅ Discord Webhook 通知（ERROR 級別告警）
+- ✅ 視覺化監控儀表板
+- ✅ 健康檢查 API 端點
+- ✅ 雙進程/單進程模式切換
+
+**進程模式：**
+- **雙進程模式**（預設，推薦）：更好的故障隔離和監控，適合生產環境
+- **單進程模式**：節省約 50-100MB 記憶體，適合資源受限環境
+
+**快速啟用：**
+```bash
+# 在 .env 中設定
+ENABLE_MONITORING=true
+ADMIN_TOKEN=your_secure_token
+
+# 可選：配置 Webhook 通知
+WEBHOOK_ENABLED=true
+WEBHOOK_URLS=https://discord.com/api/webhooks/xxx/yyy
+```
+
+詳細說明請參考 [監控系統文檔](docs/MONITORING.md)。
 
 ### 權限管理
 
@@ -304,6 +347,36 @@ WHERE guild_id = 'your_guild_id' AND user_id = 'user_id';
 同一個用戶可以在多個伺服器擁有管理員權限，權限是按伺服器獨立管理的。
 
 ## 🌟 最新更新
+
+### v2.4.0 (2025-01) - 效能監控系統
+
+**全新監控功能：**
+- ✅ **效能指標收集**：CPU、記憶體、事件循環延遲、API 響應時間
+- ✅ **告警系統**：自動檢測異常並記錄，支援可配置閾值
+- ✅ **Webhook 通知**：ERROR 級別告警自動發送到 Discord
+- ✅ **監控儀表板**：管理員頁面新增 `/admin/monitoring` 監控分頁
+- ✅ **健康檢查**：增強的 `/health` 端點，提供詳細診斷資訊
+- ✅ **進程模式切換**：支援雙進程和單進程部署模式
+- ✅ **API 端點**：`/api/metrics`、`/api/metrics/alerts` 等監控 API
+
+**監控特性：**
+- 🔧 每 30 秒自動收集系統和應用程式指標
+- 🔧 保留最近 24 小時的歷史數據
+- 🔧 告警去重機制（5 分鐘冷卻期）
+- 🔧 支援多個 Webhook URL
+- 🔧 速率限制和重試機制
+- 🔧 輕量級設計（CPU < 1%，記憶體 ~10-20MB）
+
+**進程模式：**
+- 🔧 雙進程模式（預設）：更好的故障隔離，適合生產環境
+- 🔧 單進程模式：節省 50-100MB 記憶體，適合資源受限環境
+- 🔧 使用 `./manage.sh switch-mode` 命令輕鬆切換
+
+**新增文檔：**
+- 📖 `docs/MONITORING.md` - 完整的監控系統指南
+- 📖 `server/monitoring/README.md` - 監控模組技術文檔
+- 📖 `server/monitoring/API_USAGE.md` - API 使用說明
+- 📖 `server/monitoring/WEBHOOK_IMPLEMENTATION.md` - Webhook 實作指南
 
 ### v2.3.0 (2025-01) - 手機界面優化
 
@@ -461,6 +534,12 @@ A: 檢查 bot 是否正常運行，參考 [頻道獲取修復](CHANNEL_FETCH_FIX
 
 **Q: 如何備份資料庫？**
 A: 執行 `./manage.sh backup`，備份文件會保存在 `backups/` 目錄。
+
+**Q: 如何啟用監控系統？**
+A: 在 `.env` 中設定 `ENABLE_MONITORING=true` 和 `ADMIN_TOKEN`，然後重啟服務。詳見 [監控系統文檔](docs/MONITORING.md)。
+
+**Q: 如何切換進程模式？**
+A: 執行 `./manage.sh switch-mode dual` 或 `./manage.sh switch-mode single`。雙進程模式推薦用於生產環境。
 
 ## 🙏 致謝
 
