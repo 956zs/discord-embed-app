@@ -309,6 +309,12 @@ if [ "$SKIP_DB" = false ]; then
                 PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f bot/database/add_attachments.sql 2>/dev/null || log_warning "附件支援可能已存在"
             fi
             
+            # 執行監控系統升級
+            if [ -f "server/database/add_monitoring.sql" ]; then
+                log_info "添加監控系統支援..."
+                PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f server/database/add_monitoring.sql 2>/dev/null || log_warning "監控系統可能已存在"
+            fi
+            
             # 執行通用升級腳本
             if [ -f "bot/database/upgrade.sql" ]; then
                 log_info "執行資料庫升級..."
@@ -436,7 +442,7 @@ if confirm "是否重啟服務？" "y"; then
         sleep 2
         
         # 啟動雙進程模式
-        pm2 start ecosystem.dual.config.js
+        pm2 start ecosystem.config.js
         log_success "服務已啟動（雙進程模式）"
     fi
     
@@ -452,7 +458,7 @@ else
     if [ "$PROCESS_MODE" = "single" ]; then
         echo "  pm2 start ecosystem.single.config.js"
     else
-        echo "  pm2 start ecosystem.dual.config.js"
+        echo "  pm2 start ecosystem.config.js"
     fi
 fi
 
@@ -469,10 +475,25 @@ echo ""
 
 # 檢查 API
 log_info "檢查 API 服務..."
-# 從 .env 或 bot/.env 讀取 PORT，默認 3102
-API_PORT=${PORT:-3102}
+# 從 .env 讀取 PORT，默認 3008
+API_PORT=${PORT:-3008}
+
+# 根據進程模式選擇正確的端口
+if [ "$PROCESS_MODE" = "single" ]; then
+    # 單進程模式使用 SINGLE_PROCESS_PORT
+    API_PORT=${SINGLE_PROCESS_PORT:-3000}
+fi
+
 if curl -s http://localhost:${API_PORT}/health > /dev/null 2>&1; then
     log_success "API 服務正常 (port ${API_PORT})"
+    
+    # 顯示健康檢查詳情
+    HEALTH_STATUS=$(curl -s http://localhost:${API_PORT}/health | grep -o '"status":"[^"]*"' | cut -d'"' -f4)
+    if [ "$HEALTH_STATUS" = "healthy" ]; then
+        log_success "系統狀態: 健康"
+    else
+        log_warning "系統狀態: $HEALTH_STATUS"
+    fi
 else
     log_error "API 服務異常 (port ${API_PORT})"
     log_info "提示：檢查 .env 中的 PORT 設定是否正確"
@@ -510,12 +531,25 @@ echo "  查看日誌: pm2 logs"
 echo "  查看錯誤: pm2 logs --err"
 echo "  健康檢查: ./manage.sh health"
 echo "  重啟服務: pm2 restart all"
+echo "  切換模式: ./manage.sh switch-mode [dual|single]"
+echo ""
+echo "📊 監控系統:"
+if [ "${ENABLE_MONITORING:-false}" = "true" ]; then
+    echo "  ✅ 監控已啟用"
+    echo "  監控頁面: http://localhost:${CLIENT_PORT:-3000}/admin/monitoring"
+    echo "  健康檢查: curl http://localhost:${API_PORT}/health"
+    echo "  指標 API: curl http://localhost:${API_PORT}/api/metrics"
+else
+    echo "  ⚠️  監控未啟用"
+    echo "  啟用方式: 在 .env 中設定 ENABLE_MONITORING=true"
+fi
 echo ""
 echo "🔄 如果遇到問題:"
 echo "  1. 查看日誌: pm2 logs --lines 100"
 echo "  2. 檢查配置: cat .env"
 echo "  3. 重新構建: cd client && npm run build && cd .."
 echo "  4. 回滾: git reset --hard <commit-hash>"
+echo "  5. 檢查監控: curl http://localhost:${API_PORT}/health"
 echo ""
 
 # 詢問是否查看日誌
