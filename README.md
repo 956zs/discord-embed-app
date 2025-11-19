@@ -58,19 +58,22 @@
 git clone https://github.com/956zs/discord-embed-app.git
 cd discord-embed-app
 
-# 2. 執行互動式配置工具
-./setup-env.sh
+# 2. 執行互動式配置工具（Node.js 版本，推薦）
+node setup-env.js
+# 或使用 Bash 版本
+# ./setup-env.sh
+
 # 按照提示輸入 Discord Token、資料庫連接等資訊
-# 工具會自動生成所有配置文件並測試資料庫連接
-# ✅ 無中文編碼問題
-# ✅ 自動驗證配置
+# 工具會自動生成所有配置文件
+# ✅ 密碼輸入隱藏
+# ✅ 自動生成所有 .env 文件
 # ✅ 支援開發和生產環境
 
 # 3. 執行一鍵部署
 ./deploy.sh
 ```
 
-> **注意：** 新版本的 `setup-env.sh` 已完全重寫，使用英文和正確的編碼處理，不會再有中文字符寫入 `.env` 文件的問題。
+> **推薦：** 使用 `node setup-env.js`（需要 Node.js），提供更好的互動體驗和密碼隱藏功能。
 
 ### 方法二：手動配置
 
