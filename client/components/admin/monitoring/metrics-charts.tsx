@@ -31,7 +31,15 @@ export function MetricsCharts({
 }: MetricsChartsProps) {
   const { t } = useLanguage();
 
-  if (!metrics || !metrics.historical || metrics.historical.length === 0) {
+  // 檢查數據是否存在
+  const hasData =
+    metrics &&
+    metrics.historical &&
+    ((Array.isArray(metrics.historical) && metrics.historical.length > 0) ||
+      ((metrics.historical as any).system &&
+        (metrics.historical as any).system.length > 0));
+
+  if (!hasData) {
     return (
       <Card>
         <CardHeader>
@@ -53,15 +61,46 @@ export function MetricsCharts({
     });
   };
 
-  // 準備圖表數據
-  const chartData = metrics.historical.map((item: any) => ({
-    timestamp: item.timestamp,
-    time: formatTimestamp(item.timestamp),
-    cpu: item.system?.cpu || 0,
-    memory: item.system?.memory?.percentage || 0,
-    apiRequests: item.application?.apiRequests?.perMinute || 0,
-    eventLoopDelay: item.system?.eventLoopDelay || 0,
-  }));
+  // 準備圖表數據 - 合併 system, application, database 數據
+  const historicalData = metrics.historical as any;
+  const systemData = Array.isArray(historicalData)
+    ? historicalData
+    : historicalData.system || [];
+  const applicationData = Array.isArray(historicalData)
+    ? historicalData
+    : historicalData.application || [];
+  const databaseData = Array.isArray(historicalData)
+    ? historicalData
+    : historicalData.database || [];
+
+  // 按時間戳合併數據
+  const dataByTimestamp = new Map();
+
+  systemData.forEach((item: any) => {
+    dataByTimestamp.set(item.timestamp, {
+      timestamp: item.timestamp,
+      time: formatTimestamp(item.timestamp),
+      cpu: item.cpu || 0,
+      memory: item.memory?.system?.percentage || 0,
+      eventLoopDelay: item.eventLoopDelay || 0,
+    });
+  });
+
+  applicationData.forEach((item: any) => {
+    const existing = dataByTimestamp.get(item.timestamp) || {
+      timestamp: item.timestamp,
+      time: formatTimestamp(item.timestamp),
+    };
+    dataByTimestamp.set(item.timestamp, {
+      ...existing,
+      apiRequests: item.apiRequests?.perMinute || 0,
+    });
+  });
+
+  // 轉換為數組並排序
+  const chartData = Array.from(dataByTimestamp.values()).sort(
+    (a, b) => a.timestamp - b.timestamp
+  );
 
   return (
     <div className="space-y-6">
