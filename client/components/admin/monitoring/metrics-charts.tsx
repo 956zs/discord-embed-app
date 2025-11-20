@@ -31,6 +31,12 @@ export function MetricsCharts({
 }: MetricsChartsProps) {
   const { t } = useLanguage();
 
+  // 調試：打印接收到的數據
+  console.log("📊 Metrics data received:", metrics);
+  console.log("📊 Historical data:", metrics?.historical);
+  console.log("📊 Is array?", Array.isArray(metrics?.historical));
+  console.log("📊 Has system?", (metrics?.historical as any)?.system);
+
   // 檢查數據是否存在
   const hasData =
     metrics &&
@@ -38,6 +44,8 @@ export function MetricsCharts({
     ((Array.isArray(metrics.historical) && metrics.historical.length > 0) ||
       ((metrics.historical as any).system &&
         (metrics.historical as any).system.length > 0));
+
+  console.log("📊 Has data?", hasData);
 
   if (!hasData) {
     return (
@@ -47,6 +55,10 @@ export function MetricsCharts({
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">{t.monitoring.noData}</p>
+          <p className="text-xs text-muted-foreground mt-2">
+            調試: metrics={metrics ? "exists" : "null"}, historical=
+            {metrics?.historical ? "exists" : "null"}
+          </p>
         </CardContent>
       </Card>
     );
