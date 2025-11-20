@@ -32,10 +32,13 @@ export function MetricsCharts({
   const { t } = useLanguage();
 
   // 調試：打印接收到的數據
-  console.log("📊 Metrics data received:", metrics);
-  console.log("📊 Historical data:", metrics?.historical);
-  console.log("📊 Is array?", Array.isArray(metrics?.historical));
-  console.log("📊 Has system?", (metrics?.historical as any)?.system);
+  console.log("[Monitoring] 📊 Metrics data received:", metrics);
+  console.log("[Monitoring] 📊 Historical data:", metrics?.historical);
+  console.log("[Monitoring] 📊 Is array?", Array.isArray(metrics?.historical));
+  console.log(
+    "[Monitoring] 📊 Has system?",
+    (metrics?.historical as any)?.system
+  );
 
   // 檢查數據是否存在
   const hasData =
@@ -45,7 +48,7 @@ export function MetricsCharts({
       ((metrics.historical as any).system &&
         (metrics.historical as any).system.length > 0));
 
-  console.log("📊 Has data?", hasData);
+  console.log("[Monitoring] 📊 Has data?", hasData);
 
   if (!hasData) {
     return (
