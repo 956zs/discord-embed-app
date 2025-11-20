@@ -7,7 +7,9 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get("period") || "1h";
     const adminToken = process.env.ADMIN_TOKEN;
 
-    console.log("🔄 代理指標請求到:", `${backendUrl}/api/metrics?period=${period}`);
+    console.log("[Monitoring API] 🔄 代理指標請求到:", `${backendUrl}/api/metrics?period=${period}`);
+    console.log("[Monitoring API] 🔑 ADMIN_TOKEN exists:", !!adminToken);
+    console.log("[Monitoring API] 🔑 ADMIN_TOKEN value:", adminToken ? `${adminToken.substring(0, 8)}...` : "undefined");
 
     const headers: HeadersInit = {
       "Content-Type": "application/json",
