@@ -32,6 +32,14 @@ log_error() {
     echo -e "${RED}❌ $1${NC}"
 }
 
+log_section() {
+    echo ""
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${BLUE}  $1${NC}"
+    echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+}
+
 # 安全停止 Discord 應用進程
 # 參數: 進程名稱列表（空格分隔）
 # 用法: safe_pm2_stop "discord-server discord-client"
