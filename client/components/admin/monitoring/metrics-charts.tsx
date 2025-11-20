@@ -189,7 +189,7 @@ export function MetricsCharts({
               <Line
                 type="monotone"
                 dataKey="cpu"
-                stroke="hsl(var(--primary))"
+                stroke="#3b82f6"
                 strokeWidth={2}
                 dot={false}
                 name={t.monitoring.cpuUsage}
