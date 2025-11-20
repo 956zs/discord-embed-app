@@ -13,6 +13,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { Activity, MemoryStick, Zap, TrendingUp } from "lucide-react";
 
 interface MetricsChartsProps {
   metrics: {
@@ -159,7 +160,10 @@ export function MetricsCharts({
       {/* CPU 使用率圖表 */}
       <Card>
         <CardHeader>
-          <CardTitle>{t.monitoring.cpuUsage}</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5 text-blue-500" />
+            {t.monitoring.cpuUsage}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -202,7 +206,10 @@ export function MetricsCharts({
       {/* 記憶體使用量圖表 */}
       <Card>
         <CardHeader>
-          <CardTitle>{t.monitoring.memoryUsage}</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <MemoryStick className="h-5 w-5 text-green-500" />
+            {t.monitoring.memoryUsage}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -245,7 +252,10 @@ export function MetricsCharts({
       {/* API 請求數圖表 */}
       <Card>
         <CardHeader>
-          <CardTitle>{t.monitoring.apiRequests}</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-amber-500" />
+            {t.monitoring.apiRequests}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -287,7 +297,10 @@ export function MetricsCharts({
       {/* 事件循環延遲圖表 */}
       <Card>
         <CardHeader>
-          <CardTitle>{t.monitoring.eventLoopDelay}</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-red-500" />
+            {t.monitoring.eventLoopDelay}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
