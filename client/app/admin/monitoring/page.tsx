@@ -176,12 +176,30 @@ export default function MonitoringPage() {
 
       if (metricsRes.ok) {
         const metricsData = await metricsRes.json();
+        console.log(
+          "[Monitoring] ✅ Metrics fetched successfully:",
+          metricsData
+        );
         setMetrics(metricsData);
+      } else {
+        console.error(
+          "[Monitoring] ❌ Failed to fetch metrics:",
+          metricsRes.status,
+          metricsRes.statusText
+        );
+        const errorText = await metricsRes.text();
+        console.error("[Monitoring] ❌ Error response:", errorText);
       }
 
       if (alertsRes.ok) {
         const alertsData = await alertsRes.json();
+        console.log("[Monitoring] ✅ Alerts fetched successfully");
         setAlerts(alertsData.alerts || []);
+      } else {
+        console.error(
+          "[Monitoring] ❌ Failed to fetch alerts:",
+          alertsRes.status
+        );
       }
     } catch (error) {
       console.error("獲取監控數據失敗:", error);
