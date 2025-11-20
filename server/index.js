@@ -188,8 +188,24 @@ if (singleProcessMode) {
   console.log("🔄 單進程模式：整合 Next.js...");
 
   const path = require("path");
+  const fs = require("fs");
   const clientDir = process.env.CLIENT_DIR || "../client";
   const clientPath = path.resolve(__dirname, clientDir);
+
+  // 載入 client/.env.local 環境變數
+  const clientEnvPath = path.join(clientPath, ".env.local");
+  if (fs.existsSync(clientEnvPath)) {
+    console.log("📝 載入 client/.env.local 環境變數...");
+    require("dotenv").config({ path: clientEnvPath });
+    console.log(
+      "✅ ADMIN_TOKEN loaded:",
+      process.env.ADMIN_TOKEN
+        ? `${process.env.ADMIN_TOKEN.substring(0, 8)}...`
+        : "undefined"
+    );
+  } else {
+    console.warn("⚠️  client/.env.local 不存在");
+  }
 
   // Dynamically require 'next' from the client directory
   const next = require(path.join(clientPath, "node_modules", "next"));
