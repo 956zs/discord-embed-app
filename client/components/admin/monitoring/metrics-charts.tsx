@@ -117,6 +117,13 @@ export function MetricsCharts({
     (a, b) => a.timestamp - b.timestamp
   );
 
+  // 計算 CPU 的動態範圍（忽略第一個啟動峰值）
+  const cpuValues = chartData.map((d) => d.cpu || 0);
+  const cpuValuesWithoutFirst =
+    cpuValues.length > 1 ? cpuValues.slice(1) : cpuValues;
+  const maxCpu = Math.max(...cpuValuesWithoutFirst, 10); // 至少顯示到 10%
+  const cpuDomain = [0, Math.min(Math.ceil(maxCpu * 1.5), 100)]; // 加 50% 空間，最多 100%
+
   return (
     <div className="space-y-6">
       {/* 時間範圍選擇器 */}
@@ -164,7 +171,7 @@ export function MetricsCharts({
                 interval="preserveStartEnd"
               />
               <YAxis
-                domain={[0, 100]}
+                domain={cpuDomain}
                 tick={{ fontSize: 12 }}
                 label={{
                   value: "%",
