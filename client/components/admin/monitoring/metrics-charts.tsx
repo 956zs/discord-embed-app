@@ -193,7 +193,7 @@ export function MetricsCharts({
               <Line
                 type="monotone"
                 dataKey="cpu"
-                stroke="#3b82f6"
+                stroke="#8b5cf6"
                 strokeWidth={2}
                 dot={false}
                 name={t.monitoring.cpuUsage}
