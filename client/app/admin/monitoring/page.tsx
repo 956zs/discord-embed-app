@@ -34,9 +34,17 @@ interface HealthData {
     system: {
       cpu: number;
       memory: {
-        used: number;
-        total: number;
-        percentage: number;
+        rss: number;
+        heap: number;
+        heapTotal: number;
+        external: number;
+        processPercentage: number;
+        system: {
+          total: number;
+          free: number;
+          used: number;
+          percentage: number;
+        };
       };
       eventLoopDelay?: number;
     };
