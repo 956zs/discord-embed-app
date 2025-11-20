@@ -235,9 +235,17 @@ class MetricsCollector {
       timestamp: Date.now(),
       cpu: cpuUsage,
       memory: {
-        used: Math.round(memoryUsage.heapUsed / 1024 / 1024), // MB
-        total: Math.round(memoryUsage.heapTotal / 1024 / 1024), // MB
-        percentage: Math.round((usedMemory / totalMemory) * 100),
+        used: Math.round(memoryUsage.rss / 1024 / 1024), // MB - 進程實際使用（與 PM2 一致）
+        heap: Math.round(memoryUsage.heapUsed / 1024 / 1024), // MB - V8 heap
+        total: Math.round(memoryUsage.heapTotal / 1024 / 1024), // MB - V8 heap 總大小
+        percentage:
+          Math.round((memoryUsage.rss / totalMemory) * 100 * 100) / 100, // 進程記憶體佔 VPS 總記憶體的百分比
+        system: {
+          total: Math.round(totalMemory / 1024 / 1024), // MB - VPS 總記憶體
+          used: Math.round(usedMemory / 1024 / 1024), // MB - VPS 已使用記憶體
+          free: Math.round(freeMemory / 1024 / 1024), // MB - VPS 空閒記憶體
+          percentage: Math.round((usedMemory / totalMemory) * 100), // VPS 整體使用率
+        },
       },
       eventLoopDelay: Math.round(this.eventLoopDelay * 100) / 100, // 保留兩位小數
       uptime: Math.floor((Date.now() - this.startTime) / 1000), // 秒

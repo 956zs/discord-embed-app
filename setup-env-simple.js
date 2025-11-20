@@ -118,6 +118,10 @@ CLIENT_PORT=${clientPort}
 ALLOWED_GUILD_IDS=${allowedGuildIds}
 NODE_ENV=${envMode}
 
+# Process Mode Configuration
+PROCESS_MODE=${processModeValue}
+SINGLE_PROCESS_PORT=${port}
+
 # Monitoring Configuration
 ENABLE_MONITORING=${monitoringEnabled}
 METRICS_INTERVAL=30000
@@ -155,6 +159,9 @@ NODE_ENV=${envMode}
 
   // Client .env.local
   const backendUrl = `http://localhost:${port}`;
+  const processMode = await question("Process mode (1=dual, 2=single)", "1");
+  const processModeValue = processMode === "2" ? "single" : "dual";
+
   const clientEnv = `# Next.js Frontend Configuration
 # Environment: ${envMode}
 # Generated: ${new Date().toISOString()}
@@ -164,6 +171,9 @@ NEXT_PUBLIC_DISCORD_CLIENT_ID=${discordClientId}
 
 # Backend URL
 BACKEND_URL=${backendUrl}
+
+# Process Mode
+NEXT_PUBLIC_PROCESS_MODE=${processModeValue}
 
 # Development Mode
 NEXT_PUBLIC_ENABLE_DEV_MODE=${!isProduction}

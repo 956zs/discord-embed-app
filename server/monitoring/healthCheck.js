@@ -224,7 +224,8 @@ class HealthCheckService {
         status,
         cpu: cpuUsage,
         memory: {
-          used: Math.round(memoryUsage.heapUsed / 1024 / 1024), // MB
+          used: Math.round(memoryUsage.rss / 1024 / 1024), // MB - RSS（實際記憶體，與 PM2 一致）
+          heap: Math.round(memoryUsage.heapUsed / 1024 / 1024), // MB - V8 heap
           total: Math.round(memoryUsage.heapTotal / 1024 / 1024), // MB
           percentage: memoryPercentage,
           system: {

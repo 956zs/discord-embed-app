@@ -10,6 +10,7 @@ import {
   Hash,
   Users,
   Smile,
+  Activity,
 } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
@@ -88,6 +89,14 @@ export function MobileNav({ isAdmin = false }: MobileNavProps) {
               >
                 <Settings className="h-5 w-5" />
                 {t.nav.admin}
+              </Link>
+              <Link
+                href="/admin/monitoring"
+                onClick={handleLinkClick}
+                className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+              >
+                <Activity className="h-5 w-5" />
+                {t.nav.monitoring || "監控"}
               </Link>
               <Separator />
             </>

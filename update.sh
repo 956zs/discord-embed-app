@@ -467,10 +467,17 @@ fi
 
 # 檢查前端
 log_info "檢查前端服務..."
-if curl -s http://localhost:${CLIENT_PORT:-3000} > /dev/null 2>&1; then
-    log_success "前端服務正常"
+# 單進程模式下，前端和 API 在同一端口
+if [ "$PROCESS_MODE" = "single" ]; then
+    FRONTEND_PORT=${SINGLE_PROCESS_PORT:-3000}
 else
-    log_error "前端服務異常"
+    FRONTEND_PORT=${CLIENT_PORT:-3000}
+fi
+
+if curl -s http://localhost:${FRONTEND_PORT} > /dev/null 2>&1; then
+    log_success "前端服務正常 (port ${FRONTEND_PORT})"
+else
+    log_error "前端服務異常 (port ${FRONTEND_PORT})"
 fi
 
 # 檢查資料庫
