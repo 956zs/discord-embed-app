@@ -733,6 +733,9 @@ NEXT_PUBLIC_DEV_USER_ID=DEV_USER_PLACEHOLDER
 
 # Environment Mode
 NODE_ENV=NODE_ENV_PLACEHOLDER
+
+# Admin Token (for monitoring endpoints)
+ADMIN_TOKEN=ADMIN_TOKEN_CLIENT_PLACEHOLDER
 ENVEOF
 
 # Set BACKEND_URL (server-side API URL for Next.js API routes)
@@ -759,6 +762,7 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
     sed -i '' "s|DEV_GUILD_PLACEHOLDER|$DEV_GUILD_ESC|g" client/.env.local
     sed -i '' "s|DEV_USER_PLACEHOLDER|$DEV_USER_ESC|g" client/.env.local
     sed -i '' "s|NODE_ENV_PLACEHOLDER|$ENV_MODE_ESC|g" client/.env.local
+    sed -i '' "s|ADMIN_TOKEN_CLIENT_PLACEHOLDER|$ADMIN_TOKEN_ESC|g" client/.env.local
 else
     # Linux
     sed -i "s|ENV_MODE_PLACEHOLDER|$ENV_MODE_ESC|g" client/.env.local
@@ -769,6 +773,7 @@ else
     sed -i "s|DEV_GUILD_PLACEHOLDER|$DEV_GUILD_ESC|g" client/.env.local
     sed -i "s|DEV_USER_PLACEHOLDER|$DEV_USER_ESC|g" client/.env.local
     sed -i "s|NODE_ENV_PLACEHOLDER|$ENV_MODE_ESC|g" client/.env.local
+    sed -i "s|ADMIN_TOKEN_CLIENT_PLACEHOLDER|$ADMIN_TOKEN_ESC|g" client/.env.local
 fi
 
 log_success "Created client/.env.local"

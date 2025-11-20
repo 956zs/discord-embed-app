@@ -36,9 +36,17 @@ interface HealthStatusCardProps {
       system: {
         cpu: number;
         memory: {
-          used: number;
-          total: number;
-          percentage: number;
+          rss: number;
+          heap: number;
+          heapTotal: number;
+          external: number;
+          processPercentage: number;
+          system: {
+            total: number;
+            free: number;
+            used: number;
+            percentage: number;
+          };
         };
         eventLoopDelay?: number;
       };
@@ -247,28 +255,39 @@ export function HealthStatusCard({ health }: HealthStatusCardProps) {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  {t.monitoring.memory}:
+                <span className="text-muted-foreground">進程記憶體:</span>
+                <span className="font-medium">
+                  {health.services.system.memory.rss}MB
                 </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Heap:</span>
                 <span
                   className={`font-medium ${
-                    health.services.system.memory.percentage > 80
+                    health.services.system.memory.processPercentage > 80
                       ? "text-red-600"
-                      : health.services.system.memory.percentage > 60
+                      : health.services.system.memory.processPercentage > 60
                       ? "text-yellow-600"
                       : "text-green-600"
                   }`}
                 >
-                  {health.services.system.memory.percentage.toFixed(1)}%
+                  {health.services.system.memory.heap}MB /{" "}
+                  {health.services.system.memory.heapTotal}MB (
+                  {health.services.system.memory.processPercentage.toFixed(1)}%)
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  {t.monitoring.memoryUsed}:
-                </span>
-                <span className="font-medium">
-                  {health.services.system.memory.used}MB /{" "}
-                  {health.services.system.memory.total}MB
+                <span className="text-muted-foreground">系統記憶體:</span>
+                <span
+                  className={`font-medium ${
+                    health.services.system.memory.system.percentage > 80
+                      ? "text-red-600"
+                      : health.services.system.memory.system.percentage > 60
+                      ? "text-yellow-600"
+                      : "text-green-600"
+                  }`}
+                >
+                  {health.services.system.memory.system.percentage.toFixed(1)}%
                 </span>
               </div>
               {health.services.system.eventLoopDelay !== undefined && (

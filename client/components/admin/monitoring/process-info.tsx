@@ -14,9 +14,37 @@ interface ProcessInfoProps {
       system: {
         cpu: number;
         memory: {
-          used: number;
-          total: number;
-          percentage: number;
+          rss: number; // 進程實際記憶體使用（RSS）
+          heap: number; // V8 heap 使用量
+          heapTotal: number; // V8 heap 總量
+          external: number; // C++ objects
+          processPercentage: number; // heap used / heap total
+          system: {
+            total: number; // 系統總記憶體
+            free: number; // 系統可用記憶體
+            used: number; // 系統已用記憶體
+            percentage: number; // 系統記憶體使用率
+          };
+        };
+      };
+      pm2?: {
+        status: string;
+        mode: string;
+        count: number;
+        processes: Array<{
+          name: string;
+          pid: number;
+          status: string;
+          uptime: number;
+          restarts: number;
+          cpu: number;
+          memory: number;
+        }>;
+        summary: {
+          totalCpu: number;
+          totalMemory: number;
+          totalRestarts: number;
+          allRunning: boolean;
         };
       };
     };
@@ -44,9 +72,11 @@ export function ProcessInfo({ health }: ProcessInfoProps) {
     );
   }
 
-  // 檢測進程模式（從環境變數或其他來源）
-  const processMode = process.env.NEXT_PUBLIC_PROCESS_MODE || "dual";
+  // 從 PM2 資訊獲取進程模式
+  const pm2Info = health.services.pm2;
+  const processMode = pm2Info?.mode || "unknown";
   const isSingleProcess = processMode === "single";
+  const processCount = pm2Info?.count || 0;
 
   // 格式化運行時間
   const formatUptime = (seconds: number) => {
@@ -80,15 +110,18 @@ export function ProcessInfo({ health }: ProcessInfoProps) {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant={isSingleProcess ? "secondary" : "default"}>
-                {isSingleProcess
+                {processMode === "single"
                   ? t.monitoring.singleProcess
-                  : t.monitoring.dualProcess}
+                  : processMode === "dual"
+                  ? t.monitoring.dualProcess
+                  : t.monitoring.unknownMode}
               </Badge>
+              <Badge variant="outline">{processCount} 進程</Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              {isSingleProcess
-                ? t.monitoring.singleProcessDesc
-                : t.monitoring.dualProcessDesc}
+              {pm2Info?.summary.allRunning
+                ? "✅ 所有進程運行正常"
+                : "⚠️ 部分進程異常"}
             </p>
           </div>
 
@@ -116,11 +149,17 @@ export function ProcessInfo({ health }: ProcessInfoProps) {
               <span>{t.monitoring.memoryUsage}</span>
             </div>
             <div className="text-2xl font-bold">
-              {health.services.system.memory.used}MB
+              {health.services.system.memory.rss}MB
             </div>
             <p className="text-xs text-muted-foreground">
-              {t.monitoring.total}: {health.services.system.memory.total}MB (
-              {health.services.system.memory.percentage.toFixed(1)}%)
+              Heap: {health.services.system.memory.heap}MB /{" "}
+              {health.services.system.memory.heapTotal}MB (
+              {health.services.system.memory.processPercentage.toFixed(1)}%)
+            </p>
+            <p className="text-xs text-muted-foreground">
+              系統: {health.services.system.memory.system.used.toLocaleString()}
+              MB / {health.services.system.memory.system.total.toLocaleString()}
+              MB ({health.services.system.memory.system.percentage.toFixed(1)}%)
             </p>
           </div>
 

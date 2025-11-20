@@ -5,16 +5,24 @@ export async function GET(request: NextRequest) {
     const backendUrl = process.env.BACKEND_URL || "http://localhost:3008";
     const searchParams = request.nextUrl.searchParams;
     const period = searchParams.get("period") || "1h";
+    const adminToken = process.env.ADMIN_TOKEN;
 
-    console.log("🔄 代理指標請求到:", `${backendUrl}/api/metrics/system?period=${period}`);
+    console.log("🔄 代理指標請求到:", `${backendUrl}/api/metrics?period=${period}`);
+
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+    };
+
+    // 如果有 admin token，加入 Authorization header
+    if (adminToken) {
+      headers["Authorization"] = `Bearer ${adminToken}`;
+    }
 
     const response = await fetch(
-      `${backendUrl}/api/metrics/system?period=${period}`,
+      `${backendUrl}/api/metrics?period=${period}`,
       {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
       }
     );
 

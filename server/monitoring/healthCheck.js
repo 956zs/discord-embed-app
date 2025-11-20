@@ -1,4 +1,5 @@
 const os = require("os");
+const pm2Info = require("../utils/pm2Info");
 
 /**
  * HealthCheckService - 健康檢查服務
@@ -7,6 +8,7 @@ const os = require("os");
  * - 檢查資料庫連接狀態（包含連接池資訊）
  * - 檢查 Discord Bot 狀態（WebSocket 狀態、延遲）
  * - 檢查系統資源（CPU、記憶體）
+ * - 檢查 PM2 進程狀態
  * - 提供詳細的診斷資訊
  */
 class HealthCheckService {
@@ -31,9 +33,10 @@ class HealthCheckService {
       this.checkDatabase(),
       this.checkDiscordBot(),
       this.checkSystemResources(),
+      this.checkPM2Processes(),
     ]);
 
-    const [dbCheck, botCheck, systemCheck] = checks.map((result) =>
+    const [dbCheck, botCheck, systemCheck, pm2Check] = checks.map((result) =>
       result.status === "fulfilled"
         ? result.value
         : { status: "error", error: result.reason?.message }
@@ -57,6 +60,7 @@ class HealthCheckService {
         database: dbCheck,
         discordBot: botCheck,
         system: systemCheck,
+        pm2: pm2Check,
       },
       metrics,
     };
@@ -193,9 +197,17 @@ class HealthCheckService {
       const memoryUsage = process.memoryUsage();
       const totalMemory = os.totalmem();
       const freeMemory = os.freemem();
-      const usedMemory = totalMemory - freeMemory;
+      const systemUsedMemory = totalMemory - freeMemory;
 
-      const memoryPercentage = Math.round((usedMemory / totalMemory) * 100);
+      // 進程記憶體使用率（RSS / heap total）
+      const processMemoryPercentage = Math.round(
+        (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100
+      );
+
+      // 系統記憶體使用率
+      const systemMemoryPercentage = Math.round(
+        (systemUsedMemory / totalMemory) * 100
+      );
 
       // CPU 資訊（從 MetricsCollector 獲取，如果可用）
       let cpuUsage = 0;
@@ -212,11 +224,11 @@ class HealthCheckService {
         eventLoopDelay = this.metricsCollector.eventLoopDelay || 0;
       }
 
-      // 判斷健康狀態
+      // 判斷健康狀態（基於系統記憶體使用率）
       let status = "healthy";
-      if (memoryPercentage > 90 || cpuUsage > 90) {
+      if (systemMemoryPercentage > 90 || cpuUsage > 90) {
         status = "unhealthy";
-      } else if (memoryPercentage > 80 || cpuUsage > 80) {
+      } else if (systemMemoryPercentage > 80 || cpuUsage > 80) {
         status = "degraded";
       }
 
@@ -224,14 +236,18 @@ class HealthCheckService {
         status,
         cpu: cpuUsage,
         memory: {
-          used: Math.round(memoryUsage.rss / 1024 / 1024), // MB - RSS（實際記憶體，與 PM2 一致）
-          heap: Math.round(memoryUsage.heapUsed / 1024 / 1024), // MB - V8 heap
-          total: Math.round(memoryUsage.heapTotal / 1024 / 1024), // MB
-          percentage: memoryPercentage,
+          // 進程記憶體
+          rss: Math.round(memoryUsage.rss / 1024 / 1024), // MB - RSS（實際記憶體，與 PM2 一致）
+          heap: Math.round(memoryUsage.heapUsed / 1024 / 1024), // MB - V8 heap used
+          heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024), // MB - V8 heap total
+          external: Math.round(memoryUsage.external / 1024 / 1024), // MB - C++ objects
+          processPercentage: processMemoryPercentage, // heap used / heap total
+          // 系統記憶體
           system: {
             total: Math.round(totalMemory / 1024 / 1024), // MB
             free: Math.round(freeMemory / 1024 / 1024), // MB
-            used: Math.round(usedMemory / 1024 / 1024), // MB
+            used: Math.round(systemUsedMemory / 1024 / 1024), // MB
+            percentage: systemMemoryPercentage, // system used / system total
           },
         },
         eventLoopDelay: Math.round(eventLoopDelay * 100) / 100,
@@ -304,6 +320,40 @@ class HealthCheckService {
   }
 
   /**
+   * 檢查 PM2 進程狀態
+   * @returns {Promise<Object>} PM2 進程狀態
+   */
+  async checkPM2Processes() {
+    try {
+      const summary = await pm2Info.getProcessSummary();
+
+      // 判斷健康狀態
+      let status = "healthy";
+      if (!summary.summary.allRunning) {
+        status = "unhealthy";
+      } else if (summary.summary.totalRestarts > 10) {
+        status = "degraded";
+      }
+
+      return {
+        status,
+        mode: summary.mode,
+        count: summary.count,
+        processes: summary.processes,
+        summary: summary.summary,
+      };
+    } catch (error) {
+      return {
+        status: "error",
+        error: error.message,
+        mode: "unknown",
+        count: 0,
+        processes: [],
+      };
+    }
+  }
+
+  /**
    * 獲取健康狀態摘要（簡化版本）
    * @returns {Promise<Object>} 健康狀態摘要
    */
@@ -318,6 +368,7 @@ class HealthCheckService {
         database: fullCheck.services.database.status,
         discordBot: fullCheck.services.discordBot.status,
         system: fullCheck.services.system.status,
+        pm2: fullCheck.services.pm2?.status || "unknown",
       },
     };
   }
