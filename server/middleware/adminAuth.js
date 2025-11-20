@@ -9,6 +9,16 @@
  * 簡單版本：檢查環境變數中的管理員 Token
  */
 const checkAdminAuth = (req, res, next) => {
+  // 在單進程模式下，如果請求來自本地（Next.js API route），跳過檢查
+  const singleProcessMode = process.env.SINGLE_PROCESS_MODE === "true";
+  const isLocalRequest =
+    req.ip === "127.0.0.1" || req.ip === "::1" || req.ip === "::ffff:127.0.0.1";
+
+  if (singleProcessMode && isLocalRequest) {
+    console.log("✅ 單進程模式：跳過本地請求的 token 檢查");
+    return next();
+  }
+
   // 從請求頭獲取 Authorization token
   const authHeader = req.headers.authorization;
 
