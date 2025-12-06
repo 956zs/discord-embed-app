@@ -10,6 +10,7 @@ import { HealthStatusCard } from "@/components/admin/monitoring/health-status-ca
 import { MetricsCharts } from "@/components/admin/monitoring/metrics-charts";
 import { AlertsList } from "@/components/admin/monitoring/alerts-list";
 import { ProcessInfo } from "@/components/admin/monitoring/process-info";
+import { AlertSettings } from "@/components/admin/monitoring/alert-settings";
 
 interface HealthData {
   status: "healthy" | "degraded" | "unhealthy";
@@ -302,6 +303,9 @@ export default function MonitoringPage() {
 
         {/* 告警列表 */}
         <AlertsList alerts={alerts} />
+
+        {/* 告警設定 */}
+        <AlertSettings />
       </div>
     </div>
   );

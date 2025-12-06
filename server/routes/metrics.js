@@ -292,5 +292,103 @@ router.post("/webhook/test", checkAdminAuth, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/metrics/config
+ * 取得監控系統設定
+ *
+ * 需要管理員權限
+ */
+router.get("/config", checkAdminAuth, (req, res) => {
+  try {
+    if (!alertManager) {
+      return res.status(503).json({
+        error: "告警系統未啟用",
+      });
+    }
+
+    const config = alertManager.getConfig();
+    res.json({
+      config,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("❌ 取得設定失敗:", error.message);
+    res.status(500).json({
+      error: "取得設定失敗",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * PUT /api/metrics/config/slow-request
+ * 更新慢速請求警告設定
+ *
+ * Request Body:
+ * - enabled: boolean - 是否啟用慢速請求警告
+ * - warnThreshold: number - 警告閾值（毫秒）
+ * - errorThreshold: number - 錯誤閾值（毫秒）
+ *
+ * 需要管理員權限
+ */
+router.put("/config/slow-request", checkAdminAuth, (req, res) => {
+  try {
+    if (!alertManager) {
+      return res.status(503).json({
+        error: "告警系統未啟用",
+      });
+    }
+
+    const { enabled, warnThreshold, errorThreshold } = req.body;
+
+    // 驗證參數
+    if (
+      warnThreshold !== undefined &&
+      (typeof warnThreshold !== "number" || warnThreshold < 0)
+    ) {
+      return res.status(400).json({
+        error: "無效的 warnThreshold",
+        message: "warnThreshold 必須是正數",
+      });
+    }
+
+    if (
+      errorThreshold !== undefined &&
+      (typeof errorThreshold !== "number" || errorThreshold < 0)
+    ) {
+      return res.status(400).json({
+        error: "無效的 errorThreshold",
+        message: "errorThreshold 必須是正數",
+      });
+    }
+
+    if (warnThreshold && errorThreshold && warnThreshold >= errorThreshold) {
+      return res.status(400).json({
+        error: "無效的閾值設定",
+        message: "warnThreshold 必須小於 errorThreshold",
+      });
+    }
+
+    const updatedConfig = alertManager.updateSlowRequestConfig({
+      enabled,
+      warnThreshold,
+      errorThreshold,
+    });
+
+    res.json({
+      success: true,
+      config: updatedConfig,
+      message: "慢速請求設定已更新",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error("❌ 更新設定失敗:", error.message);
+    res.status(500).json({
+      error: "更新設定失敗",
+      message: error.message,
+    });
+  }
+});
+
 module.exports = router;
 module.exports.setMonitoringInstances = setMonitoringInstances;

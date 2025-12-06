@@ -57,13 +57,31 @@ function createMonitoringMiddleware(metricsCollector, alertManager = null) {
         );
       }
 
-      // 檢測慢速請求（> 1 秒）
-      if (duration > 1000) {
+      // 檢測慢速請求（從 alertManager 取得設定，預設關閉）
+      let slowRequestConfig = {
+        enabled: false,
+        warnThreshold: 1000,
+        errorThreshold: 3000,
+      };
+
+      // 從 alertManager 取得設定（支援運行時調整）
+      if (
+        alertManager &&
+        typeof alertManager.getSlowRequestConfig === "function"
+      ) {
+        slowRequestConfig = alertManager.getSlowRequestConfig();
+      }
+
+      if (
+        slowRequestConfig.enabled &&
+        duration > slowRequestConfig.warnThreshold
+      ) {
         console.warn(`⚠️  慢速請求: ${req.method} ${req.path} (${duration}ms)`);
 
         // 觸發告警（如果已配置告警管理器）
         if (alertManager) {
-          const level = duration > 3000 ? "ERROR" : "WARN";
+          const level =
+            duration > slowRequestConfig.errorThreshold ? "ERROR" : "WARN";
           const alertKey = `slow_request:${req.method}:${req.path}`;
 
           alertManager.triggerAlert(
@@ -73,7 +91,10 @@ function createMonitoringMiddleware(metricsCollector, alertManager = null) {
               method: req.method,
               path: req.path,
               duration,
-              threshold: duration > 3000 ? 3000 : 1000,
+              threshold:
+                duration > slowRequestConfig.errorThreshold
+                  ? slowRequestConfig.errorThreshold
+                  : slowRequestConfig.warnThreshold,
               statusCode: res.statusCode,
             },
             alertKey

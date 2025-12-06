@@ -7,6 +7,7 @@
  * - 記錄告警歷史
  * - 防止告警風暴（去重和節流）
  * - 預留 Webhook 整合介面
+ * - 運行時設定調整
  */
 class AlertManager {
   constructor(options = {}) {
@@ -34,6 +35,13 @@ class AlertManager {
       },
     };
 
+    // 慢速請求警告設定（預設關閉，透過 API 調整）
+    this.slowRequestConfig = options.slowRequestConfig || {
+      enabled: false,
+      warnThreshold: 1000,
+      errorThreshold: 3000,
+    };
+
     // 告警歷史（記憶體中儲存）
     this.alertHistory = [];
 
@@ -48,6 +56,45 @@ class AlertManager {
 
     // Webhook 通知器（預留介面）
     this.webhookNotifier = null;
+  }
+
+  /**
+   * 取得慢速請求設定
+   */
+  getSlowRequestConfig() {
+    return { ...this.slowRequestConfig };
+  }
+
+  /**
+   * 更新慢速請求設定
+   * @param {Object} config 設定物件
+   */
+  updateSlowRequestConfig(config) {
+    if (typeof config.enabled === "boolean") {
+      this.slowRequestConfig.enabled = config.enabled;
+    }
+    if (typeof config.warnThreshold === "number" && config.warnThreshold > 0) {
+      this.slowRequestConfig.warnThreshold = config.warnThreshold;
+    }
+    if (
+      typeof config.errorThreshold === "number" &&
+      config.errorThreshold > 0
+    ) {
+      this.slowRequestConfig.errorThreshold = config.errorThreshold;
+    }
+    console.log("✅ 慢速請求設定已更新:", this.slowRequestConfig);
+    return this.slowRequestConfig;
+  }
+
+  /**
+   * 取得所有設定
+   */
+  getConfig() {
+    return {
+      thresholds: { ...this.thresholds },
+      slowRequest: { ...this.slowRequestConfig },
+      cooldownPeriod: this.cooldownPeriod,
+    };
   }
 
   /**
