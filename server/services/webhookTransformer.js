@@ -186,10 +186,10 @@ class WebhookTransformer {
         inline: f.inline,
       }));
 
-      // Discord 不允許 username 包含 "discord"
+      // Discord 不允許 username 包含 "discord"，改用 "DC"
       let username = config.username || page?.name || "Status Update";
       if (username.toLowerCase().includes("discord")) {
-        username = username.replace(/discord/gi, "Disc0rd");
+        username = username.replace(/discord/gi, "DC");
       }
 
       result.discordPayload = {
@@ -225,10 +225,10 @@ class WebhookTransformer {
 
       result.trackingId = trackingId;
 
-      // Discord 不允許 username 包含 "discord"
+      // Discord 不允許 username 包含 "discord"，改用 "DC"
       let compUsername = config.username || page?.name || "Status Update";
       if (compUsername.toLowerCase().includes("discord")) {
-        compUsername = compUsername.replace(/discord/gi, "Disc0rd");
+        compUsername = compUsername.replace(/discord/gi, "DC");
       }
 
       result.discordPayload = {
@@ -267,10 +267,10 @@ class WebhookTransformer {
       const color = statusColors[indicator] || 0x95a5a6;
       const emoji = statusEmojis[indicator] || "📢";
 
-      // Discord 不允許 username 包含 "discord"
+      // Discord 不允許 username 包含 "discord"，改用 "DC"
       let pageUsername = config.username || page?.name || "Status Update";
       if (pageUsername.toLowerCase().includes("discord")) {
-        pageUsername = pageUsername.replace(/discord/gi, "Disc0rd");
+        pageUsername = pageUsername.replace(/discord/gi, "DC");
       }
 
       result.discordPayload = {
