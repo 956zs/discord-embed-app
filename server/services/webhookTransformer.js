@@ -188,9 +188,10 @@ class WebhookTransformer {
 
       // Discord 不允許 username 包含 "discord"，改用 "DC"
       let username = config.username || page?.name || "Status Update";
-      if (username.toLowerCase().includes("discord")) {
-        username = username.replace(/discord/gi, "DC");
-      }
+      console.log("🔍 原始 username:", username);
+      // 使用正則替換所有 discord 變體（不區分大小寫）
+      username = username.replace(/discord/gi, "DC");
+      console.log("🔍 替換後 username:", username);
 
       result.discordPayload = {
         username,
