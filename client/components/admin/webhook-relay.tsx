@@ -128,15 +128,10 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
       setEndpoints(data.endpoints || []);
     } catch (error) {
       console.error("Failed to load endpoints:", error);
-      toast({
-        title: "載入失敗",
-        description: "無法載入 Webhook 端點列表",
-        variant: "destructive",
-      });
     } finally {
       setLoading(false);
     }
-  }, [guildId, getAuthHeaders, toast]);
+  }, [guildId, getAuthHeaders]);
 
   // 載入來源類型
   const loadSourceTypes = useCallback(async () => {
@@ -149,10 +144,12 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
     }
   }, []);
 
+  // 初始載入（只執行一次）
   useEffect(() => {
     loadEndpoints();
     loadSourceTypes();
-  }, [loadEndpoints, loadSourceTypes]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guildId]);
 
   // 創建端點
   const handleCreate = async () => {
