@@ -100,6 +100,8 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
     useState<WebhookEndpoint | null>(null);
   const [logs, setLogs] = useState<WebhookLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
+  const [urlDialogOpen, setUrlDialogOpen] = useState(false);
+  const [currentUrl, setCurrentUrl] = useState("");
 
   // 新端點表單
   const [newEndpoint, setNewEndpoint] = useState({
@@ -289,15 +291,12 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
     }
   };
 
-  // 複製接收 URL
+  // 顯示接收 URL（Discord App 不支援 clipboard API）
   const handleCopyUrl = (endpoint: WebhookEndpoint) => {
     const baseUrl = window.location.origin;
     const url = `${baseUrl}/api/webhook/relay/${endpoint.endpoint_key}`;
-    navigator.clipboard.writeText(url);
-    toast({
-      title: "已複製",
-      description: "接收 URL 已複製到剪貼簿",
-    });
+    setCurrentUrl(url);
+    setUrlDialogOpen(true);
   };
 
   // 查看日誌
@@ -608,6 +607,29 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
                 </TableBody>
               </Table>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* URL 顯示對話框 */}
+        <Dialog open={urlDialogOpen} onOpenChange={setUrlDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>接收 URL</DialogTitle>
+              <DialogDescription>
+                請手動選取並複製以下 URL，設定到外部服務的 Webhook 設定中
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Input
+                value={currentUrl}
+                readOnly
+                className="font-mono text-sm"
+                onClick={(e) => (e.target as HTMLInputElement).select()}
+              />
+              <p className="text-xs text-muted-foreground">
+                點擊上方輸入框可全選 URL，然後使用 Ctrl+C (或 Cmd+C) 複製
+              </p>
+            </div>
           </DialogContent>
         </Dialog>
       </CardContent>
