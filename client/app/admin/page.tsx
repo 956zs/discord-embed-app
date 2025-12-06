@@ -18,6 +18,7 @@ import { FetchProgress } from "@/components/admin/fetch-progress";
 import { BatchFetch } from "@/components/admin/batch-fetch";
 import { WelcomeConfig } from "@/components/admin/welcome-config";
 import { MemberStats } from "@/components/admin/member-stats";
+import { WebhookRelay } from "@/components/admin/webhook-relay";
 import { preloadAdminData, clearExpiredCache } from "@/lib/preload";
 import type { FetchSummary } from "@/types";
 
@@ -30,7 +31,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<FetchSummary | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "batch" | "channels" | "history" | "welcome" | "members"
+    "batch" | "channels" | "history" | "welcome" | "members" | "webhook"
   >("batch");
   const [channelsForBatch, setChannelsForBatch] = useState<any[]>([]);
 
@@ -437,6 +438,13 @@ export default function AdminPage() {
           >
             成員統計
           </Button>
+          <Button
+            variant={activeTab === "webhook" ? "default" : "ghost"}
+            onClick={() => setActiveTab("webhook")}
+            className="whitespace-nowrap"
+          >
+            Webhook 中轉
+          </Button>
         </div>
 
         {/* 內容區域 */}
@@ -458,6 +466,8 @@ export default function AdminPage() {
         {activeTab === "welcome" && <WelcomeConfig guildId={guildId} />}
 
         {activeTab === "members" && <MemberStats guildId={guildId} />}
+
+        {activeTab === "webhook" && <WebhookRelay guildId={guildId} />}
       </div>
     </div>
   );

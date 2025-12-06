@@ -12,6 +12,9 @@ const fetchRoutes = require("./routes/fetch");
 const authRoutes = require("./routes/auth");
 const welcomeRoutes = require("./routes/welcome");
 const metricsRoutes = require("./routes/metrics");
+const webhookRelayRoutes = require("./routes/webhookRelay");
+const WebhookRelayService = require("./services/webhookRelayService");
+const { checkAdminAuth } = require("./middleware/adminAuth");
 const { getAllowedGuilds } = require("./utils/guildManager");
 const pool = require("./database/db");
 const MetricsCollector = require("./monitoring/metricsCollector");
@@ -127,6 +130,12 @@ app.use("/api/fetch", fetchRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/welcome", welcomeRoutes);
 app.use("/api/metrics", metricsRoutes);
+
+// Webhook 中轉服務
+const webhookRelayService = new WebhookRelayService(pool);
+webhookRelayRoutes.setWebhookRelayService(webhookRelayService, checkAdminAuth);
+app.use("/api/webhook", webhookRelayRoutes);
+console.log("✅ Webhook 中轉服務已啟用");
 
 app.get("/health", async (req, res) => {
   try {
