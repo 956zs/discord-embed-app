@@ -20,45 +20,53 @@ class WebhookTransformer {
    * @param {string} sourceType - 來源類型
    * @param {object} payload - 原始 payload
    * @param {object} config - 轉換器配置
-   * @returns {object} Discord webhook payload
+   * @param {object} existingData - 現有訊息資料（用於編輯模式）
+   * @returns {object} Discord webhook payload 和追蹤資訊
    */
-  transform(sourceType, payload, config = {}) {
+  transform(sourceType, payload, config = {}, existingData = null) {
     const transformer = this.transformers[sourceType] || this.transformers.raw;
-    return transformer(payload, config);
+    return transformer(payload, config, existingData);
   }
 
   /**
    * 自動偵測來源類型
-   * @param {object} payload - 原始 payload
-   * @param {object} headers - HTTP headers
-   * @returns {string} 偵測到的來源類型
    */
   detectSourceType(payload, headers = {}) {
-    // Statuspage (Discord Status, etc.)
     if (
       payload.page &&
       (payload.incident || payload.component || payload.component_update)
     ) {
       return "statuspage";
     }
-
-    // GitHub
     if (headers["x-github-event"] || payload.repository?.full_name) {
       return "github";
     }
-
-    // GitLab
     if (headers["x-gitlab-event"] || payload.object_kind) {
       return "gitlab";
     }
-
     return "custom";
   }
 
   /**
-   * Statuspage 轉換器 (Discord Status, etc.)
+   * 從 Statuspage payload 提取追蹤 ID
    */
-  transformStatuspage(payload, config = {}) {
+  extractTrackingId(sourceType, payload) {
+    if (sourceType === "statuspage") {
+      if (payload.incident?.id) {
+        return `incident_${payload.incident.id}`;
+      }
+      if (payload.component?.id) {
+        return `component_${payload.component.id}`;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Statuspage 轉換器 (Discord Status, etc.)
+   * 支援編輯模式：累加 fields
+   */
+  transformStatuspage(payload, config = {}, existingData = null) {
     const { page, incident, component, component_update } = payload;
 
     // 狀態顏色映射
@@ -68,10 +76,10 @@ class WebhookTransformer {
       partial_outage: 0xe67e22, // 橙色
       major_outage: 0xe74c3c, // 紅色
       under_maintenance: 0x3498db, // 藍色
-      investigating: 0xe74c3c,
-      identified: 0xe67e22,
-      monitoring: 0xf1c40f,
-      resolved: 0x2ecc71,
+      investigating: 0xe74c3c, // 紅色
+      identified: 0xe67e22, // 橙色
+      monitoring: 0xf1c40f, // 黃色
+      resolved: 0x2ecc71, // 綠色
       scheduled: 0x3498db,
       in_progress: 0xe67e22,
       verifying: 0xf1c40f,
@@ -103,57 +111,102 @@ class WebhookTransformer {
       critical: "🔴",
     };
 
-    const embeds = [];
+    // 狀態中文映射
+    const statusNames = {
+      investigating: "調查中",
+      identified: "已確認",
+      monitoring: "監控中",
+      resolved: "已解決",
+      scheduled: "已排程",
+      in_progress: "進行中",
+      verifying: "驗證中",
+      completed: "已完成",
+    };
 
-    // 處理 Incident 更新
+    let result = {
+      trackingId: null,
+      isUpdate: false,
+      discordPayload: null,
+    };
+
+    // 處理 Incident
     if (incident) {
       const status = incident.status || "investigating";
       const impact = incident.impact || "none";
       const color = statusColors[status] || statusColors[impact] || 0x95a5a6;
-      const emoji = statusEmojis[status] || statusEmojis[impact] || "📢";
+      const emoji = statusEmojis[status] || "📢";
+      const trackingId = `incident_${incident.id}`;
 
-      const fields = [
-        {
-          name: "狀態",
-          value: `${emoji} ${this.formatStatus(status)}`,
-          inline: true,
-        },
-        {
-          name: "影響程度",
-          value: this.formatStatus(impact),
-          inline: true,
-        },
-      ];
+      result.trackingId = trackingId;
 
-      // 最新更新內容
+      // 建立 fields（累加模式）
+      let fields = [];
+
+      if (existingData?.updates && Array.isArray(existingData.updates)) {
+        // 已有更新記錄，使用現有的 fields
+        fields = [...existingData.updates];
+      }
+
+      // 處理新的更新
       if (incident.incident_updates?.length > 0) {
         const latestUpdate = incident.incident_updates[0];
-        fields.push({
-          name: "最新更新",
+        const updateStatus = latestUpdate.status || status;
+        const updateEmoji = statusEmojis[updateStatus] || "📢";
+        const updateStatusName = statusNames[updateStatus] || updateStatus;
+
+        // 使用 Discord 時間戳格式
+        const timestamp = new Date(
+          latestUpdate.created_at || latestUpdate.display_at
+        ).getTime();
+        const discordTimestamp = Math.floor(timestamp / 1000);
+
+        const newField = {
+          name: `${updateEmoji} ${updateStatusName} (<t:${discordTimestamp}:R>)`,
           value: latestUpdate.body?.substring(0, 1000) || "無內容",
           inline: false,
-        });
+          _timestamp: timestamp, // 用於排序
+          _status: updateStatus,
+        };
+
+        // 檢查是否已存在相同時間戳的更新
+        const exists = fields.some((f) => f._timestamp === timestamp);
+        if (!exists) {
+          fields.push(newField);
+          result.isUpdate = existingData !== null;
+        }
       }
 
-      // 連結
-      if (incident.shortlink) {
-        fields.push({
-          name: "詳細資訊",
-          value: `[查看詳情](${incident.shortlink})`,
-          inline: true,
-        });
-      }
+      // 按時間排序 fields
+      fields.sort((a, b) => (a._timestamp || 0) - (b._timestamp || 0));
 
-      embeds.push({
-        title: `${emoji} ${incident.name || "Incident Update"}`,
-        description: page?.name ? `來自 ${page.name}` : undefined,
-        color,
-        fields,
-        timestamp: incident.updated_at || new Date().toISOString(),
-        footer: {
-          text: page?.name || "Statuspage",
-        },
-      });
+      // 清理內部欄位，只保留 Discord 需要的
+      const cleanFields = fields.map((f) => ({
+        name: f.name,
+        value: f.value,
+        inline: f.inline,
+      }));
+
+      result.discordPayload = {
+        username: config.username || page?.name || "Status Update",
+        avatar_url: config.avatar_url,
+        embeds: [
+          {
+            title: `${incident.name || "Incident Update"}`,
+            url: incident.shortlink || undefined,
+            description: `• Impact: ${impact}`,
+            color,
+            fields: cleanFields,
+            timestamp: incident.updated_at || new Date().toISOString(),
+            footer: {
+              text: page?.id || incident.organization_id || "Statuspage",
+            },
+          },
+        ],
+      };
+
+      // 保存完整的 fields 資料（包含內部欄位）用於下次更新
+      result.updatesData = fields;
+      result.currentStatus = status;
     }
 
     // 處理 Component 更新
@@ -162,67 +215,78 @@ class WebhookTransformer {
       const oldStatus = component_update.old_status;
       const color = statusColors[newStatus] || 0x95a5a6;
       const emoji = statusEmojis[newStatus] || "📢";
+      const trackingId = `component_${component.id}`;
 
-      embeds.push({
-        title: `${emoji} 元件狀態變更: ${component.name}`,
-        description: page?.name ? `來自 ${page.name}` : undefined,
-        color,
-        fields: [
+      result.trackingId = trackingId;
+
+      result.discordPayload = {
+        username: config.username || page?.name || "Status Update",
+        avatar_url: config.avatar_url,
+        embeds: [
           {
-            name: "元件",
-            value: component.name,
-            inline: true,
-          },
-          {
-            name: "新狀態",
-            value: `${emoji} ${this.formatStatus(newStatus)}`,
-            inline: true,
-          },
-          {
-            name: "舊狀態",
-            value: oldStatus ? this.formatStatus(oldStatus) : "N/A",
-            inline: true,
+            title: `${emoji} 元件狀態變更: ${component.name}`,
+            description: page?.name ? `來自 ${page.name}` : undefined,
+            color,
+            fields: [
+              { name: "元件", value: component.name, inline: true },
+              {
+                name: "新狀態",
+                value: `${emoji} ${this.formatStatus(newStatus)}`,
+                inline: true,
+              },
+              {
+                name: "舊狀態",
+                value: oldStatus ? this.formatStatus(oldStatus) : "N/A",
+                inline: true,
+              },
+            ],
+            timestamp: component_update.created_at || new Date().toISOString(),
+            footer: { text: page?.name || "Statuspage" },
           },
         ],
-        timestamp: component_update.created_at || new Date().toISOString(),
-        footer: {
-          text: page?.name || "Statuspage",
-        },
-      });
+      };
+
+      result.currentStatus = newStatus;
     }
 
-    // 頁面整體狀態
+    // 頁面整體狀態（不追蹤）
     if (page && !incident && !component_update) {
       const indicator = page.status_indicator || "none";
       const color = statusColors[indicator] || 0x95a5a6;
       const emoji = statusEmojis[indicator] || "📢";
 
-      embeds.push({
-        title: `${emoji} ${page.name || "Status Update"}`,
-        description: page.status_description || "狀態更新",
-        color,
-        timestamp: new Date().toISOString(),
-        footer: {
-          text: "Statuspage",
-        },
-      });
+      result.discordPayload = {
+        username: config.username || page?.name || "Status Update",
+        avatar_url: config.avatar_url,
+        embeds: [
+          {
+            title: `${emoji} ${page.name || "Status Update"}`,
+            description: page.status_description || "狀態更新",
+            color,
+            timestamp: new Date().toISOString(),
+            footer: { text: "Statuspage" },
+          },
+        ],
+      };
     }
 
-    return {
-      username: config.username || page?.name || "Status Update",
-      avatar_url: config.avatar_url,
-      embeds:
-        embeds.length > 0
-          ? embeds
-          : [
-              {
-                title: "📢 狀態更新",
-                description: "收到狀態更新通知",
-                color: 0x95a5a6,
-                timestamp: new Date().toISOString(),
-              },
-            ],
-    };
+    // 如果沒有產生任何 payload
+    if (!result.discordPayload) {
+      result.discordPayload = {
+        username: config.username || "Status Update",
+        avatar_url: config.avatar_url,
+        embeds: [
+          {
+            title: "📢 狀態更新",
+            description: "收到狀態更新通知",
+            color: 0x95a5a6,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      };
+    }
+
+    return result;
   }
 
   /**
@@ -231,14 +295,12 @@ class WebhookTransformer {
   transformGitHub(payload, config = {}) {
     const { repository, sender, action } = payload;
 
-    // 根據事件類型處理
     let title = "📦 GitHub 事件";
     let description = "";
     let color = 0x24292e;
     const fields = [];
 
     if (payload.pusher && payload.commits) {
-      // Push 事件
       title = `📤 Push to ${repository?.name || "repository"}`;
       description = `${payload.pusher.name} pushed ${payload.commits.length} commit(s)`;
       color = 0x2ecc71;
@@ -253,7 +315,6 @@ class WebhookTransformer {
         });
       });
     } else if (payload.pull_request) {
-      // PR 事件
       const pr = payload.pull_request;
       title = `🔀 PR ${action}: ${pr.title}`;
       description = `#${pr.number} by ${pr.user?.login}`;
@@ -263,14 +324,12 @@ class WebhookTransformer {
           : action === "closed"
           ? 0xe74c3c
           : 0xf1c40f;
-
       fields.push({
         name: "連結",
         value: `[查看 PR](${pr.html_url})`,
         inline: true,
       });
     } else if (payload.issue) {
-      // Issue 事件
       const issue = payload.issue;
       title = `📋 Issue ${action}: ${issue.title}`;
       description = `#${issue.number} by ${issue.user?.login}`;
@@ -280,7 +339,6 @@ class WebhookTransformer {
           : action === "closed"
           ? 0xe74c3c
           : 0xf1c40f;
-
       fields.push({
         name: "連結",
         value: `[查看 Issue](${issue.html_url})`,
@@ -289,22 +347,24 @@ class WebhookTransformer {
     }
 
     return {
-      username: config.username || "GitHub",
-      avatar_url:
-        config.avatar_url ||
-        "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
-      embeds: [
-        {
-          title,
-          description,
-          color,
-          fields,
-          timestamp: new Date().toISOString(),
-          footer: {
-            text: repository?.full_name || "GitHub",
+      trackingId: null,
+      isUpdate: false,
+      discordPayload: {
+        username: config.username || "GitHub",
+        avatar_url:
+          config.avatar_url ||
+          "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+        embeds: [
+          {
+            title,
+            description,
+            color,
+            fields,
+            timestamp: new Date().toISOString(),
+            footer: { text: repository?.full_name || "GitHub" },
           },
-        },
-      ],
+        ],
+      },
     };
   }
 
@@ -335,14 +395,12 @@ class WebhookTransformer {
           : mr?.action === "close"
           ? 0xe74c3c
           : 0xf1c40f;
-
-      if (mr?.url) {
+      if (mr?.url)
         fields.push({
           name: "連結",
           value: `[查看 MR](${mr.url})`,
           inline: true,
         });
-      }
     } else if (object_kind === "issue") {
       const issue = payload.object_attributes;
       title = `📋 Issue ${issue?.action}: ${issue?.title}`;
@@ -353,53 +411,53 @@ class WebhookTransformer {
           : issue?.action === "close"
           ? 0xe74c3c
           : 0xf1c40f;
-
-      if (issue?.url) {
+      if (issue?.url)
         fields.push({
           name: "連結",
           value: `[查看 Issue](${issue.url})`,
           inline: true,
         });
-      }
     }
 
     return {
-      username: config.username || "GitLab",
-      avatar_url:
-        config.avatar_url ||
-        "https://about.gitlab.com/images/press/logo/png/gitlab-icon-rgb.png",
-      embeds: [
-        {
-          title,
-          description,
-          color,
-          fields,
-          timestamp: new Date().toISOString(),
-          footer: {
-            text: project?.path_with_namespace || "GitLab",
+      trackingId: null,
+      isUpdate: false,
+      discordPayload: {
+        username: config.username || "GitLab",
+        avatar_url:
+          config.avatar_url ||
+          "https://about.gitlab.com/images/press/logo/png/gitlab-icon-rgb.png",
+        embeds: [
+          {
+            title,
+            description,
+            color,
+            fields,
+            timestamp: new Date().toISOString(),
+            footer: { text: project?.path_with_namespace || "GitLab" },
           },
-        },
-      ],
+        ],
+      },
     };
   }
 
   /**
-   * 自訂轉換器 (使用配置中的模板)
+   * 自訂轉換器
    */
   transformCustom(payload, config = {}) {
     const { template } = config;
-
     if (template) {
-      // 使用模板替換變數
-      return this.applyTemplate(template, payload);
+      return {
+        trackingId: null,
+        isUpdate: false,
+        discordPayload: this.applyTemplate(template, payload),
+      };
     }
-
-    // 預設：顯示 JSON
     return this.transformRaw(payload, config);
   }
 
   /**
-   * 原始格式轉換器 (直接顯示 JSON)
+   * 原始格式轉換器
    */
   transformRaw(payload, config = {}) {
     const jsonStr = JSON.stringify(payload, null, 2);
@@ -409,25 +467,24 @@ class WebhookTransformer {
         : jsonStr;
 
     return {
-      username: config.username || "Webhook Relay",
-      avatar_url: config.avatar_url,
-      embeds: [
-        {
-          title: "📥 Webhook 收到",
-          description: `\`\`\`json\n${truncated}\n\`\`\``,
-          color: 0x3498db,
-          timestamp: new Date().toISOString(),
-          footer: {
-            text: "原始 Webhook 資料",
+      trackingId: null,
+      isUpdate: false,
+      discordPayload: {
+        username: config.username || "Webhook Relay",
+        avatar_url: config.avatar_url,
+        embeds: [
+          {
+            title: "📥 Webhook 收到",
+            description: `\`\`\`json\n${truncated}\n\`\`\``,
+            color: 0x3498db,
+            timestamp: new Date().toISOString(),
+            footer: { text: "原始 Webhook 資料" },
           },
-        },
-      ],
+        ],
+      },
     };
   }
 
-  /**
-   * 格式化狀態文字
-   */
   formatStatus(status) {
     const statusMap = {
       operational: "正常運作",
@@ -448,17 +505,11 @@ class WebhookTransformer {
       major: "重大",
       critical: "嚴重",
     };
-
     return statusMap[status] || status;
   }
 
-  /**
-   * 應用模板
-   */
   applyTemplate(template, data) {
-    // 簡單的變數替換 {{path.to.value}}
     const result = JSON.parse(JSON.stringify(template));
-
     const replaceVars = (obj) => {
       if (typeof obj === "string") {
         return obj.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
@@ -466,9 +517,7 @@ class WebhookTransformer {
           return value !== undefined ? String(value) : match;
         });
       }
-      if (Array.isArray(obj)) {
-        return obj.map(replaceVars);
-      }
+      if (Array.isArray(obj)) return obj.map(replaceVars);
       if (obj && typeof obj === "object") {
         const newObj = {};
         for (const [key, value] of Object.entries(obj)) {
@@ -478,13 +527,9 @@ class WebhookTransformer {
       }
       return obj;
     };
-
     return replaceVars(result);
   }
 
-  /**
-   * 取得巢狀物件值
-   */
   getNestedValue(obj, path) {
     return path.split(".").reduce((current, key) => {
       return current && current[key] !== undefined ? current[key] : undefined;

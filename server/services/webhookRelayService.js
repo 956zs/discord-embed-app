@@ -1,6 +1,7 @@
 /**
  * Webhook 中轉服務
  * 管理 webhook 端點、接收、轉換和轉發
+ * 支援訊息追蹤和編輯
  */
 
 const axios = require("axios");
@@ -151,10 +152,66 @@ class WebhookRelayService {
   }
 
   /**
+   * 取得訊息追蹤記錄
+   */
+  async getMessageTracking(endpointId, sourceTrackingId) {
+    const result = await this.pool.query(
+      `SELECT * FROM webhook_message_tracking 
+       WHERE endpoint_id = $1 AND source_tracking_id = $2`,
+      [endpointId, sourceTrackingId]
+    );
+    return result.rows[0];
+  }
+
+  /**
+   * 創建或更新訊息追蹤記錄
+   */
+  async upsertMessageTracking(endpointId, sourceTrackingId, data) {
+    const { discordMessageId, discordChannelId, currentStatus, updates } = data;
+
+    const result = await this.pool.query(
+      `INSERT INTO webhook_message_tracking 
+       (endpoint_id, source_tracking_id, discord_message_id, discord_channel_id, current_status, updates)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (endpoint_id, source_tracking_id) 
+       DO UPDATE SET 
+         discord_message_id = COALESCE($3, webhook_message_tracking.discord_message_id),
+         current_status = COALESCE($5, webhook_message_tracking.current_status),
+         updates = COALESCE($6, webhook_message_tracking.updates),
+         updated_at = NOW()
+       RETURNING *`,
+      [
+        endpointId,
+        sourceTrackingId,
+        discordMessageId,
+        discordChannelId,
+        currentStatus,
+        JSON.stringify(updates || []),
+      ]
+    );
+
+    return result.rows[0];
+  }
+
+  /**
+   * 從 Discord Webhook URL 解析資訊
+   */
+  parseWebhookUrl(webhookUrl) {
+    // https://discord.com/api/webhooks/{webhook_id}/{webhook_token}
+    const match = webhookUrl.match(/\/webhooks\/(\d+)\/([^/?]+)/);
+    if (match) {
+      return {
+        webhookId: match[1],
+        webhookToken: match[2],
+      };
+    }
+    return null;
+  }
+
+  /**
    * 處理收到的 webhook
    */
   async handleIncomingWebhook(endpointKey, headers, body) {
-    // 取得端點配置
     const endpoint = await this.getEndpointByKey(endpointKey);
 
     if (!endpoint) {
@@ -165,7 +222,6 @@ class WebhookRelayService {
       return { success: false, error: "Endpoint disabled", status: 403 };
     }
 
-    // 記錄原始請求
     const logEntry = await this.createLog(endpoint.id, headers, body);
 
     try {
@@ -178,34 +234,77 @@ class WebhookRelayService {
         }
       }
 
-      // 轉換 payload
+      // 檢查是否有追蹤 ID（用於編輯模式）
+      const trackingId = this.transformer.extractTrackingId(sourceType, body);
+      let existingTracking = null;
+
+      if (trackingId) {
+        existingTracking = await this.getMessageTracking(
+          endpoint.id,
+          trackingId
+        );
+      }
+
+      // 轉換 payload（傳入現有資料用於累加）
       const transformerConfig = endpoint.transformer_config || {};
-      const discordPayload = this.transformer.transform(
+      const transformResult = this.transformer.transform(
         sourceType,
         body,
-        transformerConfig
+        transformerConfig,
+        existingTracking
       );
+
+      const { discordPayload, isUpdate, updatesData, currentStatus } =
+        transformResult;
 
       // 更新日誌
       await this.updateLog(logEntry.id, {
         transformed_payload: discordPayload,
       });
 
-      // 發送到 Discord
-      const sendResult = await this.sendToDiscord(
-        endpoint.discord_webhook_url,
-        discordPayload
-      );
+      let sendResult;
+
+      if (isUpdate && existingTracking?.discord_message_id) {
+        // 編輯現有訊息
+        console.log(`📝 編輯訊息: ${existingTracking.discord_message_id}`);
+        sendResult = await this.editDiscordMessage(
+          endpoint.discord_webhook_url,
+          existingTracking.discord_message_id,
+          discordPayload
+        );
+      } else {
+        // 發送新訊息
+        console.log(`📤 發送新訊息`);
+        sendResult = await this.sendToDiscord(
+          endpoint.discord_webhook_url,
+          discordPayload,
+          true // 需要返回訊息 ID
+        );
+      }
 
       if (sendResult.success) {
-        // 更新統計和日誌
+        // 更新追蹤記錄
+        if (trackingId) {
+          await this.upsertMessageTracking(endpoint.id, trackingId, {
+            discordMessageId:
+              sendResult.messageId || existingTracking?.discord_message_id,
+            currentStatus,
+            updates: updatesData,
+          });
+        }
+
         await this.updateEndpointStats(endpoint.id, "forwarded");
         await this.updateLog(logEntry.id, {
           status: "forwarded",
           forwarded_at: new Date().toISOString(),
         });
 
-        return { success: true, logId: logEntry.id };
+        return {
+          success: true,
+          logId: logEntry.id,
+          isUpdate,
+          messageId: sendResult.messageId,
+        };
       } else {
         await this.updateEndpointStats(endpoint.id, "failed");
         await this.updateLog(logEntry.id, {
@@ -216,6 +315,7 @@ class WebhookRelayService {
         return { success: false, error: sendResult.error, logId: logEntry.id };
       }
     } catch (error) {
+      console.error("❌ Webhook 處理錯誤:", error);
       await this.updateEndpointStats(endpoint.id, "failed");
       await this.updateLog(logEntry.id, {
         status: "failed",
@@ -229,26 +329,79 @@ class WebhookRelayService {
   /**
    * 發送到 Discord Webhook
    */
-  async sendToDiscord(webhookUrl, payload) {
+  async sendToDiscord(webhookUrl, payload, waitForMessage = false) {
+    const url = waitForMessage ? `${webhookUrl}?wait=true` : webhookUrl;
+
     for (let attempt = 0; attempt < this.retryAttempts; attempt++) {
       try {
-        await axios.post(webhookUrl, payload, {
+        const response = await axios.post(url, payload, {
           headers: { "Content-Type": "application/json" },
           timeout: 10000,
         });
 
-        return { success: true, attempt: attempt + 1 };
+        return {
+          success: true,
+          attempt: attempt + 1,
+          messageId: response.data?.id,
+        };
       } catch (error) {
         const isLastAttempt = attempt === this.retryAttempts - 1;
 
         if (isLastAttempt) {
           console.error(`❌ Discord Webhook 發送失敗:`, error.message);
+          if (error.response?.data) {
+            console.error("Discord 回應:", error.response.data);
+          }
           return { success: false, error: error.message };
         }
 
-        // 指數退避
         const delay = this.retryDelay * Math.pow(2, attempt);
         console.warn(`⚠️ Discord Webhook 發送失敗，${delay}ms 後重試`);
+        await this.sleep(delay);
+      }
+    }
+
+    return { success: false, error: "Max retries exceeded" };
+  }
+
+  /**
+   * 編輯 Discord 訊息
+   */
+  async editDiscordMessage(webhookUrl, messageId, payload) {
+    const webhookInfo = this.parseWebhookUrl(webhookUrl);
+    if (!webhookInfo) {
+      return { success: false, error: "Invalid webhook URL" };
+    }
+
+    const editUrl = `https://discord.com/api/webhooks/${webhookInfo.webhookId}/${webhookInfo.webhookToken}/messages/${messageId}`;
+
+    for (let attempt = 0; attempt < this.retryAttempts; attempt++) {
+      try {
+        await axios.patch(editUrl, payload, {
+          headers: { "Content-Type": "application/json" },
+          timeout: 10000,
+        });
+
+        return { success: true, attempt: attempt + 1, messageId };
+      } catch (error) {
+        const isLastAttempt = attempt === this.retryAttempts - 1;
+
+        // 如果訊息不存在，改為發送新訊息
+        if (error.response?.status === 404) {
+          console.warn("⚠️ 訊息不存在，改為發送新訊息");
+          return this.sendToDiscord(webhookUrl, payload, true);
+        }
+
+        if (isLastAttempt) {
+          console.error(`❌ Discord 訊息編輯失敗:`, error.message);
+          if (error.response?.data) {
+            console.error("Discord 回應:", error.response.data);
+          }
+          return { success: false, error: error.message };
+        }
+
+        const delay = this.retryDelay * Math.pow(2, attempt);
+        console.warn(`⚠️ Discord 訊息編輯失敗，${delay}ms 後重試`);
         await this.sleep(delay);
       }
     }
@@ -260,7 +413,6 @@ class WebhookRelayService {
    * 創建日誌記錄
    */
   async createLog(endpointId, headers, body) {
-    // 過濾敏感 headers
     const safeHeaders = { ...headers };
     delete safeHeaders.authorization;
     delete safeHeaders.cookie;
@@ -277,7 +429,6 @@ class WebhookRelayService {
       ]
     );
 
-    // 更新端點統計
     await this.pool.query(
       `UPDATE webhook_endpoints 
        SET total_received = total_received + 1, last_received_at = NOW()
@@ -352,7 +503,7 @@ class WebhookRelayService {
   }
 
   /**
-   * 測試端點 (發送測試訊息)
+   * 測試端點
    */
   async testEndpoint(endpointId) {
     const endpoint = await this.getEndpointById(endpointId);
