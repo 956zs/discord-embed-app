@@ -58,6 +58,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  EmbedBuilder,
+  embedDataToConfig,
+  configToEmbedData,
+} from "@/components/admin/embed-builder";
 
 interface WebhookEndpoint {
   id: number;
@@ -155,6 +161,11 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
     useState<WebhookEndpoint | null>(null);
   const [embedConfigJson, setEmbedConfigJson] = useState("");
   const [configError, setConfigError] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null);
+  const [editorMode, setEditorMode] = useState<"visual" | "json">("visual");
+  const [visualEmbedData, setVisualEmbedData] = useState<any>({
+    fields: [],
+  });
 
   // 新端點表單
   const [newEndpoint, setNewEndpoint] = useState({
@@ -321,12 +332,26 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
     }
   };
 
-  // 刪除端點
+  // 刪除端點（點兩次確認刪除，因為 Discord App 不支援 confirm 彈窗）
   const handleDelete = async (endpoint: WebhookEndpoint) => {
-    if (!confirm(`確定要刪除「${endpoint.name}」嗎？`)) {
+    // 第一次點擊：設定待刪除狀態
+    if (pendingDeleteId !== endpoint.id) {
+      setPendingDeleteId(endpoint.id);
+      toast({
+        title: "再次點擊確認刪除",
+        description: `點擊刪除按鈕確認刪除「${endpoint.name}」`,
+      });
+      // 3 秒後自動取消待刪除狀態
+      setTimeout(() => {
+        setPendingDeleteId((current) =>
+          current === endpoint.id ? null : current
+        );
+      }, 3000);
       return;
     }
 
+    // 第二次點擊：執行刪除
+    setPendingDeleteId(null);
     try {
       const response = await fetch(`/api/webhook/endpoints/${endpoint.id}`, {
         method: "DELETE",
@@ -378,6 +403,7 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
   const handleOpenConfig = async (endpoint: WebhookEndpoint) => {
     setEditingEndpoint(endpoint);
     setConfigError("");
+    setEditorMode("visual");
 
     // 載入現有設定
     try {
@@ -389,20 +415,39 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
 
       if (config) {
         setEmbedConfigJson(JSON.stringify(config, null, 2));
+        setVisualEmbedData(configToEmbedData(config));
       } else {
         // 提供預設範本
-        setEmbedConfigJson(
-          JSON.stringify(getDefaultEmbedConfig(endpoint.source_type), null, 2)
-        );
+        const defaultConfig = getDefaultEmbedConfig(endpoint.source_type);
+        setEmbedConfigJson(JSON.stringify(defaultConfig, null, 2));
+        setVisualEmbedData(configToEmbedData(defaultConfig));
       }
     } catch (error) {
       console.error("Failed to load config:", error);
-      setEmbedConfigJson(
-        JSON.stringify(getDefaultEmbedConfig(endpoint.source_type), null, 2)
-      );
+      const defaultConfig = getDefaultEmbedConfig(endpoint.source_type);
+      setEmbedConfigJson(JSON.stringify(defaultConfig, null, 2));
+      setVisualEmbedData(configToEmbedData(defaultConfig));
     }
 
     setConfigDialogOpen(true);
+  };
+
+  // 同步視覺編輯器和 JSON
+  const syncVisualToJson = (data: any) => {
+    setVisualEmbedData(data);
+    const config = embedDataToConfig(data);
+    setEmbedConfigJson(JSON.stringify(config, null, 2));
+  };
+
+  const syncJsonToVisual = (json: string) => {
+    setEmbedConfigJson(json);
+    try {
+      const config = JSON.parse(json);
+      setVisualEmbedData(configToEmbedData(config));
+      setConfigError("");
+    } catch (e) {
+      // JSON 無效時不更新視覺編輯器
+    }
   };
 
   // 取得預設範本
@@ -771,12 +816,29 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
                         <History className="h-4 w-4" />
                       </Button>
                       <Button
-                        variant="ghost"
+                        variant={
+                          pendingDeleteId === endpoint.id
+                            ? "destructive"
+                            : "ghost"
+                        }
                         size="icon"
                         onClick={() => handleDelete(endpoint)}
-                        title="刪除"
+                        title={
+                          pendingDeleteId === endpoint.id
+                            ? "再次點擊確認刪除"
+                            : "刪除"
+                        }
+                        className={
+                          pendingDeleteId === endpoint.id ? "animate-pulse" : ""
+                        }
                       >
-                        <Trash2 className="h-4 w-4 text-red-500" />
+                        <Trash2
+                          className={`h-4 w-4 ${
+                            pendingDeleteId === endpoint.id
+                              ? "text-white"
+                              : "text-red-500"
+                          }`}
+                        />
                       </Button>
                     </div>
                   </TableCell>
@@ -864,193 +926,218 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
 
         {/* 自訂格式設定對話框 */}
         <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>自訂訊息格式 - {editingEndpoint?.name}</DialogTitle>
               <DialogDescription>
-                使用 JSON 設定 Discord 訊息的每個部分，支援變數替換和格式化
+                設定 Discord Webhook 訊息的格式，支援變數替換
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
-              {/* 說明文件 */}
-              <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="help">
-                  <AccordionTrigger className="text-sm">
-                    <div className="flex items-center gap-2">
-                      <Info className="h-4 w-4" />
-                      使用說明
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                    <div className="text-xs space-y-3 bg-muted p-3 rounded">
-                      <div>
-                        <strong>變數語法：</strong>
-                        <code className="bg-background px-1 rounded">{`{{path.to.value}}`}</code>
-                      </div>
+            <Tabs
+              value={editorMode}
+              onValueChange={(v: string) =>
+                setEditorMode(v as "visual" | "json")
+              }
+            >
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="visual">視覺化編輯器</TabsTrigger>
+                <TabsTrigger value="json">JSON 編輯器</TabsTrigger>
+              </TabsList>
 
-                      <div>
-                        <strong>管道操作：</strong>
-                        <ul className="list-disc list-inside mt-1 space-y-1">
-                          <li>
-                            <code>default: &quot;預設值&quot;</code> -
-                            設定預設值
-                          </li>
-                          <li>
-                            <code>truncate: 100</code> - 截斷文字
-                          </li>
-                          <li>
-                            <code>uppercase / lowercase</code> - 大小寫轉換
-                          </li>
-                          <li>
-                            <code>date: &quot;YYYY-MM-DD&quot;</code> -
-                            日期格式化
-                          </li>
-                          <li>
-                            <code>timestamp: R</code> - Discord 時間戳 (R=相對,
-                            F=完整)
-                          </li>
-                          <li>
-                            <code>emoji</code> - 狀態轉 emoji (success→✅)
-                          </li>
-                          <li>
-                            <code>codeblock: json</code> - 程式碼區塊
-                          </li>
-                          <li>
-                            <code>inline</code> - 行內程式碼
-                          </li>
-                          <li>
-                            <code>link: &quot;顯示文字&quot;</code> - 建立連結
-                          </li>
-                          <li>
-                            <code>join: &quot;, &quot;</code> - 陣列合併
-                          </li>
-                          <li>
-                            <code>first / last / count</code> - 陣列操作
-                          </li>
-                        </ul>
-                      </div>
+              <TabsContent value="visual" className="mt-4">
+                <EmbedBuilder
+                  value={visualEmbedData}
+                  onChange={syncVisualToJson}
+                  showVariableHints={true}
+                />
+              </TabsContent>
 
-                      <div>
-                        <strong>範例：</strong>
-                        <pre className="bg-background p-2 rounded mt-1 overflow-x-auto">
-                          {`{{event.name | default: "未命名"}}
+              <TabsContent value="json" className="mt-4">
+                <div className="space-y-4">
+                  {/* 說明文件 */}
+                  <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="help">
+                      <AccordionTrigger className="text-sm">
+                        <div className="flex items-center gap-2">
+                          <Info className="h-4 w-4" />
+                          使用說明
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="text-xs space-y-3 bg-muted p-3 rounded">
+                          <div>
+                            <strong>變數語法：</strong>
+                            <code className="bg-background px-1 rounded">{`{{path.to.value}}`}</code>
+                          </div>
+
+                          <div>
+                            <strong>管道操作：</strong>
+                            <ul className="list-disc list-inside mt-1 space-y-1">
+                              <li>
+                                <code>default: &quot;預設值&quot;</code> -
+                                設定預設值
+                              </li>
+                              <li>
+                                <code>truncate: 100</code> - 截斷文字
+                              </li>
+                              <li>
+                                <code>uppercase / lowercase</code> - 大小寫轉換
+                              </li>
+                              <li>
+                                <code>date: &quot;YYYY-MM-DD&quot;</code> -
+                                日期格式化
+                              </li>
+                              <li>
+                                <code>timestamp: R</code> - Discord 時間戳
+                                (R=相對, F=完整)
+                              </li>
+                              <li>
+                                <code>emoji</code> - 狀態轉 emoji (success→✅)
+                              </li>
+                              <li>
+                                <code>codeblock: json</code> - 程式碼區塊
+                              </li>
+                              <li>
+                                <code>inline</code> - 行內程式碼
+                              </li>
+                              <li>
+                                <code>link: &quot;顯示文字&quot;</code> -
+                                建立連結
+                              </li>
+                              <li>
+                                <code>join: &quot;, &quot;</code> - 陣列合併
+                              </li>
+                              <li>
+                                <code>first / last / count</code> - 陣列操作
+                              </li>
+                            </ul>
+                          </div>
+
+                          <div>
+                            <strong>範例：</strong>
+                            <pre className="bg-background p-2 rounded mt-1 overflow-x-auto">
+                              {`{{event.name | default: "未命名"}}
 {{created_at | timestamp: R}}
 {{status | emoji}} {{status | uppercase}}
 {{items | count}} 個項目`}
-                        </pre>
-                      </div>
+                            </pre>
+                          </div>
 
-                      <div>
-                        <strong>顏色設定：</strong>
-                        <p>
-                          可使用 Hex 格式 (#FF5733) 或透過 colorMap 映射狀態值
-                        </p>
-                      </div>
+                          <div>
+                            <strong>顏色設定：</strong>
+                            <p>
+                              可使用 Hex 格式 (#FF5733) 或透過 colorMap
+                              映射狀態值
+                            </p>
+                          </div>
 
-                      <div>
-                        <strong>條件欄位：</strong>
-                        <p>
-                          在 fields 中加入 <code>condition</code>{" "}
-                          屬性，只有當值存在時才顯示
-                        </p>
-                      </div>
+                          <div>
+                            <strong>條件欄位：</strong>
+                            <p>
+                              在 fields 中加入 <code>condition</code>{" "}
+                              屬性，只有當值存在時才顯示
+                            </p>
+                          </div>
 
-                      <div>
-                        <strong>動態欄位：</strong>
-                        <p>
-                          使用 <code>fieldsFromArray</code>{" "}
-                          從陣列動態生成多個欄位
-                        </p>
-                      </div>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+                          <div>
+                            <strong>動態欄位：</strong>
+                            <p>
+                              使用 <code>fieldsFromArray</code>{" "}
+                              從陣列動態生成多個欄位
+                            </p>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
 
-              {/* JSON 編輯器 */}
-              <div className="space-y-2">
-                <Label>Embed 設定 (JSON)</Label>
-                <Textarea
-                  value={embedConfigJson}
-                  onChange={(e) => {
-                    setEmbedConfigJson(e.target.value);
-                    setConfigError("");
-                  }}
-                  className="font-mono text-xs min-h-[400px]"
-                  placeholder="輸入 JSON 設定..."
-                />
-                {configError && (
-                  <p className="text-xs text-red-500">{configError}</p>
-                )}
-              </div>
+                  {/* JSON 編輯器 */}
+                  <div className="space-y-2">
+                    <Label>Embed 設定 (JSON)</Label>
+                    <Textarea
+                      value={embedConfigJson}
+                      onChange={(e) => syncJsonToVisual(e.target.value)}
+                      className="font-mono text-xs min-h-[400px]"
+                      placeholder="輸入 JSON 設定..."
+                    />
+                    {configError && (
+                      <p className="text-xs text-red-500">{configError}</p>
+                    )}
+                  </div>
 
-              {/* 快速範本 */}
-              <div className="flex gap-2 flex-wrap">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setEmbedConfigJson(
-                      JSON.stringify(getDefaultEmbedConfig("custom"), null, 2)
-                    )
-                  }
-                >
-                  自訂範本
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setEmbedConfigJson(
-                      JSON.stringify(getDefaultEmbedConfig("raw"), null, 2)
-                    )
-                  }
-                >
-                  原始 JSON 範本
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setEmbedConfigJson(
-                      JSON.stringify(
-                        {
-                          username:
-                            "{{repository.full_name | default: 'GitHub'}}",
-                          avatar_url:
-                            "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
-                          embed: {
-                            title:
-                              "{{action | capitalize}}: {{pull_request.title | default: issue.title}}",
-                            titleUrl:
-                              "{{pull_request.html_url | default: issue.html_url}}",
-                            description:
-                              "{{pull_request.body | default: issue.body | truncate: 500}}",
-                            color: "{{action}}",
-                            colorMap: {
-                              opened: "#2ECC71",
-                              closed: "#E74C3C",
-                              merged: "#9B59B6",
+                  {/* 快速範本 */}
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        syncJsonToVisual(
+                          JSON.stringify(
+                            getDefaultEmbedConfig("custom"),
+                            null,
+                            2
+                          )
+                        )
+                      }
+                    >
+                      自訂範本
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        syncJsonToVisual(
+                          JSON.stringify(getDefaultEmbedConfig("raw"), null, 2)
+                        )
+                      }
+                    >
+                      原始 JSON 範本
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        syncJsonToVisual(
+                          JSON.stringify(
+                            {
+                              username:
+                                "{{repository.full_name | default: 'GitHub'}}",
+                              avatar_url:
+                                "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+                              embed: {
+                                title:
+                                  "{{action | capitalize}}: {{pull_request.title | default: issue.title}}",
+                                titleUrl:
+                                  "{{pull_request.html_url | default: issue.html_url}}",
+                                description:
+                                  "{{pull_request.body | default: issue.body | truncate: 500}}",
+                                color: "{{action}}",
+                                colorMap: {
+                                  opened: "#2ECC71",
+                                  closed: "#E74C3C",
+                                  merged: "#9B59B6",
+                                },
+                                author: {
+                                  name: "{{sender.login}}",
+                                  icon_url: "{{sender.avatar_url}}",
+                                },
+                                footer: { text: "{{repository.full_name}}" },
+                                timestamp: "auto",
+                              },
                             },
-                            author: {
-                              name: "{{sender.login}}",
-                              icon_url: "{{sender.avatar_url}}",
-                            },
-                            footer: { text: "{{repository.full_name}}" },
-                            timestamp: "auto",
-                          },
-                        },
-                        null,
-                        2
-                      )
-                    )
-                  }
-                >
-                  GitHub 範本
-                </Button>
-              </div>
-            </div>
+                            null,
+                            2
+                          )
+                        )
+                      }
+                    >
+                      GitHub 範本
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
 
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={handleClearConfig}>

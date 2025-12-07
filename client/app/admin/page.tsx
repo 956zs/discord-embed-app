@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useToast } from "@/hooks/use-toast";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import {
   Card,
@@ -25,6 +26,7 @@ import type { FetchSummary } from "@/types";
 export default function AdminPage() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { toast } = useToast();
   const [guildId, setGuildId] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -203,7 +205,11 @@ export default function AdminPage() {
 
     if (!guildId || !userId) {
       console.error("❌ 缺少 guildId 或 userId");
-      alert("錯誤：缺少必要的參數");
+      toast({
+        title: "錯誤",
+        description: "缺少必要的參數",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -260,9 +266,10 @@ export default function AdminPage() {
 
     console.log(`📊 批量提取完成: 成功 ${successCount}, 失敗 ${failCount}`);
 
-    alert(
-      `✅ 批量提取已完成！\n\n成功: ${successCount}\n失敗: ${failCount}\n\n請切換到「提取歷史」標籤查看進度。`
-    );
+    toast({
+      title: "✅ 批量提取已完成",
+      description: `成功: ${successCount}, 失敗: ${failCount}。請切換到「提取歷史」標籤查看進度。`,
+    });
 
     // 重新載入數據
     console.log("🔄 重新載入數據...");
