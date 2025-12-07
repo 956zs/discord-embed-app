@@ -49,7 +49,15 @@ import {
   ExternalLink,
   History,
   Settings,
+  Code,
+  Info,
 } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface WebhookEndpoint {
   id: number;
@@ -78,6 +86,46 @@ interface WebhookLog {
   forwarded_at: string | null;
 }
 
+interface EmbedConfig {
+  username?: string;
+  avatar_url?: string;
+  content?: string;
+  embed?: {
+    title?: string;
+    titleUrl?: string;
+    description?: string;
+    color?: string | number;
+    colorMap?: Record<string, string>;
+    thumbnail?: string;
+    image?: string;
+    author?: {
+      name?: string;
+      url?: string;
+      icon_url?: string;
+    };
+    footer?:
+      | string
+      | {
+          text?: string;
+          icon_url?: string;
+        };
+    timestamp?: string | boolean;
+    fields?: Array<{
+      name: string;
+      value: string;
+      inline?: boolean;
+      condition?: string;
+    }>;
+    fieldsFromArray?: {
+      source: string;
+      name: string;
+      value: string;
+      inline?: boolean;
+      limit?: number;
+    };
+  };
+}
+
 interface SourceType {
   id: string;
   name: string;
@@ -102,6 +150,11 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
   const [logsLoading, setLogsLoading] = useState(false);
   const [urlDialogOpen, setUrlDialogOpen] = useState(false);
   const [currentUrl, setCurrentUrl] = useState("");
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [editingEndpoint, setEditingEndpoint] =
+    useState<WebhookEndpoint | null>(null);
+  const [embedConfigJson, setEmbedConfigJson] = useState("");
+  const [configError, setConfigError] = useState("");
 
   // 新端點表單
   const [newEndpoint, setNewEndpoint] = useState({
@@ -321,6 +374,174 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
     }
   };
 
+  // 開啟自訂格式設定
+  const handleOpenConfig = async (endpoint: WebhookEndpoint) => {
+    setEditingEndpoint(endpoint);
+    setConfigError("");
+
+    // 載入現有設定
+    try {
+      const response = await fetch(`/api/webhook/endpoints/${endpoint.id}`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json();
+      const config = data.endpoint?.transformer_config?.embedConfig;
+
+      if (config) {
+        setEmbedConfigJson(JSON.stringify(config, null, 2));
+      } else {
+        // 提供預設範本
+        setEmbedConfigJson(
+          JSON.stringify(getDefaultEmbedConfig(endpoint.source_type), null, 2)
+        );
+      }
+    } catch (error) {
+      console.error("Failed to load config:", error);
+      setEmbedConfigJson(
+        JSON.stringify(getDefaultEmbedConfig(endpoint.source_type), null, 2)
+      );
+    }
+
+    setConfigDialogOpen(true);
+  };
+
+  // 取得預設範本
+  const getDefaultEmbedConfig = (sourceType: string): EmbedConfig => {
+    const templates: Record<string, EmbedConfig> = {
+      custom: {
+        username: "{{source.name | default: 'Webhook'}}",
+        embed: {
+          title: "{{event.title | default: '通知'}}",
+          titleUrl: "{{event.url}}",
+          description: "{{event.description | truncate: 2000}}",
+          color: "{{status}}",
+          colorMap: {
+            success: "#00FF00",
+            warning: "#FFAA00",
+            error: "#FF0000",
+            info: "#3498DB",
+          },
+          author: {
+            name: "{{user.name}}",
+            icon_url: "{{user.avatar}}",
+          },
+          footer: {
+            text: "{{source.name}}",
+          },
+          timestamp: "auto",
+          fields: [
+            {
+              name: "狀態",
+              value: "{{status | emoji}} {{status}}",
+              inline: true,
+            },
+            {
+              name: "詳情",
+              value: "{{details}}",
+              inline: false,
+              condition: "{{details}}",
+            },
+          ],
+        },
+      },
+      raw: {
+        username: "Webhook Relay",
+        embed: {
+          title: "📥 收到 Webhook",
+          description: "{{. | json | truncate: 3000 | codeblock: json}}",
+          color: "#3498DB",
+          timestamp: "auto",
+        },
+      },
+    };
+
+    return templates[sourceType] || templates.custom;
+  };
+
+  // 儲存自訂格式設定
+  const handleSaveConfig = async () => {
+    if (!editingEndpoint) return;
+
+    try {
+      // 驗證 JSON
+      const embedConfig = JSON.parse(embedConfigJson);
+      setConfigError("");
+
+      const response = await fetch(
+        `/api/webhook/endpoints/${editingEndpoint.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({
+            transformer_config: { embedConfig },
+          }),
+        }
+      );
+
+      if (response.ok) {
+        toast({
+          title: "設定已儲存",
+          description: "自訂格式設定已更新",
+        });
+        setConfigDialogOpen(false);
+        loadEndpoints();
+      } else {
+        const data = await response.json();
+        toast({
+          title: "儲存失敗",
+          description: data.error || "未知錯誤",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      if (error instanceof SyntaxError) {
+        setConfigError("JSON 格式錯誤：" + error.message);
+      } else {
+        console.error("Failed to save config:", error);
+        toast({
+          title: "儲存失敗",
+          description: "網路錯誤",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  // 清除自訂格式（使用預設）
+  const handleClearConfig = async () => {
+    if (!editingEndpoint) return;
+
+    try {
+      const response = await fetch(
+        `/api/webhook/endpoints/${editingEndpoint.id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
+          body: JSON.stringify({
+            transformer_config: {},
+          }),
+        }
+      );
+
+      if (response.ok) {
+        toast({
+          title: "已清除",
+          description: "將使用預設格式",
+        });
+        setConfigDialogOpen(false);
+        loadEndpoints();
+      }
+    } catch (error) {
+      console.error("Failed to clear config:", error);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "forwarded":
@@ -528,6 +749,14 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
                       <Button
                         variant="ghost"
                         size="icon"
+                        onClick={() => handleOpenConfig(endpoint)}
+                        title="自訂格式"
+                      >
+                        <Code className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => handleTest(endpoint)}
                         title="發送測試"
                       >
@@ -630,6 +859,211 @@ export function WebhookRelay({ guildId }: WebhookRelayProps) {
                 點擊上方輸入框可全選 URL，然後使用 Ctrl+C (或 Cmd+C) 複製
               </p>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* 自訂格式設定對話框 */}
+        <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>自訂訊息格式 - {editingEndpoint?.name}</DialogTitle>
+              <DialogDescription>
+                使用 JSON 設定 Discord 訊息的每個部分，支援變數替換和格式化
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {/* 說明文件 */}
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="help">
+                  <AccordionTrigger className="text-sm">
+                    <div className="flex items-center gap-2">
+                      <Info className="h-4 w-4" />
+                      使用說明
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="text-xs space-y-3 bg-muted p-3 rounded">
+                      <div>
+                        <strong>變數語法：</strong>
+                        <code className="bg-background px-1 rounded">{`{{path.to.value}}`}</code>
+                      </div>
+
+                      <div>
+                        <strong>管道操作：</strong>
+                        <ul className="list-disc list-inside mt-1 space-y-1">
+                          <li>
+                            <code>default: &quot;預設值&quot;</code> -
+                            設定預設值
+                          </li>
+                          <li>
+                            <code>truncate: 100</code> - 截斷文字
+                          </li>
+                          <li>
+                            <code>uppercase / lowercase</code> - 大小寫轉換
+                          </li>
+                          <li>
+                            <code>date: &quot;YYYY-MM-DD&quot;</code> -
+                            日期格式化
+                          </li>
+                          <li>
+                            <code>timestamp: R</code> - Discord 時間戳 (R=相對,
+                            F=完整)
+                          </li>
+                          <li>
+                            <code>emoji</code> - 狀態轉 emoji (success→✅)
+                          </li>
+                          <li>
+                            <code>codeblock: json</code> - 程式碼區塊
+                          </li>
+                          <li>
+                            <code>inline</code> - 行內程式碼
+                          </li>
+                          <li>
+                            <code>link: &quot;顯示文字&quot;</code> - 建立連結
+                          </li>
+                          <li>
+                            <code>join: &quot;, &quot;</code> - 陣列合併
+                          </li>
+                          <li>
+                            <code>first / last / count</code> - 陣列操作
+                          </li>
+                        </ul>
+                      </div>
+
+                      <div>
+                        <strong>範例：</strong>
+                        <pre className="bg-background p-2 rounded mt-1 overflow-x-auto">
+                          {`{{event.name | default: "未命名"}}
+{{created_at | timestamp: R}}
+{{status | emoji}} {{status | uppercase}}
+{{items | count}} 個項目`}
+                        </pre>
+                      </div>
+
+                      <div>
+                        <strong>顏色設定：</strong>
+                        <p>
+                          可使用 Hex 格式 (#FF5733) 或透過 colorMap 映射狀態值
+                        </p>
+                      </div>
+
+                      <div>
+                        <strong>條件欄位：</strong>
+                        <p>
+                          在 fields 中加入 <code>condition</code>{" "}
+                          屬性，只有當值存在時才顯示
+                        </p>
+                      </div>
+
+                      <div>
+                        <strong>動態欄位：</strong>
+                        <p>
+                          使用 <code>fieldsFromArray</code>{" "}
+                          從陣列動態生成多個欄位
+                        </p>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              {/* JSON 編輯器 */}
+              <div className="space-y-2">
+                <Label>Embed 設定 (JSON)</Label>
+                <Textarea
+                  value={embedConfigJson}
+                  onChange={(e) => {
+                    setEmbedConfigJson(e.target.value);
+                    setConfigError("");
+                  }}
+                  className="font-mono text-xs min-h-[400px]"
+                  placeholder="輸入 JSON 設定..."
+                />
+                {configError && (
+                  <p className="text-xs text-red-500">{configError}</p>
+                )}
+              </div>
+
+              {/* 快速範本 */}
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setEmbedConfigJson(
+                      JSON.stringify(getDefaultEmbedConfig("custom"), null, 2)
+                    )
+                  }
+                >
+                  自訂範本
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setEmbedConfigJson(
+                      JSON.stringify(getDefaultEmbedConfig("raw"), null, 2)
+                    )
+                  }
+                >
+                  原始 JSON 範本
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setEmbedConfigJson(
+                      JSON.stringify(
+                        {
+                          username:
+                            "{{repository.full_name | default: 'GitHub'}}",
+                          avatar_url:
+                            "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+                          embed: {
+                            title:
+                              "{{action | capitalize}}: {{pull_request.title | default: issue.title}}",
+                            titleUrl:
+                              "{{pull_request.html_url | default: issue.html_url}}",
+                            description:
+                              "{{pull_request.body | default: issue.body | truncate: 500}}",
+                            color: "{{action}}",
+                            colorMap: {
+                              opened: "#2ECC71",
+                              closed: "#E74C3C",
+                              merged: "#9B59B6",
+                            },
+                            author: {
+                              name: "{{sender.login}}",
+                              icon_url: "{{sender.avatar_url}}",
+                            },
+                            footer: { text: "{{repository.full_name}}" },
+                            timestamp: "auto",
+                          },
+                        },
+                        null,
+                        2
+                      )
+                    )
+                  }
+                >
+                  GitHub 範本
+                </Button>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={handleClearConfig}>
+                清除設定
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setConfigDialogOpen(false)}
+              >
+                取消
+              </Button>
+              <Button onClick={handleSaveConfig}>儲存設定</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </CardContent>

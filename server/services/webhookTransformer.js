@@ -461,10 +461,22 @@ class WebhookTransformer {
   }
 
   /**
-   * 自訂轉換器
+   * 自訂轉換器 - 增強版
+   * 支援完整的 Discord Embed 結構自訂
    */
   transformCustom(payload, config = {}) {
-    const { template } = config;
+    const { template, embedConfig } = config;
+
+    // 新的 embedConfig 格式（推薦）
+    if (embedConfig) {
+      return {
+        trackingId: this.evaluateExpression(embedConfig.trackingId, payload),
+        isUpdate: false,
+        discordPayload: this.buildCustomEmbed(embedConfig, payload),
+      };
+    }
+
+    // 舊的 template 格式（向後相容）
     if (template) {
       return {
         trackingId: null,
@@ -472,7 +484,505 @@ class WebhookTransformer {
         discordPayload: this.applyTemplate(template, payload),
       };
     }
+
     return this.transformRaw(payload, config);
+  }
+
+  /**
+   * 建構自訂 Embed
+   * embedConfig 結構：
+   * {
+   *   username: "{{source.name}} Bot",
+   *   avatar_url: "https://...",
+   *   content: "純文字訊息（可選）",
+   *   embed: {
+   *     title: "{{event.type}}: {{event.name}}",
+   *     titleUrl: "{{event.url}}",
+   *     description: "{{event.description}}",
+   *     color: "#FF5733" 或 "{{status}}" 或數字,
+   *     colorMap: { "success": "#00FF00", "error": "#FF0000" },
+   *     thumbnail: "{{user.avatar}}",
+   *     image: "{{attachment.url}}",
+   *     author: {
+   *       name: "{{user.name}}",
+   *       url: "{{user.profile}}",
+   *       icon_url: "{{user.avatar}}"
+   *     },
+   *     footer: {
+   *       text: "{{source.name}}",
+   *       icon_url: "{{source.icon}}"
+   *     },
+   *     timestamp: "{{event.created_at}}" 或 "auto",
+   *     fields: [
+   *       { name: "狀態", value: "{{status}}", inline: true },
+   *       { name: "詳情", value: "{{details}}", inline: false, condition: "{{details}}" }
+   *     ],
+   *     fieldsFromArray: {
+   *       source: "{{items}}",
+   *       name: "{{item.title}}",
+   *       value: "{{item.description}}",
+   *       inline: true,
+   *       limit: 10
+   *     }
+   *   }
+   * }
+   */
+  buildCustomEmbed(embedConfig, payload) {
+    const result = {};
+
+    // 基本訊息設定
+    if (embedConfig.username) {
+      let username =
+        this.evaluateExpression(embedConfig.username, payload) || "Webhook";
+      // Discord 不允許 username 包含 "discord"
+      username = username.replace(/discord/gi, "DC");
+      result.username = username;
+    }
+
+    if (embedConfig.avatar_url) {
+      result.avatar_url = this.evaluateExpression(
+        embedConfig.avatar_url,
+        payload
+      );
+    }
+
+    if (embedConfig.content) {
+      result.content = this.evaluateExpression(embedConfig.content, payload);
+    }
+
+    // 建構 Embed
+    if (embedConfig.embed) {
+      const embed = this.buildSingleEmbed(embedConfig.embed, payload);
+      if (embed && Object.keys(embed).length > 0) {
+        result.embeds = [embed];
+      }
+    }
+
+    // 支援多個 Embeds
+    if (embedConfig.embeds && Array.isArray(embedConfig.embeds)) {
+      result.embeds = embedConfig.embeds
+        .map((e) => this.buildSingleEmbed(e, payload))
+        .filter((e) => e && Object.keys(e).length > 0);
+    }
+
+    return result;
+  }
+
+  /**
+   * 建構單個 Embed
+   */
+  buildSingleEmbed(embedDef, payload) {
+    const embed = {};
+
+    // Title
+    if (embedDef.title) {
+      const title = this.evaluateExpression(embedDef.title, payload);
+      if (title) embed.title = title.substring(0, 256);
+    }
+
+    // URL
+    if (embedDef.titleUrl || embedDef.url) {
+      const url = this.evaluateExpression(
+        embedDef.titleUrl || embedDef.url,
+        payload
+      );
+      if (url && this.isValidUrl(url)) embed.url = url;
+    }
+
+    // Description
+    if (embedDef.description) {
+      const desc = this.evaluateExpression(embedDef.description, payload);
+      if (desc) embed.description = desc.substring(0, 4096);
+    }
+
+    // Color
+    embed.color = this.resolveColor(embedDef.color, embedDef.colorMap, payload);
+
+    // Thumbnail
+    if (embedDef.thumbnail) {
+      const url = this.evaluateExpression(embedDef.thumbnail, payload);
+      if (url && this.isValidUrl(url)) embed.thumbnail = { url };
+    }
+
+    // Image
+    if (embedDef.image) {
+      const url = this.evaluateExpression(embedDef.image, payload);
+      if (url && this.isValidUrl(url)) embed.image = { url };
+    }
+
+    // Author
+    if (embedDef.author) {
+      const author = {};
+      if (embedDef.author.name) {
+        const name = this.evaluateExpression(embedDef.author.name, payload);
+        if (name) author.name = name.substring(0, 256);
+      }
+      if (embedDef.author.url) {
+        const url = this.evaluateExpression(embedDef.author.url, payload);
+        if (url && this.isValidUrl(url)) author.url = url;
+      }
+      if (embedDef.author.icon_url) {
+        const url = this.evaluateExpression(embedDef.author.icon_url, payload);
+        if (url && this.isValidUrl(url)) author.icon_url = url;
+      }
+      if (Object.keys(author).length > 0) embed.author = author;
+    }
+
+    // Footer
+    if (embedDef.footer) {
+      const footer = {};
+      if (typeof embedDef.footer === "string") {
+        const text = this.evaluateExpression(embedDef.footer, payload);
+        if (text) footer.text = text.substring(0, 2048);
+      } else {
+        if (embedDef.footer.text) {
+          const text = this.evaluateExpression(embedDef.footer.text, payload);
+          if (text) footer.text = text.substring(0, 2048);
+        }
+        if (embedDef.footer.icon_url) {
+          const url = this.evaluateExpression(
+            embedDef.footer.icon_url,
+            payload
+          );
+          if (url && this.isValidUrl(url)) footer.icon_url = url;
+        }
+      }
+      if (Object.keys(footer).length > 0) embed.footer = footer;
+    }
+
+    // Timestamp
+    if (embedDef.timestamp) {
+      if (embedDef.timestamp === "auto" || embedDef.timestamp === true) {
+        embed.timestamp = new Date().toISOString();
+      } else {
+        const ts = this.evaluateExpression(embedDef.timestamp, payload);
+        if (ts) {
+          const date = new Date(ts);
+          if (!isNaN(date.getTime())) {
+            embed.timestamp = date.toISOString();
+          }
+        }
+      }
+    }
+
+    // Fields - 靜態定義
+    if (embedDef.fields && Array.isArray(embedDef.fields)) {
+      const fields = [];
+      for (const fieldDef of embedDef.fields) {
+        // 條件檢查
+        if (fieldDef.condition) {
+          const condValue = this.evaluateExpression(
+            fieldDef.condition,
+            payload
+          );
+          if (!condValue || condValue === "undefined" || condValue === "null")
+            continue;
+        }
+
+        const name = this.evaluateExpression(fieldDef.name, payload);
+        const value = this.evaluateExpression(fieldDef.value, payload);
+
+        if (name && value) {
+          fields.push({
+            name: name.substring(0, 256),
+            value: value.substring(0, 1024),
+            inline: fieldDef.inline === true,
+          });
+        }
+
+        if (fields.length >= 25) break; // Discord 限制
+      }
+      if (fields.length > 0) embed.fields = fields;
+    }
+
+    // Fields - 從陣列動態生成
+    if (embedDef.fieldsFromArray) {
+      const arrayDef = embedDef.fieldsFromArray;
+      const sourceArray = this.evaluateExpression(
+        arrayDef.source,
+        payload,
+        true
+      );
+
+      if (Array.isArray(sourceArray)) {
+        const fields = embed.fields || [];
+        const limit = Math.min(arrayDef.limit || 10, 25 - fields.length);
+
+        for (let i = 0; i < Math.min(sourceArray.length, limit); i++) {
+          const item = sourceArray[i];
+          const itemContext = { ...payload, item, index: i };
+
+          const name = this.evaluateExpression(arrayDef.name, itemContext);
+          const value = this.evaluateExpression(arrayDef.value, itemContext);
+
+          if (name && value) {
+            fields.push({
+              name: name.substring(0, 256),
+              value: value.substring(0, 1024),
+              inline: arrayDef.inline === true,
+            });
+          }
+        }
+
+        if (fields.length > 0) embed.fields = fields;
+      }
+    }
+
+    return embed;
+  }
+
+  /**
+   * 解析顏色值
+   */
+  resolveColor(colorDef, colorMap, payload) {
+    if (!colorDef) return 0x3498db; // 預設藍色
+
+    // 數字直接返回
+    if (typeof colorDef === "number") return colorDef;
+
+    // 字串處理
+    let colorValue = this.evaluateExpression(colorDef, payload);
+
+    // 如果有 colorMap，嘗試映射
+    if (colorMap && colorMap[colorValue]) {
+      colorValue = colorMap[colorValue];
+    }
+
+    // 解析顏色字串
+    if (typeof colorValue === "string") {
+      // Hex 格式 (#FF5733 或 FF5733)
+      if (colorValue.startsWith("#")) {
+        return parseInt(colorValue.slice(1), 16);
+      }
+      if (/^[0-9A-Fa-f]{6}$/.test(colorValue)) {
+        return parseInt(colorValue, 16);
+      }
+      // 數字字串
+      const num = parseInt(colorValue, 10);
+      if (!isNaN(num)) return num;
+    }
+
+    return 0x3498db;
+  }
+
+  /**
+   * 評估表達式
+   * 支援：
+   * - {{path.to.value}} - 取值
+   * - {{path.to.value | default: "預設值"}} - 預設值
+   * - {{path.to.value | truncate: 100}} - 截斷
+   * - {{path.to.value | uppercase}} - 大寫
+   * - {{path.to.value | lowercase}} - 小寫
+   * - {{path.to.value | date: "YYYY-MM-DD"}} - 日期格式化
+   * - {{path.to.value | json}} - JSON 格式化
+   */
+  evaluateExpression(expr, payload, returnRaw = false) {
+    if (expr === null || expr === undefined) return null;
+    if (typeof expr !== "string") return expr;
+
+    // 如果整個字串就是一個表達式，可能需要返回原始值
+    const singleExprMatch = expr.match(/^\{\{([^}]+)\}\}$/);
+    if (singleExprMatch && returnRaw) {
+      const result = this.processExpression(singleExprMatch[1].trim(), payload);
+      return result;
+    }
+
+    // 替換所有表達式
+    return expr.replace(/\{\{([^}]+)\}\}/g, (match, expression) => {
+      const result = this.processExpression(expression.trim(), payload);
+      if (result === undefined || result === null) return "";
+      if (typeof result === "object") return JSON.stringify(result);
+      return String(result);
+    });
+  }
+
+  /**
+   * 處理單個表達式
+   */
+  processExpression(expression, payload) {
+    // 分割管道操作
+    const parts = expression.split("|").map((p) => p.trim());
+    const path = parts[0];
+
+    // 取得原始值
+    let value = this.getNestedValue(payload, path);
+
+    // 應用管道操作
+    for (let i = 1; i < parts.length; i++) {
+      const pipe = parts[i];
+      value = this.applyPipe(value, pipe, payload);
+    }
+
+    return value;
+  }
+
+  /**
+   * 應用管道操作
+   */
+  applyPipe(value, pipe, payload) {
+    const [pipeName, ...args] = pipe.split(":").map((p) => p.trim());
+    const arg = args.join(":").trim();
+
+    switch (pipeName) {
+      case "default":
+        return value === undefined || value === null || value === ""
+          ? arg.replace(/^["']|["']$/g, "")
+          : value;
+
+      case "truncate":
+        const maxLen = parseInt(arg, 10) || 100;
+        if (typeof value === "string" && value.length > maxLen) {
+          return value.substring(0, maxLen) + "...";
+        }
+        return value;
+
+      case "uppercase":
+        return typeof value === "string" ? value.toUpperCase() : value;
+
+      case "lowercase":
+        return typeof value === "string" ? value.toLowerCase() : value;
+
+      case "capitalize":
+        return typeof value === "string"
+          ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
+          : value;
+
+      case "json":
+        try {
+          return JSON.stringify(value, null, 2);
+        } catch {
+          return String(value);
+        }
+
+      case "date":
+        if (!value) return value;
+        try {
+          const date = new Date(value);
+          if (isNaN(date.getTime())) return value;
+          // 簡單的日期格式化
+          const format = arg || "YYYY-MM-DD HH:mm";
+          return this.formatDate(date, format);
+        } catch {
+          return value;
+        }
+
+      case "timestamp":
+        // Discord 時間戳格式
+        if (!value) return value;
+        try {
+          const date = new Date(value);
+          if (isNaN(date.getTime())) return value;
+          const ts = Math.floor(date.getTime() / 1000);
+          const style = arg || "R"; // R=relative, F=full, etc.
+          return `<t:${ts}:${style}>`;
+        } catch {
+          return value;
+        }
+
+      case "emoji":
+        // 狀態 emoji 映射
+        const emojiMap = {
+          success: "✅",
+          ok: "✅",
+          operational: "✅",
+          resolved: "✅",
+          warning: "⚠️",
+          degraded: "⚠️",
+          partial: "🟠",
+          error: "❌",
+          critical: "🔴",
+          major: "🔴",
+          outage: "🔴",
+          info: "ℹ️",
+          investigating: "🔍",
+          monitoring: "👀",
+          pending: "⏳",
+          scheduled: "📅",
+          maintenance: "🔧",
+        };
+        const key = String(value).toLowerCase();
+        return emojiMap[key] || value;
+
+      case "codeblock":
+        const lang = arg || "";
+        return `\`\`\`${lang}\n${value}\n\`\`\``;
+
+      case "inline":
+        return `\`${value}\``;
+
+      case "link":
+        // {{url | link: "顯示文字"}}
+        if (arg && this.isValidUrl(String(value))) {
+          return `[${arg.replace(/^["']|["']$/g, "")}](${value})`;
+        }
+        return value;
+
+      case "replace":
+        // {{value | replace: "from,to"}}
+        if (typeof value === "string" && arg) {
+          const [from, to] = arg
+            .split(",")
+            .map((s) => s.trim().replace(/^["']|["']$/g, ""));
+          return value.replace(new RegExp(from, "g"), to || "");
+        }
+        return value;
+
+      case "join":
+        // {{array | join: ", "}}
+        if (Array.isArray(value)) {
+          const separator = arg.replace(/^["']|["']$/g, "") || ", ";
+          return value.join(separator);
+        }
+        return value;
+
+      case "first":
+        if (Array.isArray(value)) return value[0];
+        return value;
+
+      case "last":
+        if (Array.isArray(value)) return value[value.length - 1];
+        return value;
+
+      case "count":
+        if (Array.isArray(value)) return value.length;
+        if (typeof value === "string") return value.length;
+        return 0;
+
+      default:
+        return value;
+    }
+  }
+
+  /**
+   * 簡單日期格式化
+   */
+  formatDate(date, format) {
+    const pad = (n) => String(n).padStart(2, "0");
+    const replacements = {
+      YYYY: date.getFullYear(),
+      MM: pad(date.getMonth() + 1),
+      DD: pad(date.getDate()),
+      HH: pad(date.getHours()),
+      mm: pad(date.getMinutes()),
+      ss: pad(date.getSeconds()),
+    };
+    let result = format;
+    for (const [key, value] of Object.entries(replacements)) {
+      result = result.replace(key, value);
+    }
+    return result;
+  }
+
+  /**
+   * 驗證 URL
+   */
+  isValidUrl(str) {
+    try {
+      new URL(str);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
