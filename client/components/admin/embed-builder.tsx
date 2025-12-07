@@ -16,13 +16,13 @@ interface EmbedField {
 }
 
 interface EmbedAuthor {
-  name: string;
+  name?: string;
   url?: string;
   icon_url?: string;
 }
 
 interface EmbedFooter {
-  text: string;
+  text?: string;
   icon_url?: string;
 }
 
