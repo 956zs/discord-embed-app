@@ -11,6 +11,8 @@ import { MetricsCharts } from "@/components/admin/monitoring/metrics-charts";
 import { AlertsList } from "@/components/admin/monitoring/alerts-list";
 import { ProcessInfo } from "@/components/admin/monitoring/process-info";
 import { AlertSettings } from "@/components/admin/monitoring/alert-settings";
+import { VpsMonitor } from "@/components/admin/monitoring/vps-monitor";
+import { WebhookTemplate } from "@/components/admin/monitoring/webhook-template";
 
 interface HealthData {
   status: "healthy" | "degraded" | "unhealthy";
@@ -294,6 +296,9 @@ export default function MonitoringPage() {
         {/* 進程資訊 */}
         <ProcessInfo health={health} />
 
+        {/* VPS 主機監控 */}
+        <VpsMonitor />
+
         {/* 指標圖表 */}
         <MetricsCharts
           metrics={metrics}
@@ -306,6 +311,9 @@ export default function MonitoringPage() {
 
         {/* 告警設定 */}
         <AlertSettings />
+
+        {/* Webhook 通知模板 */}
+        <WebhookTemplate />
       </div>
     </div>
   );

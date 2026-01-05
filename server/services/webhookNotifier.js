@@ -1,8 +1,16 @@
 const axios = require("axios");
 
+// Discord API 限制常量
+const DISCORD_LIMITS = {
+  CONTENT_MAX_LENGTH: 2000, // Discord content 最大長度
+  EMBED_TITLE_MAX_LENGTH: 256, // Discord embed title 最大長度
+  DISCORD_ID_REGEX: /^\d{17,19}$/, // Discord ID 格式（17-19 位數字）
+};
+
 /**
  * WebhookNotifier 服務
  * 負責發送 Discord Webhook 通知，包含速率限制和重試邏輯
+ * 支援自訂通知模板（tag 用戶/角色、自訂內容）
  */
 class WebhookNotifier {
   constructor(webhookUrls = []) {
@@ -11,6 +19,215 @@ class WebhookNotifier {
     this.retryAttempts = 3; // 最多重試 3 次
     this.retryDelay = 1000; // 初始重試延遲 1 秒
     this.cooldownPeriod = 300000; // 5 分鐘冷卻期
+
+    // 通知模板設定（可從資料庫載入）
+    this.template = {
+      mentionUsers: [], // 用戶 ID 列表，如 ["123456789"]
+      mentionRoles: [], // 角色 ID 列表，如 ["123456789"]
+      customContent: "", // 自訂內容前綴
+      embedTitle: "", // 自訂 Embed 標題（留空使用預設）
+      embedFooter: "Discord 統計系統監控", // 自訂 Embed 頁尾
+    };
+
+    // 資料庫連接池
+    this.dbPool = null;
+  }
+
+  /**
+   * 設定資料庫連接池
+   */
+  setDatabasePool(pool) {
+    this.dbPool = pool;
+  }
+
+  /**
+   * 從資料庫載入通知模板設定
+   */
+  async loadTemplateFromDatabase() {
+    if (!this.dbPool) {
+      return;
+    }
+
+    try {
+      const result = await this.dbPool.query(
+        `SELECT config_key, config_value, config_type
+         FROM monitoring_config
+         WHERE config_key LIKE 'webhook_%'`
+      );
+
+      for (const row of result.rows) {
+        const { config_key, config_value, config_type } = row;
+
+        switch (config_key) {
+          case "webhook_mention_users":
+            try {
+              this.template.mentionUsers = JSON.parse(config_value) || [];
+            } catch (e) {
+              console.warn(`⚠️ 無效的 JSON 格式: ${config_key}`, e.message);
+              this.template.mentionUsers = [];
+            }
+            break;
+          case "webhook_mention_roles":
+            try {
+              this.template.mentionRoles = JSON.parse(config_value) || [];
+            } catch (e) {
+              console.warn(`⚠️ 無效的 JSON 格式: ${config_key}`, e.message);
+              this.template.mentionRoles = [];
+            }
+            break;
+          case "webhook_custom_content":
+            this.template.customContent = config_value || "";
+            break;
+          case "webhook_embed_title":
+            this.template.embedTitle = config_value || "";
+            break;
+          case "webhook_embed_footer":
+            this.template.embedFooter = config_value || "Discord 統計系統監控";
+            break;
+        }
+      }
+
+      console.log("✅ Webhook 通知模板已從資料庫載入");
+    } catch (error) {
+      if (error.code !== "42P01") {
+        console.error("❌ 載入 Webhook 模板失敗:", error.message);
+      }
+    }
+  }
+
+  /**
+   * 儲存通知模板到資料庫
+   */
+  async saveTemplateToDatabase(newTemplate) {
+    if (!this.dbPool) {
+      return false;
+    }
+
+    try {
+      const configItems = [];
+
+      if (newTemplate.mentionUsers !== undefined) {
+        configItems.push({
+          key: "webhook_mention_users",
+          value: JSON.stringify(newTemplate.mentionUsers),
+          type: "json",
+        });
+        this.template.mentionUsers = newTemplate.mentionUsers;
+      }
+      if (newTemplate.mentionRoles !== undefined) {
+        configItems.push({
+          key: "webhook_mention_roles",
+          value: JSON.stringify(newTemplate.mentionRoles),
+          type: "json",
+        });
+        this.template.mentionRoles = newTemplate.mentionRoles;
+      }
+      if (newTemplate.customContent !== undefined) {
+        configItems.push({
+          key: "webhook_custom_content",
+          value: newTemplate.customContent,
+          type: "string",
+        });
+        this.template.customContent = newTemplate.customContent;
+      }
+      if (newTemplate.embedTitle !== undefined) {
+        configItems.push({
+          key: "webhook_embed_title",
+          value: newTemplate.embedTitle,
+          type: "string",
+        });
+        this.template.embedTitle = newTemplate.embedTitle;
+      }
+      if (newTemplate.embedFooter !== undefined) {
+        configItems.push({
+          key: "webhook_embed_footer",
+          value: newTemplate.embedFooter,
+          type: "string",
+        });
+        this.template.embedFooter = newTemplate.embedFooter;
+      }
+
+      for (const item of configItems) {
+        await this.dbPool.query(
+          `INSERT INTO monitoring_config (config_key, config_value, config_type)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (config_key) DO UPDATE SET
+             config_value = EXCLUDED.config_value,
+             updated_at = NOW()`,
+          [item.key, item.value, item.type]
+        );
+      }
+
+      console.log("✅ Webhook 通知模板已儲存到資料庫");
+      return true;
+    } catch (error) {
+      console.error("❌ 儲存 Webhook 模板失敗:", error.message);
+      return false;
+    }
+  }
+
+  /**
+   * 更新通知模板（記憶體 + 資料庫）
+   */
+  async updateTemplate(newTemplate) {
+    const saved = await this.saveTemplateToDatabase(newTemplate);
+    return saved;
+  }
+
+  /**
+   * 獲取當前模板設定
+   */
+  getTemplate() {
+    return { ...this.template };
+  }
+
+  /**
+   * 生成 mention 字串
+   * Discord ID 格式驗證：17-19 位數字
+   * @returns {{mentionString: string, validUserIds: string[], validRoleIds: string[]}}
+   */
+  buildMentionString() {
+    const mentions = [];
+    const validUserIds = [];
+    const validRoleIds = [];
+
+    // 防禦性檢查：確保 mentionUsers 是陣列
+    const mentionUsers = Array.isArray(this.template.mentionUsers)
+      ? this.template.mentionUsers
+      : [];
+
+    // 防禦性檢查：確保 mentionRoles 是陣列
+    const mentionRoles = Array.isArray(this.template.mentionRoles)
+      ? this.template.mentionRoles
+      : [];
+
+    // 添加用戶 mentions（類型檢查 + ID 格式驗證）
+    for (const userId of mentionUsers) {
+      if (typeof userId !== "string") continue;
+      const trimmedId = userId.trim();
+      if (trimmedId && DISCORD_LIMITS.DISCORD_ID_REGEX.test(trimmedId)) {
+        mentions.push(`<@${trimmedId}>`);
+        validUserIds.push(trimmedId);
+      }
+    }
+
+    // 添加角色 mentions（類型檢查 + ID 格式驗證）
+    for (const roleId of mentionRoles) {
+      if (typeof roleId !== "string") continue;
+      const trimmedId = roleId.trim();
+      if (trimmedId && DISCORD_LIMITS.DISCORD_ID_REGEX.test(trimmedId)) {
+        mentions.push(`<@&${trimmedId}>`);
+        validRoleIds.push(trimmedId);
+      }
+    }
+
+    // 限制 mentions 總長度，避免超過 Discord content 限制
+    let mentionString = mentions.join(" ");
+    if (mentionString.length > DISCORD_LIMITS.CONTENT_MAX_LENGTH) {
+      mentionString = mentionString.substring(0, DISCORD_LIMITS.CONTENT_MAX_LENGTH);
+    }
+
+    return { mentionString, validUserIds, validRoleIds };
   }
 
   /**
@@ -163,16 +380,58 @@ class WebhookNotifier {
       });
     }
 
+    // 構建 content（mentions + 自訂內容）
+    const { mentionString, validUserIds, validRoleIds } = this.buildMentionString();
+    const contentParts = [];
+
+    if (mentionString) {
+      contentParts.push(mentionString);
+    }
+
+    // 計算 customContent 可用長度（考慮 mentions 已佔用的空間）
+    if (this.template.customContent) {
+      const usedLength = mentionString ? mentionString.length + 1 : 0; // +1 for space
+      const availableLength = DISCORD_LIMITS.CONTENT_MAX_LENGTH - usedLength;
+      if (availableLength > 0) {
+        const sanitizedContent = this.template.customContent.substring(0, availableLength);
+        contentParts.push(sanitizedContent);
+      }
+    }
+
+    // 構建最終 content
+    const content = contentParts.length > 0 ? contentParts.join(" ") : undefined;
+
+    // 使用自訂標題或預設標題（動態計算 emoji 長度）
+    let embedTitle;
+    const emoji = emojis[level] || "";
+    const emojiWithSpace = emoji ? emoji + " " : "";
+    if (this.template.embedTitle) {
+      const maxTitleLength = DISCORD_LIMITS.EMBED_TITLE_MAX_LENGTH - emojiWithSpace.length;
+      const truncatedTitle = this.template.embedTitle.substring(0, maxTitleLength);
+      embedTitle = `${emojiWithSpace}${truncatedTitle}`;
+    } else {
+      embedTitle = `${emoji} 系統告警 - ${level}`;
+    }
+
+    // 使用自訂頁尾（使用 ?? 避免空字串被替換）
+    const footerText = this.template.embedFooter ?? "Discord 統計系統監控";
+
     return {
+      content, // Discord 會自動處理 mentions
+      allowed_mentions: {
+        parse: [], // 禁止解析 @everyone/@here，防止濫用
+        users: validUserIds,
+        roles: validRoleIds,
+      },
       embeds: [
         {
-          title: `${emojis[level]} 系統告警 - ${level}`,
+          title: embedTitle,
           description: message,
           color: colors[level],
           fields: fields,
           timestamp: new Date().toISOString(),
           footer: {
-            text: "Discord 統計系統監控",
+            text: footerText,
           },
         },
       ],

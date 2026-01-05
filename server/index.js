@@ -20,6 +20,7 @@ const pool = require("./database/db");
 const MetricsCollector = require("./monitoring/metricsCollector");
 const HealthCheckService = require("./monitoring/healthCheck");
 const AlertManager = require("./monitoring/alertManager");
+const VpsMonitor = require("./monitoring/vpsMonitor");
 const WebhookNotifier = require("./services/webhookNotifier");
 const createMonitoringMiddleware = require("./middleware/monitoring");
 
@@ -30,6 +31,7 @@ const PORT = process.env.PORT || 3001;
 let metricsCollector = null;
 let healthCheckService = null;
 let alertManager = null;
+let vpsMonitor = null;
 
 if (process.env.ENABLE_MONITORING === "true") {
   console.log("✅ 啟用效能監控系統");
@@ -68,14 +70,24 @@ if (process.env.ENABLE_MONITORING === "true") {
   });
 
   // 創建並配置 WebhookNotifier（如果啟用）
+  let webhookNotifier = null;
   if (process.env.WEBHOOK_ENABLED === "true" && process.env.WEBHOOK_URLS) {
     const webhookUrls = process.env.WEBHOOK_URLS.split(",")
       .map((url) => url.trim())
       .filter((url) => url.length > 0);
 
     if (webhookUrls.length > 0) {
-      const webhookNotifier = new WebhookNotifier(webhookUrls);
+      webhookNotifier = new WebhookNotifier(webhookUrls);
+      webhookNotifier.setDatabasePool(pool);
+      // 異步載入通知模板（不阻塞啟動，使用默認值作為 fallback）
+      // 注意：模板載入完成前發送的通知會使用默認模板設定
+      webhookNotifier.loadTemplateFromDatabase().then(() => {
+        console.log("✅ Webhook 模板從資料庫載入完成");
+      }).catch((err) => {
+        console.warn("⚠️ 載入 Webhook 模板失敗，使用默認設定:", err.message);
+      });
       alertManager.setWebhookNotifier(webhookNotifier);
+      metricsRoutes.setWebhookNotifier(webhookNotifier);
       console.log(`✅ Webhook 通知已啟用 (${webhookUrls.length} 個 URL)`);
     } else {
       console.log("⚠️  WEBHOOK_URLS 已設定但為空，Webhook 通知未啟用");
@@ -95,6 +107,38 @@ if (process.env.ENABLE_MONITORING === "true") {
 
   // 設定監控路由的實例
   metricsRoutes.setMonitoringInstances(metricsCollector, alertManager);
+
+  // 初始化 VPS 主機監控（獨立於進程監控）
+  if (process.env.ENABLE_VPS_MONITORING === "true") {
+    console.log("✅ 啟用 VPS 主機監控");
+
+    try {
+      vpsMonitor = new VpsMonitor({
+        interval: parseInt(process.env.VPS_MONITOR_INTERVAL) || 30000,
+        memoryWarnMB: parseInt(process.env.VPS_MEMORY_WARN_MB) || 8192,
+        memoryErrorMB: parseInt(process.env.VPS_MEMORY_ERROR_MB) || 10240,
+        memoryPercentWarn: parseInt(process.env.VPS_MEMORY_PERCENT_WARN) || 80,
+        memoryPercentError: parseInt(process.env.VPS_MEMORY_PERCENT_ERROR) || 90,
+      });
+
+      // 設定資料庫連接池（用於讀取/儲存設定）
+      vpsMonitor.setDatabasePool(pool);
+
+      // 共用同一個 Webhook 通知器
+      if (webhookNotifier) {
+        vpsMonitor.setWebhookNotifier(webhookNotifier);
+      }
+
+      // 啟動 VPS 監控（會從資料庫載入設定）
+      vpsMonitor.start();
+
+      // 設定 VPS 監控路由實例
+      metricsRoutes.setVpsMonitor(vpsMonitor);
+    } catch (error) {
+      console.error("❌ VPS 監控初始化失敗:", error.message);
+      vpsMonitor = null;
+    }
+  }
 }
 
 // CORS 配置（支援 Discord Embedded App）
