@@ -115,8 +115,8 @@ if (process.env.ENABLE_MONITORING === "true") {
     try {
       vpsMonitor = new VpsMonitor({
         interval: parseInt(process.env.VPS_MONITOR_INTERVAL) || 30000,
-        memoryWarnMB: parseInt(process.env.VPS_MEMORY_WARN_MB) || 8192,
-        memoryErrorMB: parseInt(process.env.VPS_MEMORY_ERROR_MB) || 10240,
+        memoryAvailableWarnMB: parseInt(process.env.VPS_MEMORY_AVAILABLE_WARN_MB) || 4096,
+        memoryAvailableErrorMB: parseInt(process.env.VPS_MEMORY_AVAILABLE_ERROR_MB) || 2048,
         memoryPercentWarn: parseInt(process.env.VPS_MEMORY_PERCENT_WARN) || 80,
         memoryPercentError: parseInt(process.env.VPS_MEMORY_PERCENT_ERROR) || 90,
       });

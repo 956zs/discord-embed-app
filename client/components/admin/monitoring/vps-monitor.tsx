@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Server,
@@ -16,43 +18,100 @@ import {
   RefreshCw,
   Settings,
   Bell,
+  Network,
+  Activity,
+  MemoryStick,
 } from "lucide-react";
+
+interface SwapInfo {
+  totalMB: number;
+  usedMB: number;
+  freeMB: number;
+  usedPercent: number;
+}
+
+interface DiskInfo {
+  totalGB: number;
+  usedGB: number;
+  availableGB: number;
+  usedPercent: number;
+  inodes?: { total: number; free: number; usedPercent: number };
+}
+
+interface DiskIOInfo {
+  readMBps: number;
+  writeMBps: number;
+  readIOPS: number;
+  writeIOPS: number;
+  ioPercent: number;
+}
+
+interface NetworkInfo {
+  rxMBps: number;
+  txMBps: number;
+  rxPackets: number;
+  txPackets: number;
+  rxErrors: number;
+  txErrors: number;
+  rxDrops: number;
+  txDrops: number;
+  rxTotalGB: number;
+  txTotalGB: number;
+}
+
+interface ConnectionsInfo {
+  tcpEstablished: number;
+  tcpRetransPerSec: number;
+}
 
 interface VpsMetrics {
   memory: {
     totalMB: number;
     usedMB: number;
     freeMB: number;
+    availableMB: number;
+    buffersCacheMB: number;
     usedPercent: number;
+    activeMB?: number;
+    inactiveMB?: number;
+    swap?: SwapInfo;
   };
   cpu: {
     count: number;
     usage: number;
+    user?: number;
+    system?: number;
+    iowait?: number;
+    steal?: number;
+    idle?: number;
+    perCore?: number[];
   };
   load: {
     avg1: number;
     avg5: number;
     avg15: number;
   };
+  disk?: DiskInfo;
+  diskIO?: DiskIOInfo;
+  network?: NetworkInfo;
+  connections?: ConnectionsInfo;
   uptime: number;
   platform: string;
   hostname: string;
+  vendor?: string;
+  source?: string;
   timestamp: number;
 }
 
 interface VpsConfig {
   interval: number;
   thresholds: {
-    memory: {
-      warnMB: number;
-      errorMB: number;
-    };
-    memoryPercent: {
-      warn: number;
-      error: number;
-    };
+    memoryAvailable: { warnMB: number; errorMB: number };
+    memoryPercent: { warn: number; error: number };
   };
   cooldownPeriod: number;
+  memoryAvailableWarnMB: number;
+  memoryAvailableErrorMB: number;
 }
 
 interface VpsAlert {
@@ -64,11 +123,7 @@ interface VpsAlert {
   source: string;
 }
 
-interface VpsMonitorProps {
-  onRefresh?: () => void;
-}
-
-export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
+export function VpsMonitor() {
   const { t } = useLanguage();
   const [metrics, setMetrics] = useState<VpsMetrics | null>(null);
   const [config, setConfig] = useState<VpsConfig | null>(null);
@@ -79,10 +134,9 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
 
-  // 編輯用的臨時設定
   const [editConfig, setEditConfig] = useState({
-    memoryWarnMB: 8192,
-    memoryErrorMB: 10240,
+    memoryAvailableWarnMB: 4096,
+    memoryAvailableErrorMB: 2048,
     memoryPercentWarn: 80,
     memoryPercentError: 90,
   });
@@ -117,8 +171,8 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
         const data = await configRes.json();
         setConfig(data.config);
         setEditConfig({
-          memoryWarnMB: data.config.thresholds.memory.warnMB,
-          memoryErrorMB: data.config.thresholds.memory.errorMB,
+          memoryAvailableWarnMB: data.config.memoryAvailableWarnMB || data.config.thresholds.memoryAvailable.warnMB,
+          memoryAvailableErrorMB: data.config.memoryAvailableErrorMB || data.config.thresholds.memoryAvailable.errorMB,
           memoryPercentWarn: data.config.thresholds.memoryPercent.warn,
           memoryPercentError: data.config.thresholds.memoryPercent.error,
         });
@@ -149,20 +203,9 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
         const data = await response.json();
         setConfig(data.config);
         setShowSettings(false);
-
-        // 顯示儲存結果
-        if (data.savedToDatabase) {
-          alert("設定已儲存到資料庫，重啟後依然生效");
-        } else {
-          alert("設定已更新，但資料庫儲存失敗（請確認已執行 SQL 遷移腳本）");
-        }
-      } else {
-        const errorData = await response.json();
-        alert(`儲存失敗: ${errorData.message || errorData.error}`);
       }
     } catch (err) {
       console.error("儲存設定失敗:", err);
-      alert("儲存設定失敗");
     } finally {
       setSaving(false);
     }
@@ -171,51 +214,35 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
   const testWebhook = async () => {
     setTesting(true);
     try {
-      const response = await fetch("/api/metrics/vps/webhook/test", {
-        method: "POST",
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        alert("測試通知發送成功！");
-      } else {
-        alert(`測試失敗: ${data.message || data.error}`);
-      }
+      await fetch("/api/metrics/vps/webhook/test", { method: "POST" });
     } catch (err) {
       console.error("測試 Webhook 失敗:", err);
-      alert("測試 Webhook 失敗");
     } finally {
       setTesting(false);
     }
   };
 
-  const formatBytes = (mb: number) => {
-    if (mb >= 1024) {
-      return `${(mb / 1024).toFixed(2)} GB`;
-    }
-    return `${mb} MB`;
-  };
-
+  const formatBytes = (mb: number) => (mb >= 1024 ? `${(mb / 1024).toFixed(2)} GB` : `${mb} MB`);
   const formatUptime = (seconds: number) => {
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-
-    if (days > 0) {
-      return `${days} 天 ${hours} 小時`;
-    }
-    if (hours > 0) {
-      return `${hours} 小時 ${minutes} 分鐘`;
-    }
+    if (days > 0) return `${days} 天 ${hours} 小時`;
+    if (hours > 0) return `${hours} 小時 ${minutes} 分鐘`;
     return `${minutes} 分鐘`;
   };
 
-  const getMemoryStatus = (usedMB: number, config: VpsConfig | null) => {
+  const getMemoryStatus = (availableMB: number, config: VpsConfig | null) => {
     if (!config) return "normal";
-    if (usedMB >= config.thresholds.memory.errorMB) return "error";
-    if (usedMB >= config.thresholds.memory.warnMB) return "warn";
+    if (availableMB <= config.thresholds.memoryAvailable.errorMB) return "error";
+    if (availableMB <= config.thresholds.memoryAvailable.warnMB) return "warn";
     return "normal";
+  };
+
+  const getStatusColor = (percent: number, warn = 70, error = 90) => {
+    if (percent >= error) return "bg-red-500";
+    if (percent >= warn) return "bg-yellow-500";
+    return "bg-green-500";
   };
 
   if (loading) {
@@ -256,11 +283,10 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
     );
   }
 
-  const memoryStatus = metrics ? getMemoryStatus(metrics.memory.usedMB, config) : "normal";
+  const memoryStatus = metrics ? getMemoryStatus(metrics.memory.availableMB, config) : "normal";
 
   return (
     <div className="space-y-4">
-      {/* VPS 狀態卡片 */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -268,26 +294,20 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
               <Server className="h-5 w-5" />
               VPS 主機監控
               {metrics && (
-                <Badge variant="outline" className="ml-2">
-                  {metrics.hostname}
-                </Badge>
+                <>
+                  <Badge variant="outline" className="ml-2">{metrics.hostname}</Badge>
+                  {metrics.source === "prometheus" && (
+                    <Badge variant="secondary" className="ml-1">Prometheus</Badge>
+                  )}
+                </>
               )}
             </CardTitle>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowSettings(!showSettings)}
-              >
+              <Button variant="outline" size="sm" onClick={() => setShowSettings(!showSettings)}>
                 <Settings className="h-4 w-4 mr-1" />
                 設定
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={fetchVpsData}
-                disabled={loading}
-              >
+              <Button variant="outline" size="sm" onClick={fetchVpsData} disabled={loading}>
                 <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               </Button>
             </div>
@@ -295,109 +315,214 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
         </CardHeader>
         <CardContent>
           {metrics && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* 記憶體使用量 */}
-              <div className={`p-4 rounded-lg border ${
-                memoryStatus === "error"
-                  ? "border-red-500 bg-red-500/10"
-                  : memoryStatus === "warn"
-                  ? "border-yellow-500 bg-yellow-500/10"
-                  : "border-border"
-              }`}>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-muted-foreground">記憶體使用量</span>
-                  {memoryStatus === "error" && (
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
-                  )}
-                  {memoryStatus === "warn" && (
-                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                  )}
-                  {memoryStatus === "normal" && (
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  )}
-                </div>
-                <p className="text-2xl font-bold">{formatBytes(metrics.memory.usedMB)}</p>
-                <p className="text-sm text-muted-foreground">
-                  / {formatBytes(metrics.memory.totalMB)} ({metrics.memory.usedPercent}%)
-                </p>
-                <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full ${
-                      memoryStatus === "error"
-                        ? "bg-red-500"
-                        : memoryStatus === "warn"
-                        ? "bg-yellow-500"
-                        : "bg-green-500"
-                    }`}
-                    style={{ width: `${Math.min(metrics.memory.usedPercent, 100)}%` }}
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="overview"><Activity className="h-4 w-4 mr-1" />總覽</TabsTrigger>
+                <TabsTrigger value="cpu"><Cpu className="h-4 w-4 mr-1" />CPU</TabsTrigger>
+                <TabsTrigger value="memory"><MemoryStick className="h-4 w-4 mr-1" />記憶體</TabsTrigger>
+                <TabsTrigger value="disk"><HardDrive className="h-4 w-4 mr-1" />硬碟</TabsTrigger>
+                <TabsTrigger value="network"><Network className="h-4 w-4 mr-1" />網路</TabsTrigger>
+              </TabsList>
+
+              {/* Overview Tab */}
+              <TabsContent value="overview">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                  <MetricCard
+                    title="可用記憶體"
+                    value={formatBytes(metrics.memory.availableMB)}
+                    subtitle={`總共 ${formatBytes(metrics.memory.totalMB)} | 使用率 ${metrics.memory.usedPercent}%`}
+                    status={memoryStatus}
+                    progress={100 - metrics.memory.usedPercent}
+                  />
+                  <MetricCard
+                    title="CPU 使用率"
+                    value={`${metrics.cpu.usage}%`}
+                    subtitle={`${metrics.cpu.count} 核心`}
+                    progress={metrics.cpu.usage}
+                    progressColor={getStatusColor(metrics.cpu.usage)}
+                  />
+                  <MetricCard
+                    title="系統負載"
+                    value={`${metrics.load.avg1}`}
+                    subtitle={`5m: ${metrics.load.avg5} | 15m: ${metrics.load.avg15}`}
+                  />
+                  <MetricCard
+                    title="系統運行時間"
+                    value={formatUptime(metrics.uptime)}
+                    subtitle={`平台: ${metrics.platform}`}
                   />
                 </div>
-              </div>
+                {metrics.disk && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <MetricCard
+                      title="硬碟使用"
+                      value={`${metrics.disk.usedGB.toFixed(1)} / ${metrics.disk.totalGB.toFixed(1)} GB`}
+                      subtitle={`可用 ${metrics.disk.availableGB.toFixed(1)} GB`}
+                      progress={metrics.disk.usedPercent}
+                      progressColor={getStatusColor(metrics.disk.usedPercent, 80, 95)}
+                    />
+                    {metrics.connections && (
+                      <MetricCard
+                        title="TCP 連線"
+                        value={`${metrics.connections.tcpEstablished}`}
+                        subtitle={`重傳率: ${metrics.connections.tcpRetransPerSec.toFixed(2)}/s`}
+                      />
+                    )}
+                  </div>
+                )}
+              </TabsContent>
 
-              {/* CPU 使用率 */}
-              <div className="p-4 rounded-lg border border-border">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-muted-foreground">CPU 使用率</span>
-                  <Cpu className="h-4 w-4 text-muted-foreground" />
+              {/* CPU Tab */}
+              <TabsContent value="cpu">
+                <div className="space-y-4 mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <MetricCard title="總體使用率" value={`${metrics.cpu.usage}%`} progress={metrics.cpu.usage} progressColor={getStatusColor(metrics.cpu.usage)} />
+                    {metrics.cpu.user !== undefined && <MetricCard title="User" value={`${metrics.cpu.user.toFixed(1)}%`} progress={metrics.cpu.user} progressColor="bg-blue-500" />}
+                    {metrics.cpu.system !== undefined && <MetricCard title="System" value={`${metrics.cpu.system.toFixed(1)}%`} progress={metrics.cpu.system} progressColor="bg-purple-500" />}
+                  </div>
+                  {metrics.cpu.iowait !== undefined && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <MetricCard title="I/O Wait" value={`${metrics.cpu.iowait.toFixed(1)}%`} progress={metrics.cpu.iowait} progressColor="bg-orange-500" />
+                      {metrics.cpu.steal !== undefined && <MetricCard title="Steal" value={`${metrics.cpu.steal.toFixed(1)}%`} progress={metrics.cpu.steal} progressColor="bg-red-500" />}
+                      {metrics.cpu.idle !== undefined && <MetricCard title="Idle" value={`${metrics.cpu.idle.toFixed(1)}%`} progress={metrics.cpu.idle} progressColor="bg-gray-400" />}
+                    </div>
+                  )}
+                  {metrics.cpu.perCore && metrics.cpu.perCore.length > 0 && (
+                    <Card>
+                      <CardHeader className="py-3"><CardTitle className="text-sm">每核心使用率</CardTitle></CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
+                          {metrics.cpu.perCore.map((usage, i) => (
+                            <div key={i} className="text-center">
+                              <div className="text-xs text-muted-foreground mb-1">Core {i}</div>
+                              <Progress value={usage} className="h-2" />
+                              <div className="text-xs mt-1">{usage.toFixed(0)}%</div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
-                <p className="text-2xl font-bold">{metrics.cpu.usage}%</p>
-                <p className="text-sm text-muted-foreground">
-                  {metrics.cpu.count} 核心
-                </p>
-                <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full ${
-                      metrics.cpu.usage > 90
-                        ? "bg-red-500"
-                        : metrics.cpu.usage > 70
-                        ? "bg-yellow-500"
-                        : "bg-blue-500"
-                    }`}
-                    style={{ width: `${Math.min(metrics.cpu.usage, 100)}%` }}
-                  />
-                </div>
-              </div>
+              </TabsContent>
 
-              {/* 系統負載 */}
-              <div className="p-4 rounded-lg border border-border">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-muted-foreground">系統負載</span>
-                  <HardDrive className="h-4 w-4 text-muted-foreground" />
+              {/* Memory Tab */}
+              <TabsContent value="memory">
+                <div className="space-y-4 mt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <MetricCard title="已使用" value={formatBytes(metrics.memory.usedMB)} subtitle={`${metrics.memory.usedPercent}%`} progress={metrics.memory.usedPercent} progressColor={getStatusColor(metrics.memory.usedPercent, 80, 90)} />
+                    <MetricCard title="可用" value={formatBytes(metrics.memory.availableMB)} status={memoryStatus} />
+                    <MetricCard title="緩存" value={formatBytes(metrics.memory.buffersCacheMB)} />
+                  </div>
+                  {metrics.memory.activeMB !== undefined && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <MetricCard title="Active" value={formatBytes(metrics.memory.activeMB)} />
+                      <MetricCard title="Inactive" value={formatBytes(metrics.memory.inactiveMB || 0)} />
+                    </div>
+                  )}
+                  {metrics.memory.swap && metrics.memory.swap.totalMB > 0 && (
+                    <Card>
+                      <CardHeader className="py-3"><CardTitle className="text-sm">Swap</CardTitle></CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <MetricCard title="總計" value={formatBytes(metrics.memory.swap.totalMB)} />
+                          <MetricCard title="已使用" value={formatBytes(metrics.memory.swap.usedMB)} subtitle={`${metrics.memory.swap.usedPercent}%`} progress={metrics.memory.swap.usedPercent} progressColor={getStatusColor(metrics.memory.swap.usedPercent, 50, 80)} />
+                          <MetricCard title="可用" value={formatBytes(metrics.memory.swap.freeMB)} />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                 </div>
-                <p className="text-2xl font-bold">{metrics.load.avg1}</p>
-                <p className="text-sm text-muted-foreground">
-                  5m: {metrics.load.avg5} | 15m: {metrics.load.avg15}
-                </p>
-              </div>
+              </TabsContent>
 
-              {/* 系統運行時間 */}
-              <div className="p-4 rounded-lg border border-border">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-muted-foreground">系統運行時間</span>
-                  <Server className="h-4 w-4 text-muted-foreground" />
+              {/* Disk Tab */}
+              <TabsContent value="disk">
+                <div className="space-y-4 mt-4">
+                  {metrics.disk ? (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <MetricCard title="總計" value={`${metrics.disk.totalGB.toFixed(1)} GB`} />
+                        <MetricCard title="已使用" value={`${metrics.disk.usedGB.toFixed(1)} GB`} subtitle={`${metrics.disk.usedPercent}%`} progress={metrics.disk.usedPercent} progressColor={getStatusColor(metrics.disk.usedPercent, 80, 95)} />
+                        <MetricCard title="可用" value={`${metrics.disk.availableGB.toFixed(1)} GB`} />
+                      </div>
+                      {metrics.disk.inodes && (
+                        <Card>
+                          <CardHeader className="py-3"><CardTitle className="text-sm">Inodes</CardTitle></CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <MetricCard title="總計" value={metrics.disk.inodes.total.toLocaleString()} />
+                              <MetricCard title="可用" value={metrics.disk.inodes.free.toLocaleString()} />
+                              <MetricCard title="使用率" value={`${metrics.disk.inodes.usedPercent}%`} progress={metrics.disk.inodes.usedPercent} progressColor={getStatusColor(metrics.disk.inodes.usedPercent, 80, 95)} />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                      {metrics.diskIO && (
+                        <Card>
+                          <CardHeader className="py-3"><CardTitle className="text-sm">硬碟 I/O</CardTitle></CardHeader>
+                          <CardContent>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                              <MetricCard title="讀取" value={`${metrics.diskIO.readMBps.toFixed(2)} MB/s`} />
+                              <MetricCard title="寫入" value={`${metrics.diskIO.writeMBps.toFixed(2)} MB/s`} />
+                              <MetricCard title="讀取 IOPS" value={metrics.diskIO.readIOPS.toFixed(0)} />
+                              <MetricCard title="寫入 IOPS" value={metrics.diskIO.writeIOPS.toFixed(0)} />
+                              <MetricCard title="I/O 使用率" value={`${metrics.diskIO.ioPercent.toFixed(1)}%`} progress={metrics.diskIO.ioPercent} progressColor={getStatusColor(metrics.diskIO.ioPercent, 70, 90)} />
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">硬碟資訊需要 Prometheus 數據源</div>
+                  )}
                 </div>
-                <p className="text-2xl font-bold">{formatUptime(metrics.uptime)}</p>
-                <p className="text-sm text-muted-foreground">
-                  平台: {metrics.platform}
-                </p>
-              </div>
-            </div>
+              </TabsContent>
+
+              {/* Network Tab */}
+              <TabsContent value="network">
+                <div className="space-y-4 mt-4">
+                  {metrics.network ? (
+                    <>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <MetricCard title="下載" value={`${metrics.network.rxMBps.toFixed(2)} MB/s`} />
+                        <MetricCard title="上傳" value={`${metrics.network.txMBps.toFixed(2)} MB/s`} />
+                        <MetricCard title="累計下載" value={`${metrics.network.rxTotalGB.toFixed(2)} GB`} />
+                        <MetricCard title="累計上傳" value={`${metrics.network.txTotalGB.toFixed(2)} GB`} />
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <MetricCard title="接收封包" value={`${metrics.network.rxPackets.toFixed(0)}/s`} />
+                        <MetricCard title="發送封包" value={`${metrics.network.txPackets.toFixed(0)}/s`} />
+                        <MetricCard title="接收錯誤" value={`${metrics.network.rxErrors.toFixed(0)}/s`} />
+                        <MetricCard title="發送錯誤" value={`${metrics.network.txErrors.toFixed(0)}/s`} />
+                      </div>
+                      {(metrics.network.rxDrops > 0 || metrics.network.txDrops > 0) && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <MetricCard title="接收丟棄" value={`${metrics.network.rxDrops.toFixed(0)}/s`} />
+                          <MetricCard title="發送丟棄" value={`${metrics.network.txDrops.toFixed(0)}/s`} />
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">網路資訊需要 Prometheus 數據源</div>
+                  )}
+                </div>
+              </TabsContent>
+            </Tabs>
           )}
 
-          {/* 閾值資訊 */}
           {config && (
             <div className="mt-4 p-3 rounded-lg bg-muted/50">
               <p className="text-sm text-muted-foreground">
-                <span className="font-medium">告警閾值：</span>
-                警告 &gt; {formatBytes(config.thresholds.memory.warnMB)} |
-                錯誤 &gt; {formatBytes(config.thresholds.memory.errorMB)}
+                <span className="font-medium">告警閾值（可用記憶體低於）：</span>
+                警告 &lt; {formatBytes(config.thresholds.memoryAvailable.warnMB)} |
+                錯誤 &lt; {formatBytes(config.thresholds.memoryAvailable.errorMB)}
               </p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* 設定面板 */}
+      {/* Settings Panel */}
       {showSettings && (
         <Card>
           <CardHeader>
@@ -409,32 +534,24 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="memoryWarnMB">記憶體警告閾值 (MB)</Label>
+                <Label htmlFor="memoryAvailableWarnMB">可用記憶體警告閾值 (MB)</Label>
                 <Input
-                  id="memoryWarnMB"
+                  id="memoryAvailableWarnMB"
                   type="number"
-                  value={editConfig.memoryWarnMB}
-                  onChange={(e) =>
-                    setEditConfig({ ...editConfig, memoryWarnMB: parseInt(e.target.value) || 0 })
-                  }
+                  value={editConfig.memoryAvailableWarnMB}
+                  onChange={(e) => setEditConfig({ ...editConfig, memoryAvailableWarnMB: parseInt(e.target.value) || 0 })}
                 />
-                <p className="text-xs text-muted-foreground">
-                  超過此值會觸發警告（8192 = 8GB）
-                </p>
+                <p className="text-xs text-muted-foreground">可用記憶體低於此值會觸發警告（4096 = 4GB）</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="memoryErrorMB">記憶體錯誤閾值 (MB)</Label>
+                <Label htmlFor="memoryAvailableErrorMB">可用記憶體錯誤閾值 (MB)</Label>
                 <Input
-                  id="memoryErrorMB"
+                  id="memoryAvailableErrorMB"
                   type="number"
-                  value={editConfig.memoryErrorMB}
-                  onChange={(e) =>
-                    setEditConfig({ ...editConfig, memoryErrorMB: parseInt(e.target.value) || 0 })
-                  }
+                  value={editConfig.memoryAvailableErrorMB}
+                  onChange={(e) => setEditConfig({ ...editConfig, memoryAvailableErrorMB: parseInt(e.target.value) || 0 })}
                 />
-                <p className="text-xs text-muted-foreground">
-                  超過此值會觸發錯誤告警並發送 Webhook（10240 = 10GB）
-                </p>
+                <p className="text-xs text-muted-foreground">可用記憶體低於此值會觸發錯誤告警並發送 Webhook</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="memoryPercentWarn">記憶體使用率警告閾值 (%)</Label>
@@ -442,9 +559,7 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
                   id="memoryPercentWarn"
                   type="number"
                   value={editConfig.memoryPercentWarn}
-                  onChange={(e) =>
-                    setEditConfig({ ...editConfig, memoryPercentWarn: parseInt(e.target.value) || 0 })
-                  }
+                  onChange={(e) => setEditConfig({ ...editConfig, memoryPercentWarn: parseInt(e.target.value) || 0 })}
                 />
               </div>
               <div className="space-y-2">
@@ -453,35 +568,25 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
                   id="memoryPercentError"
                   type="number"
                   value={editConfig.memoryPercentError}
-                  onChange={(e) =>
-                    setEditConfig({ ...editConfig, memoryPercentError: parseInt(e.target.value) || 0 })
-                  }
+                  onChange={(e) => setEditConfig({ ...editConfig, memoryPercentError: parseInt(e.target.value) || 0 })}
                 />
               </div>
             </div>
             <div className="flex justify-between mt-6">
-              <Button
-                variant="outline"
-                onClick={testWebhook}
-                disabled={testing}
-              >
+              <Button variant="outline" onClick={testWebhook} disabled={testing}>
                 <Bell className={`h-4 w-4 mr-2 ${testing ? "animate-pulse" : ""}`} />
                 {testing ? "發送中..." : "測試 Webhook"}
               </Button>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setShowSettings(false)}>
-                  取消
-                </Button>
-                <Button onClick={saveConfig} disabled={saving}>
-                  {saving ? "儲存中..." : "儲存設定"}
-                </Button>
+                <Button variant="outline" onClick={() => setShowSettings(false)}>取消</Button>
+                <Button onClick={saveConfig} disabled={saving}>{saving ? "儲存中..." : "儲存設定"}</Button>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* VPS 告警歷史 */}
+      {/* Alerts History */}
       {alerts.length > 0 && (
         <Card>
           <CardHeader>
@@ -505,22 +610,16 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge
-                        variant={alert.level === "ERROR" ? "destructive" : "outline"}
-                      >
-                        {alert.level}
-                      </Badge>
+                      <Badge variant={alert.level === "ERROR" ? "destructive" : "outline"}>{alert.level}</Badge>
                       <span className="text-sm font-medium">{alert.message}</span>
                     </div>
                     <span className="text-xs text-muted-foreground">
                       {new Date(alert.triggeredAt).toLocaleString("zh-TW")}
                     </span>
                   </div>
-                  {alert.details && (
+                  {alert.details?.availableGB && (
                     <div className="mt-2 text-xs text-muted-foreground">
-                      {alert.details.usedGB && (
-                        <span>使用量: {alert.details.usedGB} GB / {alert.details.totalGB} GB</span>
-                      )}
+                      可用記憶體: {alert.details.availableGB} GB / 總共: {alert.details.totalGB} GB
                     </div>
                   )}
                 </div>
@@ -528,6 +627,42 @@ export function VpsMonitor({ onRefresh }: VpsMonitorProps) {
             </div>
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+function MetricCard({
+  title,
+  value,
+  subtitle,
+  status,
+  progress,
+  progressColor,
+}: {
+  title: string;
+  value: string;
+  subtitle?: string;
+  status?: "normal" | "warn" | "error";
+  progress?: number;
+  progressColor?: string;
+}) {
+  const borderClass = status === "error" ? "border-red-500 bg-red-500/10" : status === "warn" ? "border-yellow-500 bg-yellow-500/10" : "border-border";
+
+  return (
+    <div className={`p-4 rounded-lg border ${borderClass}`}>
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm text-muted-foreground">{title}</span>
+        {status === "error" && <AlertTriangle className="h-4 w-4 text-red-500" />}
+        {status === "warn" && <AlertTriangle className="h-4 w-4 text-yellow-500" />}
+        {status === "normal" && <CheckCircle2 className="h-4 w-4 text-green-500" />}
+      </div>
+      <p className="text-2xl font-bold">{value}</p>
+      {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+      {progress !== undefined && (
+        <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+          <div className={`h-2 rounded-full ${progressColor || "bg-green-500"}`} style={{ width: `${Math.min(progress, 100)}%` }} />
+        </div>
       )}
     </div>
   );

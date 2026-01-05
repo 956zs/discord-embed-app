@@ -1,15 +1,18 @@
 const os = require("os");
+const prometheusService = require("../services/prometheusService");
 
 /**
  * VpsMonitor - VPS 主機層級監控
  *
- * 獨立於進程監控，監控整個 VPS 主機的資源使用情況
- * 主要用於監控：
- * - 系統總記憶體使用量（絕對值，如超過 10GB）
- * - 系統 CPU 使用率
- * - 磁碟使用情況
+ * 使用 Prometheus + Node Exporter 獲取系統指標
+ * 提供更準確、更豐富的監控數據
  *
- * 設定可從資料庫讀取，支援前端即時調整
+ * 主要監控項目：
+ * - CPU 使用率（整體及每核心）
+ * - 記憶體使用情況（含 Swap）
+ * - 硬碟空間及 I/O
+ * - 網路流量
+ * - 系統負載
  */
 class VpsMonitor {
   constructor(options = {}) {
@@ -17,11 +20,12 @@ class VpsMonitor {
     this.interval = options.interval || 30000;
 
     // 記憶體閾值設定（單位：MB）- 預設值，可從資料庫覆蓋
+    // 改為監控「可用記憶體」而非「使用量」，更符合實際運維需求
     this.thresholds = {
-      memory: {
-        // 記憶體使用量閾值（絕對值 MB）
-        warnMB: options.memoryWarnMB || 8192, // 8GB
-        errorMB: options.memoryErrorMB || 10240, // 10GB
+      memoryAvailable: {
+        // 可用記憶體閾值（低於此值告警）
+        warnMB: options.memoryAvailableWarnMB || 4096, // 低於 4GB 警告
+        errorMB: options.memoryAvailableErrorMB || 2048, // 低於 2GB 錯誤
       },
       memoryPercent: {
         // 記憶體使用率閾值（百分比）
@@ -59,6 +63,16 @@ class VpsMonitor {
 
     // 設定是否已從資料庫載入
     this.configLoaded = false;
+
+    // 靜態主機資訊，避免每次收集重複取得
+    this.hostInfo = {
+      hostname: os.hostname(),
+      platform: os.platform(),
+    };
+
+    // 環形緩衝區索引（用於歷史指標）
+    this.metricsHistoryStart = 0;
+    this.metricsHistoryCount = 0;
   }
 
   /**
@@ -112,11 +126,11 @@ class VpsMonitor {
 
         // 套用設定
         switch (config_key) {
-          case "vps_memory_warn_mb":
-            this.thresholds.memory.warnMB = value;
+          case "vps_memory_available_warn_mb":
+            this.thresholds.memoryAvailable.warnMB = value;
             break;
-          case "vps_memory_error_mb":
-            this.thresholds.memory.errorMB = value;
+          case "vps_memory_available_error_mb":
+            this.thresholds.memoryAvailable.errorMB = value;
             break;
           case "vps_memory_percent_warn":
             this.thresholds.memoryPercent.warn = value;
@@ -157,17 +171,17 @@ class VpsMonitor {
     try {
       const configItems = [];
 
-      if (newConfig.memoryWarnMB !== undefined) {
+      if (newConfig.memoryAvailableWarnMB !== undefined) {
         configItems.push({
-          key: "vps_memory_warn_mb",
-          value: String(newConfig.memoryWarnMB),
+          key: "vps_memory_available_warn_mb",
+          value: String(newConfig.memoryAvailableWarnMB),
           type: "number",
         });
       }
-      if (newConfig.memoryErrorMB !== undefined) {
+      if (newConfig.memoryAvailableErrorMB !== undefined) {
         configItems.push({
-          key: "vps_memory_error_mb",
-          value: String(newConfig.memoryErrorMB),
+          key: "vps_memory_available_error_mb",
+          value: String(newConfig.memoryAvailableErrorMB),
           type: "number",
         });
       }
@@ -186,17 +200,30 @@ class VpsMonitor {
         });
       }
 
-      // 使用 upsert 批量更新
-      for (const item of configItems) {
-        await this.dbPool.query(
-          `INSERT INTO monitoring_config (config_key, config_value, config_type)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (config_key) DO UPDATE SET
-             config_value = EXCLUDED.config_value,
-             updated_at = NOW()`,
-          [item.key, item.value, item.type]
-        );
+      // 無配置項時直接返回
+      if (configItems.length === 0) {
+        return true;
       }
+
+      // 批量 upsert：合併為單條 SQL，減少數據庫往返次數
+      const values = [];
+      const placeholders = configItems
+        .map((item, index) => {
+          const baseIndex = index * 3;
+          values.push(item.key, item.value, item.type);
+          return `($${baseIndex + 1}, $${baseIndex + 2}, $${baseIndex + 3})`;
+        })
+        .join(", ");
+
+      await this.dbPool.query(
+        `INSERT INTO monitoring_config (config_key, config_value, config_type)
+         VALUES ${placeholders}
+         ON CONFLICT (config_key) DO UPDATE SET
+           config_value = EXCLUDED.config_value,
+           config_type = EXCLUDED.config_type,
+           updated_at = NOW()`,
+        values
+      );
 
       console.log("✅ VPS 監控設定已儲存到資料庫");
       return true;
@@ -210,17 +237,17 @@ class VpsMonitor {
    * 更新閾值設定（同時更新記憶體和資料庫）
    */
   async updateThresholds(newThresholds) {
-    // 更新記憶體中的設定
-    if (newThresholds.memoryErrorMB) {
-      this.thresholds.memory.errorMB = newThresholds.memoryErrorMB;
+    // 更新記憶體中的設定（可用記憶體閾值）
+    if (newThresholds.memoryAvailableErrorMB !== undefined) {
+      this.thresholds.memoryAvailable.errorMB = newThresholds.memoryAvailableErrorMB;
     }
-    if (newThresholds.memoryWarnMB) {
-      this.thresholds.memory.warnMB = newThresholds.memoryWarnMB;
+    if (newThresholds.memoryAvailableWarnMB !== undefined) {
+      this.thresholds.memoryAvailable.warnMB = newThresholds.memoryAvailableWarnMB;
     }
-    if (newThresholds.memoryPercentWarn) {
+    if (newThresholds.memoryPercentWarn !== undefined) {
       this.thresholds.memoryPercent.warn = newThresholds.memoryPercentWarn;
     }
-    if (newThresholds.memoryPercentError) {
+    if (newThresholds.memoryPercentError !== undefined) {
       this.thresholds.memoryPercent.error = newThresholds.memoryPercentError;
     }
 
@@ -244,7 +271,7 @@ class VpsMonitor {
     await this.loadConfigFromDatabase();
 
     console.log("✅ 啟動 VPS 主機監控");
-    console.log(`   記憶體告警閾值: ${this.thresholds.memory.warnMB}MB (警告), ${this.thresholds.memory.errorMB}MB (錯誤)`);
+    console.log(`   可用記憶體告警閾值: 低於 ${this.thresholds.memoryAvailable.warnMB}MB (警告), 低於 ${this.thresholds.memoryAvailable.errorMB}MB (錯誤)`);
     this.isRunning = true;
 
     // 立即執行一次
@@ -276,23 +303,87 @@ class VpsMonitor {
   /**
    * 收集指標並檢查告警
    */
-  collectAndCheck() {
-    const metrics = this.collectMetrics();
-    this.metricsHistory.push(metrics);
-
-    // 限制歷史記錄大小
-    if (this.metricsHistory.length > this.maxHistorySize) {
-      this.metricsHistory.shift();
+  async collectAndCheck() {
+    const metrics = await this.collectMetrics();
+    if (metrics) {
+      this.appendMetrics(metrics);
+      this.checkAlerts(metrics);
     }
-
-    // 檢查告警
-    this.checkAlerts(metrics);
   }
 
   /**
-   * 收集 VPS 系統指標
+   * 將指標添加到歷史記錄（使用環形緩衝區，O(1) 複雜度）
    */
-  collectMetrics() {
+  appendMetrics(metrics) {
+    if (this.maxHistorySize <= 0) {
+      return;
+    }
+
+    if (this.metricsHistoryCount < this.maxHistorySize) {
+      // 緩衝區未滿，直接 push
+      this.metricsHistory.push(metrics);
+      this.metricsHistoryCount += 1;
+    } else {
+      // 緩衝區已滿，覆蓋最舊的元素（O(1) 而非 shift 的 O(n)）
+      this.metricsHistory[this.metricsHistoryStart] = metrics;
+      this.metricsHistoryStart = (this.metricsHistoryStart + 1) % this.maxHistorySize;
+    }
+  }
+
+  /**
+   * 收集 VPS 系統指標（優先使用 Prometheus，fallback 到 os 模組）
+   */
+  async collectMetrics() {
+    try {
+      // 嘗試從 Prometheus 獲取完整指標
+      const prometheusData = await prometheusService.getAllMetrics();
+
+      // 返回擴展的指標結構（包含 disk, network, diskIO 等）
+      return {
+        timestamp: prometheusData.timestamp,
+        memory: {
+          totalMB: prometheusData.memory.totalMB,
+          usedMB: prometheusData.memory.usedMB,
+          freeMB: prometheusData.memory.totalMB - prometheusData.memory.usedMB,
+          availableMB: prometheusData.memory.availableMB,
+          buffersCacheMB: prometheusData.memory.cachedMB,
+          usedPercent: prometheusData.memory.usedPercent,
+          activeMB: prometheusData.memory.activeMB,
+          inactiveMB: prometheusData.memory.inactiveMB,
+          swap: prometheusData.memory.swap,
+        },
+        cpu: {
+          count: prometheusData.system.cpuCores,
+          usage: prometheusData.cpu.usage,
+          user: prometheusData.cpu.user,
+          system: prometheusData.cpu.system,
+          iowait: prometheusData.cpu.iowait,
+          steal: prometheusData.cpu.steal,
+          idle: prometheusData.cpu.idle,
+          perCore: prometheusData.cpu.perCore,
+        },
+        load: prometheusData.load,
+        disk: prometheusData.disk,
+        diskIO: prometheusData.diskIO,
+        network: prometheusData.network,
+        connections: prometheusData.connections,
+        uptime: prometheusData.uptime,
+        platform: prometheusData.system.platform || this.hostInfo.platform,
+        hostname: prometheusData.system.hostname || this.hostInfo.hostname,
+        vendor: prometheusData.system.vendor,
+        source: "prometheus",
+      };
+    } catch (error) {
+      // Prometheus 不可用，fallback 到 Node.js os 模組
+      console.warn("⚠️ Prometheus 查詢失敗，使用 os 模組 fallback:", error.message);
+      return this.collectMetricsFallback();
+    }
+  }
+
+  /**
+   * Fallback: 使用 Node.js os 模組收集基本指標
+   */
+  collectMetricsFallback() {
     const totalMemory = os.totalmem();
     const freeMemory = os.freemem();
     const usedMemory = totalMemory - freeMemory;
@@ -300,7 +391,6 @@ class VpsMonitor {
     const cpus = os.cpus();
     const cpuCount = cpus.length;
 
-    // 計算 CPU 平均使用率
     let totalIdle = 0;
     let totalTick = 0;
     cpus.forEach((cpu) => {
@@ -311,15 +401,16 @@ class VpsMonitor {
     });
     const cpuUsage = Math.round((1 - totalIdle / totalTick) * 100);
 
-    // 計算系統負載（1 分鐘、5 分鐘、15 分鐘平均）
     const loadAvg = os.loadavg();
 
-    const metrics = {
+    return {
       timestamp: Date.now(),
       memory: {
         totalMB: Math.round(totalMemory / 1024 / 1024),
         usedMB: Math.round(usedMemory / 1024 / 1024),
         freeMB: Math.round(freeMemory / 1024 / 1024),
+        availableMB: Math.round(freeMemory / 1024 / 1024),
+        buffersCacheMB: 0,
         usedPercent: Math.round((usedMemory / totalMemory) * 100),
       },
       cpu: {
@@ -332,54 +423,54 @@ class VpsMonitor {
         avg15: Math.round(loadAvg[2] * 100) / 100,
       },
       uptime: os.uptime(),
-      platform: os.platform(),
-      hostname: os.hostname(),
+      platform: this.hostInfo.platform,
+      hostname: this.hostInfo.hostname,
+      source: "os_fallback",
     };
-
-    return metrics;
   }
 
   /**
    * 檢查告警
    */
   checkAlerts(metrics) {
-    // 檢查記憶體使用量（絕對值）
-    this.checkMemoryUsage(metrics.memory.usedMB, metrics.memory.totalMB);
+    // 檢查可用記憶體（絕對值）
+    this.checkMemoryAvailable(metrics.memory.availableMB, metrics.memory.totalMB);
 
     // 檢查記憶體使用率（百分比）
     this.checkMemoryPercent(metrics.memory.usedPercent);
   }
 
   /**
-   * 檢查記憶體使用量（絕對值 MB）
+   * 檢查可用記憶體（低於閾值告警）
    */
-  checkMemoryUsage(usedMB, totalMB) {
-    const alertKey = "vps_memory_usage_mb";
+  checkMemoryAvailable(availableMB, totalMB) {
+    const alertKey = "vps_memory_available_mb";
 
-    if (usedMB >= this.thresholds.memory.errorMB) {
+    // 注意：這裡是「低於」閾值，所以 error 閾值比 warn 閾值小
+    if (availableMB <= this.thresholds.memoryAvailable.errorMB) {
       this.triggerAlert(
         "ERROR",
-        `VPS 記憶體使用量超過 ${this.thresholds.memory.errorMB}MB`,
+        `VPS 可用記憶體低於 ${this.thresholds.memoryAvailable.errorMB}MB`,
         {
-          type: "vps_memory",
-          usedMB,
+          type: "vps_memory_available",
+          availableMB,
           totalMB,
-          threshold: this.thresholds.memory.errorMB,
-          usedGB: (usedMB / 1024).toFixed(2),
+          threshold: this.thresholds.memoryAvailable.errorMB,
+          availableGB: (availableMB / 1024).toFixed(2),
           totalGB: (totalMB / 1024).toFixed(2),
         },
         alertKey
       );
-    } else if (usedMB >= this.thresholds.memory.warnMB) {
+    } else if (availableMB <= this.thresholds.memoryAvailable.warnMB) {
       this.triggerAlert(
         "WARN",
-        `VPS 記憶體使用量超過 ${this.thresholds.memory.warnMB}MB`,
+        `VPS 可用記憶體低於 ${this.thresholds.memoryAvailable.warnMB}MB`,
         {
-          type: "vps_memory",
-          usedMB,
+          type: "vps_memory_available",
+          availableMB,
           totalMB,
-          threshold: this.thresholds.memory.warnMB,
-          usedGB: (usedMB / 1024).toFixed(2),
+          threshold: this.thresholds.memoryAvailable.warnMB,
+          availableGB: (availableMB / 1024).toFixed(2),
           totalGB: (totalMB / 1024).toFixed(2),
         },
         alertKey
@@ -467,7 +558,12 @@ class VpsMonitor {
     }
 
     const now = Date.now();
-    return now - lastTriggered < this.cooldownPeriod;
+    // 惰性清理：檢查時順便清除過期的冷卻記錄
+    if (now - lastTriggered >= this.cooldownPeriod) {
+      this.cooldowns.delete(alertKey);
+      return false;
+    }
+    return true;
   }
 
   /**
@@ -475,11 +571,6 @@ class VpsMonitor {
    */
   setCooldown(alertKey) {
     this.cooldowns.set(alertKey, Date.now());
-
-    // 自動清理
-    setTimeout(() => {
-      this.cooldowns.delete(alertKey);
-    }, this.cooldownPeriod + 60000);
   }
 
   /**
@@ -511,8 +602,8 @@ class VpsMonitor {
       // 為 VPS 監控添加額外資訊
       const enrichedDetails = {
         ...details,
-        hostname: os.hostname(),
-        platform: os.platform(),
+        hostname: this.hostInfo.hostname,
+        platform: this.hostInfo.platform,
         source: "VPS 主機監控",
       };
 
@@ -531,20 +622,34 @@ class VpsMonitor {
   }
 
   /**
-   * 獲取當前指標
+   * 獲取當前指標（返回最近一次收集的數據）
    */
   getCurrentMetrics() {
-    if (this.metricsHistory.length === 0) {
-      return this.collectMetrics();
+    if (this.metricsHistoryCount === 0) {
+      // 歷史為空時返回 null，等待定時收集填充
+      return null;
     }
-    return this.metricsHistory[this.metricsHistory.length - 1];
+    // 環形緩衝區：計算最後一個元素的索引
+    const lastIndex =
+      (this.metricsHistoryStart + this.metricsHistoryCount - 1) % this.maxHistorySize;
+    return this.metricsHistory[lastIndex];
   }
 
   /**
-   * 獲取歷史指標
+   * 獲取歷史指標（按時間順序返回）
    */
   getMetricsHistory() {
-    return [...this.metricsHistory];
+    if (this.metricsHistoryCount === 0) {
+      return [];
+    }
+    if (this.metricsHistoryCount < this.maxHistorySize) {
+      // 緩衝區未滿，直接返回
+      return this.metricsHistory.slice(0, this.metricsHistoryCount);
+    }
+    // 緩衝區已滿，需要按正確順序重組
+    return this.metricsHistory
+      .slice(this.metricsHistoryStart)
+      .concat(this.metricsHistory.slice(0, this.metricsHistoryStart));
   }
 
   /**
@@ -578,7 +683,7 @@ class VpsMonitor {
       currentMetrics,
       alertsCount: this.alertHistory.length,
       cooldownsActive: this.cooldowns.size,
-      historySize: this.metricsHistory.length,
+      historySize: this.metricsHistoryCount,
     };
   }
 
@@ -590,9 +695,9 @@ class VpsMonitor {
       interval: this.interval,
       thresholds: { ...this.thresholds },
       cooldownPeriod: this.cooldownPeriod,
-      // 為了向後相容，也提供扁平化的閾值
-      memoryWarnMB: this.thresholds.memory.warnMB,
-      memoryErrorMB: this.thresholds.memory.errorMB,
+      // 扁平化的閾值（用於 API 和前端）
+      memoryAvailableWarnMB: this.thresholds.memoryAvailable.warnMB,
+      memoryAvailableErrorMB: this.thresholds.memoryAvailable.errorMB,
       memoryPercentWarn: this.thresholds.memoryPercent.warn,
       memoryPercentError: this.thresholds.memoryPercent.error,
     };

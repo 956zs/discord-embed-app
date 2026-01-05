@@ -530,8 +530,8 @@ router.get("/vps/config", checkAdminAuth, (req, res) => {
  * 更新 VPS 監控閾值設定
  *
  * Request Body:
- * - memoryWarnMB: number - 記憶體警告閾值 (MB)
- * - memoryErrorMB: number - 記憶體錯誤閾值 (MB)
+ * - memoryAvailableWarnMB: number - 可用記憶體警告閾值 (MB)，低於此值觸發警告
+ * - memoryAvailableErrorMB: number - 可用記憶體錯誤閾值 (MB)，低於此值觸發錯誤
  * - memoryPercentWarn: number - 記憶體使用率警告閾值 (%)
  * - memoryPercentError: number - 記憶體使用率錯誤閾值 (%)
  *
@@ -546,27 +546,28 @@ router.put("/vps/config", checkAdminAuth, async (req, res) => {
       });
     }
 
-    const { memoryWarnMB, memoryErrorMB, memoryPercentWarn, memoryPercentError } = req.body;
+    const { memoryAvailableWarnMB, memoryAvailableErrorMB, memoryPercentWarn, memoryPercentError } = req.body;
 
-    // 驗證參數
-    if (memoryWarnMB !== undefined && (typeof memoryWarnMB !== "number" || memoryWarnMB <= 0)) {
+    // 驗證可用記憶體閾值參數
+    if (memoryAvailableWarnMB !== undefined && (typeof memoryAvailableWarnMB !== "number" || memoryAvailableWarnMB <= 0)) {
       return res.status(400).json({
-        error: "無效的 memoryWarnMB",
-        message: "memoryWarnMB 必須是正數",
+        error: "無效的 memoryAvailableWarnMB",
+        message: "memoryAvailableWarnMB 必須是正數",
       });
     }
 
-    if (memoryErrorMB !== undefined && (typeof memoryErrorMB !== "number" || memoryErrorMB <= 0)) {
+    if (memoryAvailableErrorMB !== undefined && (typeof memoryAvailableErrorMB !== "number" || memoryAvailableErrorMB <= 0)) {
       return res.status(400).json({
-        error: "無效的 memoryErrorMB",
-        message: "memoryErrorMB 必須是正數",
+        error: "無效的 memoryAvailableErrorMB",
+        message: "memoryAvailableErrorMB 必須是正數",
       });
     }
 
-    if (memoryWarnMB && memoryErrorMB && memoryWarnMB >= memoryErrorMB) {
+    // 注意：可用記憶體閾值邏輯相反，warn 應該 > error（因為是「低於」閾值觸發）
+    if (memoryAvailableWarnMB && memoryAvailableErrorMB && memoryAvailableWarnMB <= memoryAvailableErrorMB) {
       return res.status(400).json({
         error: "無效的閾值設定",
-        message: "memoryWarnMB 必須小於 memoryErrorMB",
+        message: "memoryAvailableWarnMB 必須大於 memoryAvailableErrorMB（警告閾值應高於錯誤閾值）",
       });
     }
 
@@ -602,8 +603,8 @@ router.put("/vps/config", checkAdminAuth, async (req, res) => {
 
     // 更新閾值（會同時儲存到資料庫）
     const saved = await vpsMonitor.updateThresholds({
-      memoryWarnMB,
-      memoryErrorMB,
+      memoryAvailableWarnMB,
+      memoryAvailableErrorMB,
       memoryPercentWarn,
       memoryPercentError,
     });
